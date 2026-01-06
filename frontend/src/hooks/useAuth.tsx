@@ -10,6 +10,16 @@ export function useAuth() {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    // Clear timer on logout
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, []);
+
   const resetInactivityTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
 
@@ -26,17 +36,7 @@ export function useAuth() {
         handleLogout();
       }
     }, INACTIVITY_TIMEOUT);
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    // Clear timer on logout
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-      inactivityTimerRef.current = null;
-    }
-  }, []);
+  }, [handleLogout]);
 
   useEffect(() => {
     // Get initial session
@@ -68,9 +68,12 @@ export function useAuth() {
     // Track user activity
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     const handleActivity = () => {
-      if (user) {
-        resetInactivityTimer();
-      }
+      // Use ref to check user state to avoid dependency issues
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          resetInactivityTimer();
+        }
+      });
     };
 
     activityEvents.forEach(event => {
@@ -86,7 +89,7 @@ export function useAuth() {
         clearTimeout(inactivityTimerRef.current);
       }
     };
-  }, [user, resetInactivityTimer]);
+  }, [resetInactivityTimer]);
 
   return { user, loading, logout: handleLogout };
 }
