@@ -5,6 +5,7 @@ export { fundApi } from './fund.api';
 export { contributionApi } from './contribution.api';
 export { expenseApi } from './expense.api';
 export { reportingApi } from './reporting.api';
+export { userApi } from './user.api';
 
 export type { Account, CreateAccountInput, UpdateAccountInput } from './account.api';
 export type { Member, CreateMemberInput, UpdateMemberInput, MemberStats } from './member.api';
@@ -26,4 +27,5 @@ export type {
   ExpensesSummary,
   NetPosition,
 } from './reporting.api';
+export type { UserProfile, UpdateUserProfileInput } from './user.api';
 
