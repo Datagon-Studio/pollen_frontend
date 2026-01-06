@@ -1,116 +1,128 @@
+/**
+ * Account Repository
+ * 
+ * Handles all Supabase queries.
+ * No validation, no HTTP responses, no business logic.
+ */
+
 import { supabase } from '../../shared/supabase/client.js';
-
-export interface Account {
-  id: string;
-  account_name: string;
-  account_status: 'active' | 'inactive' | 'suspended';
-  kyc_status: 'pending' | 'verified' | 'rejected';
-  official_name: string | null;
-  account_type: string | null;
-  logo_url: string | null;
-  url_slug: string | null;
-  display_name: string | null;
-  primary_color: string | null;
-  is_public_page_published: boolean;
-  settlement_type: 'bank' | 'mobile_money' | null;
-  settlement_account_name: string | null;
-  settlement_account_number: string | null;
-  settlement_provider: string | null;
-  settlement_active: boolean;
-  notification_channel: 'sms' | 'email' | 'both';
-  notify_new_contributions: boolean;
-  notify_pending_confirmations: boolean;
-  notify_birthdays: boolean;
-  member_portal_enabled: boolean;
-  expense_visibility: 'none' | 'summary' | 'detailed';
-  show_fund_balances: boolean;
-  show_contribution_rankings: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export type CreateAccountInput = Omit<Account, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateAccountInput = Partial<CreateAccountInput>;
+import { Account, CreateAccountInput, UpdateAccountInput } from './account.entity.js';
 
 export const accountRepository = {
-  async findById(id: string): Promise<Account | null> {
+  /**
+   * Create a new account (with just ID, no name/logo)
+   */
+  async create(input: CreateAccountInput): Promise<Account> {
     const { data, error } = await supabase
       .from('accounts')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching account:', error);
-      return null;
-    }
-    return data;
-  },
-
-  async findBySlug(slug: string): Promise<Account | null> {
-    const { data, error } = await supabase
-      .from('accounts')
-      .select('*')
-      .eq('url_slug', slug)
-      .single();
-
-    if (error) return null;
-    return data;
-  },
-
-  async findAll(): Promise<Account[]> {
-    const { data, error } = await supabase
-      .from('accounts')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching accounts:', error);
-      return [];
-    }
-    return data || [];
-  },
-
-  async create(input: CreateAccountInput): Promise<Account | null> {
-    const { data, error } = await supabase
-      .from('accounts')
-      .insert(input)
+      .insert({
+        account_name: input.account_name ?? null,
+        account_logo: input.account_logo ?? null,
+        kyc_status: 'unverified',
+        status: 'active',
+      })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating account:', error);
-      return null;
+      throw new Error(`Failed to create account: ${error.message}`);
     }
+
     return data;
   },
 
-  async update(id: string, input: UpdateAccountInput): Promise<Account | null> {
+  /**
+   * Find account by account_id
+   */
+  async findByAccountId(accountId: string): Promise<Account | null> {
     const { data, error } = await supabase
       .from('accounts')
-      .update({ ...input, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
+      .select('*')
+      .eq('account_id', accountId)
       .single();
 
     if (error) {
-      console.error('Error updating account:', error);
-      return null;
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to fetch account: ${error.message}`);
     }
+
     return data;
   },
 
-  async delete(id: string): Promise<boolean> {
+  /**
+   * Get user's account(s) - returns first account linked to user
+   */
+  async findByUserId(userId: string): Promise<Account | null> {
+    // First get the account_id from user_accounts
+    const { data: userAccountLink, error: linkError } = await supabase
+      .from('user_accounts')
+      .select('account_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+
+    if (linkError || !userAccountLink) {
+      if (linkError?.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to fetch user account link: ${linkError?.message}`);
+    }
+
+    // Then get the account details
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('account_id', userAccountLink.account_id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to fetch account: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Link user to account
+   */
+  async linkUserToAccount(userId: string, accountId: string, role: string = 'admin'): Promise<void> {
     const { error } = await supabase
-      .from('accounts')
-      .delete()
-      .eq('id', id);
+      .from('user_accounts')
+      .insert({
+        user_id: userId,
+        account_id: accountId,
+        role: role,
+      });
 
     if (error) {
-      console.error('Error deleting account:', error);
-      return false;
+      throw new Error(`Failed to link user to account: ${error.message}`);
     }
-    return true;
+  },
+
+  /**
+   * Update account
+   */
+  async update(accountId: string, input: UpdateAccountInput): Promise<Account> {
+    const { data, error } = await supabase
+      .from('accounts')
+      .update({
+        account_name: input.account_name ?? null,
+        account_logo: input.account_logo ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('account_id', accountId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update account: ${error.message}`);
+    }
+
+    return data;
   },
 };
-
