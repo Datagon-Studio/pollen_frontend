@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { accountRoutes } from './modules/account/account.controller.js';
+import { accountRoutes } from './modules/account/account.routes.js';
 import { memberRoutes } from './modules/member/member.controller.js';
 import { fundRoutes } from './modules/fund/fund.controller.js';
 import { contributionRoutes } from './modules/contribution/contribution.controller.js';
