@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { accountRoutes } from './modules/account/account.controller.js';
 import { memberRoutes } from './modules/member/member.controller.js';
 import { fundRoutes } from './modules/fund/fund.controller.js';
-import { contributionRoutes } from './modules/contribution/contribution.routes.js';
+import { contributionRoutes } from './modules/contribution/contribution.controller.js';
 import { expenseRoutes } from './modules/expense/expense.controller.js';
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
