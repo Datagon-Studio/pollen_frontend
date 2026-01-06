@@ -1,111 +1,64 @@
-import { accountRepository, Account, CreateAccountInput, UpdateAccountInput } from './account.repository.js';
+/**
+ * Account Service
+ * 
+ * Contains all business rules.
+ * Calls repository functions only.
+ * Throws errors when rules fail.
+ */
 
-export const accountService = {
-  async getAccount(id: string): Promise<Account | null> {
-    return accountRepository.findById(id);
-  },
+import { accountRepository } from './account.repository.js';
+import {
+  Account,
+  UpdateAccountInput,
+} from './account.entity.js';
 
-  async getAccountBySlug(slug: string): Promise<Account | null> {
-    return accountRepository.findBySlug(slug);
-  },
-
-  async getAllAccounts(): Promise<Account[]> {
-    return accountRepository.findAll();
-  },
-
-  async createAccount(input: CreateAccountInput): Promise<Account | null> {
-    // Validate required fields
-    if (!input.account_name?.trim()) {
-      throw new Error('Account name is required');
+export class AccountService {
+  /**
+   * Get current user's account
+   */
+  async getUserAccount(userId: string): Promise<Account | null> {
+    if (!userId) {
+      throw new Error('User ID is required');
     }
 
-    // Set defaults
-    const accountData: CreateAccountInput = {
-      ...input,
-      account_status: input.account_status || 'active',
-      kyc_status: input.kyc_status || 'pending',
-      is_public_page_published: input.is_public_page_published ?? false,
-      settlement_active: input.settlement_active ?? false,
-      notification_channel: input.notification_channel || 'both',
-      notify_new_contributions: input.notify_new_contributions ?? true,
-      notify_pending_confirmations: input.notify_pending_confirmations ?? true,
-      notify_birthdays: input.notify_birthdays ?? false,
-      member_portal_enabled: input.member_portal_enabled ?? true,
-      expense_visibility: input.expense_visibility || 'summary',
-      show_fund_balances: input.show_fund_balances ?? true,
-      show_contribution_rankings: input.show_contribution_rankings ?? false,
+    return accountRepository.findByUserId(userId);
+  }
+
+  /**
+   * Update account (only account_name and account_logo)
+   * Status cannot be changed - always stays 'active'
+   */
+  async updateAccount(userId: string, accountId: string, input: UpdateAccountInput): Promise<Account> {
+    if (!accountId) {
+      throw new Error('Account ID is required');
+    }
+
+    // Business Rule: Verify user owns this account
+    const userAccount = await accountRepository.findByUserId(userId);
+    if (!userAccount || userAccount.account_id !== accountId) {
+      throw new Error('Unauthorized: You do not have access to this account');
+    }
+
+    // Business Rule: Only allow updating account_name and account_logo
+    // Status and kyc_status cannot be changed by user
+    const updateData: UpdateAccountInput = {
+      account_name: input.account_name !== undefined ? input.account_name : userAccount.account_name,
+      account_logo: input.account_logo !== undefined ? input.account_logo : userAccount.account_logo,
     };
 
-    return accountRepository.create(accountData);
-  },
-
-  async updateAccount(id: string, input: UpdateAccountInput): Promise<Account | null> {
-    // Verify account exists
-    const existing = await accountRepository.findById(id);
-    if (!existing) {
-      throw new Error('Account not found');
+    // Business Rule: Account name validation if provided
+    if (updateData.account_name !== null && updateData.account_name !== undefined) {
+      if (updateData.account_name.trim() === '') {
+        throw new Error('Account name cannot be empty');
+      }
+      if (updateData.account_name.length > 255) {
+        throw new Error('Account name must be less than 255 characters');
+      }
+      updateData.account_name = updateData.account_name.trim();
     }
 
-    return accountRepository.update(id, input);
-  },
+    return accountRepository.update(accountId, updateData);
+  }
+}
 
-  async deleteAccount(id: string): Promise<boolean> {
-    const existing = await accountRepository.findById(id);
-    if (!existing) {
-      throw new Error('Account not found');
-    }
-
-    return accountRepository.delete(id);
-  },
-
-  async updatePublicPageSettings(
-    id: string,
-    settings: {
-      url_slug?: string;
-      display_name?: string;
-      primary_color?: string;
-      logo_url?: string;
-      is_public_page_published?: boolean;
-    }
-  ): Promise<Account | null> {
-    return accountRepository.update(id, settings);
-  },
-
-  async updateSettlementDetails(
-    id: string,
-    settlement: {
-      settlement_type?: 'bank' | 'mobile_money';
-      settlement_account_name?: string;
-      settlement_account_number?: string;
-      settlement_provider?: string;
-      settlement_active?: boolean;
-    }
-  ): Promise<Account | null> {
-    return accountRepository.update(id, settlement);
-  },
-
-  async updateNotificationSettings(
-    id: string,
-    notifications: {
-      notification_channel?: 'sms' | 'email' | 'both';
-      notify_new_contributions?: boolean;
-      notify_pending_confirmations?: boolean;
-      notify_birthdays?: boolean;
-      member_portal_enabled?: boolean;
-    }
-  ): Promise<Account | null> {
-    return accountRepository.update(id, notifications);
-  },
-
-  async updateExpenseTransparency(
-    id: string,
-    transparency: {
-      expense_visibility?: 'none' | 'summary' | 'detailed';
-      show_fund_balances?: boolean;
-      show_contribution_rankings?: boolean;
-    }
-  ): Promise<Account | null> {
-    return accountRepository.update(id, transparency);
-  },
-};
-
+export const accountService = new AccountService();
