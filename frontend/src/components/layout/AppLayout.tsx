@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { userApi, UserProfile } from "@/services/user.api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,11 +52,52 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      // Fetch user profile when user is logged in
+      setProfileLoading(true);
+      userApi.getProfile()
+        .then((profile) => {
+          setUserProfile(profile);
+          setProfileLoading(false);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch user profile:', error);
+          setProfileLoading(false);
+          // Set default profile if fetch fails
+          setUserProfile({
+            user_id: user.id,
+            email: user.email || '',
+            role: 'admin',
+            full_name: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        });
+    } else {
+      setUserProfile(null);
+      setProfileLoading(false);
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
     navigate("/signin", { replace: true });
   };
+
+  // Get display name and initials
+  const displayName = userProfile?.full_name || "User Profile";
+  const initials = userProfile?.full_name
+    ? userProfile.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "UP";
 
   return (
     <div className="min-h-screen bg-background">
@@ -146,12 +188,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <button className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-secondary transition-colors">
                   <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
                     <span className="text-sm font-medium text-foreground">
-                      {user?.email?.charAt(0).toUpperCase() || "U"}
+                      {profileLoading ? "..." : initials}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {user?.email?.split("@")[0] || "User"}
+                      {profileLoading ? "Loading..." : displayName}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">Admin</p>
                   </div>
@@ -173,7 +215,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <button className="w-full flex items-center justify-center p-2 rounded-md hover:bg-secondary transition-colors">
                   <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
                     <span className="text-sm font-medium text-foreground">
-                      {user?.email?.charAt(0).toUpperCase() || "U"}
+                      {profileLoading ? "..." : initials}
                     </span>
                   </div>
                 </button>
