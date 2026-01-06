@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,167 @@ import {
   AlertCircle,
   Clock,
   Banknote,
+  X,
 } from "lucide-react";
+import { accountApi, Account } from "@/services/account.api";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Settings() {
+  const [account, setAccount] = useState<Account | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [accountName, setAccountName] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadAccount();
+  }, []);
+
+  const loadAccount = async () => {
+    try {
+      setLoading(true);
+      const accountData = await accountApi.getMyAccount();
+      setAccount(accountData);
+      setAccountName(accountData.account_name || "");
+      setLogoPreview(accountData.account_logo);
+    } catch (error) {
+      console.error("Error loading account:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load account details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Image size must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const uploadLogo = async (): Promise<string | null> => {
+    if (!logoFile) return account?.account_logo || null;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const fileExt = logoFile.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { data, error: uploadError } = await supabase.storage
+        .from("account-logos")
+        .upload(fileName, logoFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("account-logos")
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      toast({
+        title: "Logo Upload Failed",
+        description: "Could not upload account logo.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleSaveAccountDetails = async () => {
+    setSaving(true);
+    try {
+      const logoUrl = await uploadLogo();
+      const updatedAccountName = accountName.trim() === "" ? null : accountName.trim();
+
+      await accountApi.updateMyAccount({
+        account_name: updatedAccountName,
+        account_logo: logoUrl,
+      });
+
+      toast({
+        title: "Success",
+        description: "Account details updated successfully.",
+      });
+
+      await loadAccount();
+    } catch (error) {
+      console.error("Error saving account:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save account details.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getInitials = (name: string | null) => {
+    if (!name) return "UP";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+          <p className="text-muted-foreground">Loading account...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <PageHeader
@@ -51,39 +210,62 @@ export default function Settings() {
 
           <div className="grid gap-4">
             <div>
-              <Label>Account Name</Label>
-              <Input defaultValue="Community Group" className="mt-1.5" />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Account Status</Label>
-                <Select defaultValue="active">
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Account ID</Label>
-                <Input defaultValue="ACC-CG-123456" disabled className="mt-1.5 bg-secondary" />
-              </div>
+              <Label htmlFor="accountName">Account Name</Label>
+              <Input
+                id="accountName"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                className="mt-1.5"
+                placeholder="Enter your account name"
+              />
             </div>
             <div>
               <Label>Group Logo</Label>
               <div className="mt-1.5 flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-amber flex items-center justify-center">
-                  <span className="text-xl font-bold text-primary-foreground">CG</span>
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                  {logoPreview ? (
+                    <img
+                      src={logoPreview}
+                      alt="Account Logo"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-foreground">
+                      {getInitials(accountName)}
+                    </span>
+                  )}
                 </div>
-                <Button variant="outline" size="sm">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload New
+                  {logoPreview ? "Change Logo" : "Upload Logo"}
                 </Button>
+                {logoPreview && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveLogo}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Remove
+                  </Button>
+                )}
               </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button onClick={handleSaveAccountDetails} disabled={saving} size="sm">
+                {saving ? "Saving..." : "Save Account Details"}
+              </Button>
             </div>
           </div>
         </section>
@@ -109,7 +291,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Current KYC Status</p>
                 <p className="text-sm text-muted-foreground">Verified accounts can accept online payments</p>
               </div>
-              <StatusBadge status="verified" />
+              <StatusBadge status={account?.kyc_status || "unverified"} />
             </div>
 
             <div className="flex items-center justify-between py-3 border-b border-border">
