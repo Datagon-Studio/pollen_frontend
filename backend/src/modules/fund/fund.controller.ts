@@ -1,125 +1,303 @@
+/**
+ * Fund Controller
+ * 
+ * Handles Express req and res.
+ * Calls service methods.
+ * Converts thrown errors into HTTP responses.
+ * No Supabase usage here.
+ */
+
 import { Router, Request, Response } from 'express';
 import { fundService } from './fund.service.js';
-import { sendSuccess, sendError, sendCreated, sendNotFound, sendBadRequest } from '../../shared/utils/api-response.js';
+import { CreateFundInput, UpdateFundInput } from './fund.entity.js';
+import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
+import { accountService } from '../account/account.service.js';
 
 export const fundRoutes = Router();
 
-// GET /api/v1/funds?accountId=xxx
+/**
+ * GET /api/v1/funds
+ * Get all funds for the authenticated user's account
+ */
 fundRoutes.get('/', async (req: Request, res: Response) => {
   try {
-    const accountId = req.query.accountId as string;
-    if (!accountId) {
-      return sendBadRequest(res, 'Account ID is required');
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
     }
-    const funds = await fundService.getFundsByAccount(accountId);
-    sendSuccess(res, funds);
+
+    // Get user's account
+    const account = await accountService.getUserAccount(userId);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const funds = await fundService.getFundsByAccount(account.account_id);
+    res.status(200).json({
+      success: true,
+      data: funds,
+    });
   } catch (error) {
-    sendError(res, 'Failed to fetch funds');
+    const message = error instanceof Error ? error.message : 'Failed to fetch funds';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// GET /api/v1/funds/active?accountId=xxx
+/**
+ * GET /api/v1/funds/active
+ * Get active funds for the authenticated user's account
+ */
 fundRoutes.get('/active', async (req: Request, res: Response) => {
   try {
-    const accountId = req.query.accountId as string;
-    if (!accountId) {
-      return sendBadRequest(res, 'Account ID is required');
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
     }
-    const funds = await fundService.getActiveFundsByAccount(accountId);
-    sendSuccess(res, funds);
+
+    // Get user's account
+    const account = await accountService.getUserAccount(userId);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const funds = await fundService.getActiveFundsByAccount(account.account_id);
+    res.status(200).json({
+      success: true,
+      data: funds,
+    });
   } catch (error) {
-    sendError(res, 'Failed to fetch active funds');
+    const message = error instanceof Error ? error.message : 'Failed to fetch active funds';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// GET /api/v1/funds/stats/:accountId
-fundRoutes.get('/stats/:accountId', async (req: Request, res: Response) => {
+/**
+ * GET /api/v1/funds/stats
+ * Get fund statistics for the authenticated user's account
+ */
+fundRoutes.get('/stats', async (req: Request, res: Response) => {
   try {
-    const stats = await fundService.getFundStats(req.params.accountId);
-    sendSuccess(res, stats);
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
+    }
+
+    // Get user's account
+    const account = await accountService.getUserAccount(userId);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const stats = await fundService.getFundStats(account.account_id);
+    res.status(200).json({
+      success: true,
+      data: stats,
+    });
   } catch (error) {
-    sendError(res, 'Failed to fetch fund stats');
+    const message = error instanceof Error ? error.message : 'Failed to fetch fund stats';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// GET /api/v1/funds/:id
+/**
+ * GET /api/v1/funds/:id
+ * Get a specific fund by ID
+ */
 fundRoutes.get('/:id', async (req: Request, res: Response) => {
   try {
     const fund = await fundService.getFund(req.params.id);
     if (!fund) {
-      return sendNotFound(res, 'Fund not found');
+      return res.status(404).json({
+        success: false,
+        error: 'Fund not found',
+      });
     }
-    sendSuccess(res, fund);
+    res.status(200).json({
+      success: true,
+      data: fund,
+    });
   } catch (error) {
-    sendError(res, 'Failed to fetch fund');
+    const message = error instanceof Error ? error.message : 'Failed to fetch fund';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// POST /api/v1/funds
+/**
+ * POST /api/v1/funds
+ * Create a new fund
+ */
 fundRoutes.post('/', async (req: Request, res: Response) => {
   try {
-    const fund = await fundService.createFund(req.body);
-    if (!fund) {
-      return sendBadRequest(res, 'Failed to create fund');
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
     }
-    sendCreated(res, fund, 'Fund created successfully');
+
+    // Get user's account
+    const account = await accountService.getUserAccount(userId);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const input: CreateFundInput = {
+      account_id: account.account_id,
+      fund_name: req.body.fund_name,
+      description: req.body.description,
+      default_amount: req.body.default_amount,
+      is_active: req.body.is_active,
+    };
+
+    const fund = await fundService.createFund(input);
+    res.status(201).json({
+      success: true,
+      data: fund,
+      message: 'Fund created successfully',
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create fund';
-    sendBadRequest(res, message);
+    res.status(400).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// PUT /api/v1/funds/:id
+/**
+ * PUT /api/v1/funds/:id
+ * Update a fund
+ */
 fundRoutes.put('/:id', async (req: Request, res: Response) => {
   try {
-    const fund = await fundService.updateFund(req.params.id, req.body);
-    if (!fund) {
-      return sendNotFound(res, 'Fund not found');
-    }
-    sendSuccess(res, fund, 'Fund updated successfully');
+    const input: UpdateFundInput = {
+      fund_name: req.body.fund_name,
+      description: req.body.description,
+      default_amount: req.body.default_amount,
+      is_active: req.body.is_active,
+    };
+
+    const fund = await fundService.updateFund(req.params.id, input);
+    res.status(200).json({
+      success: true,
+      data: fund,
+      message: 'Fund updated successfully',
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update fund';
-    sendError(res, message);
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// DELETE /api/v1/funds/:id
+/**
+ * DELETE /api/v1/funds/:id
+ * Delete a fund
+ */
 fundRoutes.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = await fundService.deleteFund(req.params.id);
-    if (!deleted) {
-      return sendNotFound(res, 'Fund not found');
-    }
-    sendSuccess(res, null, 'Fund deleted successfully');
+    await fundService.deleteFund(req.params.id);
+    res.status(200).json({
+      success: true,
+      data: null,
+      message: 'Fund deleted successfully',
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete fund';
-    sendError(res, message);
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// POST /api/v1/funds/:id/activate
+/**
+ * POST /api/v1/funds/:id/activate
+ * Activate a fund
+ */
 fundRoutes.post('/:id/activate', async (req: Request, res: Response) => {
   try {
     const fund = await fundService.activateFund(req.params.id);
-    if (!fund) {
-      return sendNotFound(res, 'Fund not found');
-    }
-    sendSuccess(res, fund, 'Fund activated successfully');
+    res.status(200).json({
+      success: true,
+      data: fund,
+      message: 'Fund activated successfully',
+    });
   } catch (error) {
-    sendError(res, 'Failed to activate fund');
+    const message = error instanceof Error ? error.message : 'Failed to activate fund';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
-// POST /api/v1/funds/:id/deactivate
+/**
+ * POST /api/v1/funds/:id/deactivate
+ * Deactivate a fund
+ */
 fundRoutes.post('/:id/deactivate', async (req: Request, res: Response) => {
   try {
     const fund = await fundService.deactivateFund(req.params.id);
-    if (!fund) {
-      return sendNotFound(res, 'Fund not found');
-    }
-    sendSuccess(res, fund, 'Fund deactivated successfully');
+    res.status(200).json({
+      success: true,
+      data: fund,
+      message: 'Fund deactivated successfully',
+    });
   } catch (error) {
-    sendError(res, 'Failed to deactivate fund');
+    const message = error instanceof Error ? error.message : 'Failed to deactivate fund';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
   }
 });
 
