@@ -25,6 +25,7 @@ import {
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
+import { useAccount } from "@/hooks/useAccount";
 
 const funds = [
   { id: "all", name: "All Funds" },
@@ -72,6 +73,7 @@ export default function Dashboard() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showRecordContribution, setShowRecordContribution] = useState(false);
+  const { account, getInitials } = useAccount();
 
   const selectedFundName = funds.find((f) => f.id === selectedFund)?.name || "All Funds";
 
@@ -89,8 +91,14 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           {/* Custom Group Logo */}
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md">
-            <span className="text-lg font-bold text-white">CG</span>
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden">
+            {account?.account_logo ? (
+              <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-bold text-white">
+                {account ? getInitials(account.account_name) : "CG"}
+              </span>
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">{selectedFundName}</h1>
