@@ -12,13 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { fundApi } from "@/services";
 
 interface CreateFundModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function CreateFundModal({ open, onOpenChange }: CreateFundModalProps) {
+export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundModalProps) {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     fundName: "",
@@ -26,8 +28,9 @@ export function CreateFundModal({ open, onOpenChange }: CreateFundModalProps) {
     defaultAmount: "",
     isActive: true,
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.fundName.trim()) {
@@ -39,13 +42,32 @@ export function CreateFundModal({ open, onOpenChange }: CreateFundModalProps) {
       return;
     }
 
-    toast({
-      title: "Fund Created",
-      description: `${formData.fundName} has been created successfully.`,
-    });
+    try {
+      setSaving(true);
+      await fundApi.create({
+        fund_name: formData.fundName.trim(),
+        description: formData.description.trim() || null,
+        default_amount: formData.defaultAmount ? parseFloat(formData.defaultAmount) : null,
+        is_active: formData.isActive,
+      });
 
-    setFormData({ fundName: "", description: "", defaultAmount: "", isActive: true });
-    onOpenChange(false);
+      toast({
+        title: "Fund Created",
+        description: `${formData.fundName} has been created successfully.`,
+      });
+
+      setFormData({ fundName: "", description: "", defaultAmount: "", isActive: true });
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create fund",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -106,10 +128,12 @@ export function CreateFundModal({ open, onOpenChange }: CreateFundModalProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit">Create Fund</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Creating..." : "Create Fund"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
