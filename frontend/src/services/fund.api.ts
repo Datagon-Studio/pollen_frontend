@@ -1,7 +1,7 @@
-import { apiClient } from './api-client';
+import { request } from './api-client.js';
 
 export interface Fund {
-  id: string;
+  fund_id: string;
   account_id: string;
   fund_name: string;
   description: string | null;
@@ -16,8 +16,19 @@ export interface FundWithStats extends Fund {
   contributors: number;
 }
 
-export type CreateFundInput = Omit<Fund, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateFundInput = Partial<Omit<CreateFundInput, 'account_id'>>;
+export interface CreateFundInput {
+  fund_name: string;
+  description?: string | null;
+  default_amount?: number | null;
+  is_active?: boolean;
+}
+
+export interface UpdateFundInput {
+  fund_name?: string;
+  description?: string | null;
+  default_amount?: number | null;
+  is_active?: boolean;
+}
 
 export interface FundStats {
   total: number;
@@ -26,40 +37,139 @@ export interface FundStats {
 }
 
 export const fundApi = {
-  async getByAccount(accountId: string) {
-    return apiClient.get<Fund[]>(`/funds?accountId=${accountId}`);
+  /**
+   * Get all funds for the authenticated user's account
+   */
+  async getAll(): Promise<Fund[]> {
+    const response = await request<Fund[]>('/funds', {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch funds');
+    }
+
+    return response.data;
   },
 
-  async getActiveByAccount(accountId: string) {
-    return apiClient.get<Fund[]>(`/funds/active?accountId=${accountId}`);
+  /**
+   * Get active funds for the authenticated user's account
+   */
+  async getActive(): Promise<Fund[]> {
+    const response = await request<Fund[]>('/funds/active', {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch active funds');
+    }
+
+    return response.data;
   },
 
-  async getById(id: string) {
-    return apiClient.get<Fund>(`/funds/${id}`);
+  /**
+   * Get a specific fund by ID
+   */
+  async getById(fundId: string): Promise<Fund> {
+    const response = await request<Fund>(`/funds/${fundId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch fund');
+    }
+
+    return response.data;
   },
 
-  async getStats(accountId: string) {
-    return apiClient.get<FundStats>(`/funds/stats/${accountId}`);
+  /**
+   * Get fund statistics for the authenticated user's account
+   */
+  async getStats(): Promise<FundStats> {
+    const response = await request<FundStats>('/funds/stats', {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch fund stats');
+    }
+
+    return response.data;
   },
 
-  async create(data: CreateFundInput) {
-    return apiClient.post<Fund>('/funds', data);
+  /**
+   * Create a new fund
+   */
+  async create(input: CreateFundInput): Promise<Fund> {
+    const response = await request<Fund>('/funds', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to create fund');
+    }
+
+    return response.data;
   },
 
-  async update(id: string, data: UpdateFundInput) {
-    return apiClient.put<Fund>(`/funds/${id}`, data);
+  /**
+   * Update a fund
+   */
+  async update(fundId: string, input: UpdateFundInput): Promise<Fund> {
+    const response = await request<Fund>(`/funds/${fundId}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to update fund');
+    }
+
+    return response.data;
   },
 
-  async delete(id: string) {
-    return apiClient.delete(`/funds/${id}`);
+  /**
+   * Delete a fund
+   */
+  async delete(fundId: string): Promise<void> {
+    const response = await request(`/funds/${fundId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete fund');
+    }
   },
 
-  async activate(id: string) {
-    return apiClient.post<Fund>(`/funds/${id}/activate`);
+  /**
+   * Activate a fund
+   */
+  async activate(fundId: string): Promise<Fund> {
+    const response = await request<Fund>(`/funds/${fundId}/activate`, {
+      method: 'POST',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to activate fund');
+    }
+
+    return response.data;
   },
 
-  async deactivate(id: string) {
-    return apiClient.post<Fund>(`/funds/${id}/deactivate`);
+  /**
+   * Deactivate a fund
+   */
+  async deactivate(fundId: string): Promise<Fund> {
+    const response = await request<Fund>(`/funds/${fundId}/deactivate`, {
+      method: 'POST',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to deactivate fund');
+    }
+
+    return response.data;
   },
 };
 
