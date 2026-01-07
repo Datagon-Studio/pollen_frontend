@@ -94,14 +94,18 @@ export default function Settings() {
 
   const handleRemoveLogo = () => {
     setLogoFile(null);
-    setLogoPreview(null);
+    setLogoPreview(null); // Clear preview to indicate removal
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
   const uploadLogo = async (): Promise<string | null> => {
-    if (!logoFile) return account?.account_logo || null;
+    // If no file selected, return null to remove logo or keep existing
+    if (!logoFile) {
+      // If user clicked remove, return null; otherwise keep existing
+      return logoPreview === null && account?.account_logo ? null : account?.account_logo || null;
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -125,6 +129,7 @@ export default function Settings() {
         .from("account-logos")
         .getPublicUrl(fileName);
 
+      console.log("Logo uploaded successfully:", { fileName, publicUrl });
       return publicUrl;
     } catch (err) {
       console.error("Error uploading logo:", err);
@@ -133,27 +138,56 @@ export default function Settings() {
         description: "Could not upload account logo.",
         variant: "destructive",
       });
-      return null;
+      throw err; // Re-throw to prevent saving if upload fails
     }
   };
 
   const handleSaveAccountDetails = async () => {
     setSaving(true);
     try {
-      const logoUrl = await uploadLogo();
+      let logoUrl: string | null;
+      
+      // Determine the logo URL to save
+      if (logoFile) {
+        // Upload new logo
+        logoUrl = await uploadLogo();
+        if (!logoUrl) {
+          toast({
+            title: "Error",
+            description: "Failed to upload logo. Please try again.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+      } else if (logoPreview === null && account?.account_logo) {
+        // User removed the logo - set to null
+        logoUrl = null;
+      } else {
+        // Keep existing logo
+        logoUrl = account?.account_logo || null;
+      }
+
       const updatedAccountName = accountName.trim() === "" ? null : accountName.trim();
 
-      await accountApi.updateMyAccount({
+      console.log("Saving account with:", { account_name: updatedAccountName, account_logo: logoUrl });
+
+      const updatedAccount = await accountApi.updateMyAccount({
         account_name: updatedAccountName,
         account_logo: logoUrl,
       });
+
+      console.log("Account updated successfully:", updatedAccount);
+
+      // Update local state with the response
+      setAccount(updatedAccount);
+      setLogoPreview(updatedAccount.account_logo);
+      setLogoFile(null); // Clear file selection
 
       toast({
         title: "Success",
         description: "Account details updated successfully.",
       });
-
-      await loadAccount();
     } catch (error) {
       console.error("Error saving account:", error);
       toast({
