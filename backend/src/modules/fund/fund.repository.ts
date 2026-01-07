@@ -1,31 +1,34 @@
+/**
+ * Fund Repository
+ * 
+ * Handles all Supabase queries.
+ * No validation, no HTTP responses, no business logic.
+ */
+
 import { supabase } from '../../shared/supabase/client.js';
-
-export interface Fund {
-  id: string;
-  account_id: string;
-  fund_name: string;
-  description: string | null;
-  default_amount: number | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export type CreateFundInput = Omit<Fund, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateFundInput = Partial<Omit<CreateFundInput, 'account_id'>>;
+import { Fund, CreateFundInput, UpdateFundInput } from './fund.entity.js';
 
 export const fundRepository = {
-  async findById(id: string): Promise<Fund | null> {
+  /**
+   * Find fund by ID
+   */
+  async findById(fundId: string): Promise<Fund | null> {
     const { data, error } = await supabase
       .from('funds')
       .select('*')
-      .eq('id', id)
+      .eq('fund_id', fundId)
       .single();
 
-    if (error) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(`Failed to find fund: ${error.message}`);
+    }
     return data;
   },
 
+  /**
+   * Find all funds for an account
+   */
   async findByAccountId(accountId: string): Promise<Fund[]> {
     const { data, error } = await supabase
       .from('funds')
@@ -34,12 +37,14 @@ export const fundRepository = {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching funds:', error);
-      return [];
+      throw new Error(`Failed to fetch funds: ${error.message}`);
     }
     return data || [];
   },
 
+  /**
+   * Find active funds for an account
+   */
   async findActiveByAccountId(accountId: string): Promise<Fund[]> {
     const { data, error } = await supabase
       .from('funds')
@@ -49,54 +54,84 @@ export const fundRepository = {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching active funds:', error);
-      return [];
+      throw new Error(`Failed to fetch active funds: ${error.message}`);
     }
     return data || [];
   },
 
-  async create(input: CreateFundInput): Promise<Fund | null> {
+  /**
+   * Create a new fund
+   */
+  async create(input: CreateFundInput): Promise<Fund> {
     const { data, error } = await supabase
       .from('funds')
-      .insert(input)
+      .insert({
+        account_id: input.account_id,
+        fund_name: input.fund_name,
+        description: input.description ?? null,
+        default_amount: input.default_amount ?? null,
+        is_active: input.is_active ?? true,
+      })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating fund:', error);
-      return null;
+      throw new Error(`Failed to create fund: ${error.message}`);
     }
     return data;
   },
 
-  async update(id: string, input: UpdateFundInput): Promise<Fund | null> {
+  /**
+   * Update a fund
+   */
+  async update(fundId: string, input: UpdateFundInput): Promise<Fund> {
+    // Build update object with only provided fields
+    const updateData: Record<string, unknown> = {};
+
+    if (input.fund_name !== undefined) {
+      updateData.fund_name = input.fund_name;
+    }
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+    if (input.default_amount !== undefined) {
+      updateData.default_amount = input.default_amount;
+    }
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
     const { data, error } = await supabase
       .from('funds')
-      .update({ ...input, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .update(updateData)
+      .eq('fund_id', fundId)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating fund:', error);
-      return null;
+      throw new Error(`Failed to update fund: ${error.message}`);
     }
     return data;
   },
 
-  async delete(id: string): Promise<boolean> {
+  /**
+   * Delete a fund
+   */
+  async delete(fundId: string): Promise<boolean> {
     const { error } = await supabase
       .from('funds')
       .delete()
-      .eq('id', id);
+      .eq('fund_id', fundId);
 
     if (error) {
-      console.error('Error deleting fund:', error);
-      return false;
+      throw new Error(`Failed to delete fund: ${error.message}`);
     }
     return true;
   },
 
+  /**
+   * Get count of active funds for an account
+   */
   async getActiveCount(accountId: string): Promise<number> {
     const { count, error } = await supabase
       .from('funds')
@@ -104,17 +139,24 @@ export const fundRepository = {
       .eq('account_id', accountId)
       .eq('is_active', true);
 
-    if (error) return 0;
+    if (error) {
+      throw new Error(`Failed to get active count: ${error.message}`);
+    }
     return count || 0;
   },
 
+  /**
+   * Get total count of funds for an account
+   */
   async getTotalCount(accountId: string): Promise<number> {
     const { count, error } = await supabase
       .from('funds')
       .select('*', { count: 'exact', head: true })
       .eq('account_id', accountId);
 
-    if (error) return 0;
+    if (error) {
+      throw new Error(`Failed to get total count: ${error.message}`);
+    }
     return count || 0;
   },
 };
