@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccount } from "@/hooks/useAccount";
 import { userApi, UserProfile } from "@/services/user.api";
 import {
   DropdownMenu,
@@ -52,6 +53,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { account, getInitials: getAccountInitials } = useAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -110,8 +112,14 @@ export function AppLayout({ children }: AppLayoutProps) {
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
         <div className="ml-4 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">PH</span>
+          <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center overflow-hidden">
+            {account?.account_logo ? (
+              <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-primary-foreground">
+                {account ? getAccountInitials(account.account_name) : "PH"}
+              </span>
+            )}
           </div>
           <span className="font-semibold text-foreground">PollenHive</span>
         </div>
@@ -136,8 +144,14 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           <Link to="/" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0">
-              <span className="text-lg font-bold text-charcoal">PH</span>
+            <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0 overflow-hidden">
+              {account?.account_logo ? (
+                <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-lg font-bold text-charcoal">
+                  {account ? getAccountInitials(account.account_name) : "PH"}
+                </span>
+              )}
             </div>
             {sidebarOpen && (
               <span className="font-semibold text-foreground">PollenHive</span>
