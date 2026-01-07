@@ -112,3 +112,4 @@ COMMENT ON COLUMN users.full_name IS 'Optional full name of the user';
 -- WHERE table_name = 'users'
 -- ORDER BY ordinal_position;
 
+
