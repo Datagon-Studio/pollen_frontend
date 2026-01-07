@@ -1,24 +1,45 @@
-import { fundRepository, Fund, CreateFundInput, UpdateFundInput } from './fund.repository.js';
+/**
+ * Fund Service
+ * 
+ * Contains business logic for funds.
+ * No Supabase usage here (uses repository).
+ * No HTTP responses here (uses controller).
+ */
+
+import { fundRepository } from './fund.repository.js';
+import { Fund, CreateFundInput, UpdateFundInput } from './fund.entity.js';
 
 export interface FundWithStats extends Fund {
   collected: number;
   contributors: number;
 }
 
-export const fundService = {
-  async getFund(id: string): Promise<Fund | null> {
-    return fundRepository.findById(id);
-  },
+export class FundService {
+  /**
+   * Get fund by ID
+   */
+  async getFund(fundId: string): Promise<Fund | null> {
+    return fundRepository.findById(fundId);
+  }
 
+  /**
+   * Get all funds for an account
+   */
   async getFundsByAccount(accountId: string): Promise<Fund[]> {
     return fundRepository.findByAccountId(accountId);
-  },
+  }
 
+  /**
+   * Get active funds for an account
+   */
   async getActiveFundsByAccount(accountId: string): Promise<Fund[]> {
     return fundRepository.findActiveByAccountId(accountId);
-  },
+  }
 
-  async createFund(input: CreateFundInput): Promise<Fund | null> {
+  /**
+   * Create a new fund
+   */
+  async createFund(input: CreateFundInput): Promise<Fund> {
     // Validate required fields
     if (!input.fund_name?.trim()) {
       throw new Error('Fund name is required');
@@ -27,41 +48,66 @@ export const fundService = {
       throw new Error('Account ID is required');
     }
 
-    // Set defaults
+    // Business Rule: Trim fund name
     const fundData: CreateFundInput = {
       ...input,
+      fund_name: input.fund_name.trim(),
       is_active: input.is_active ?? true,
     };
 
     return fundRepository.create(fundData);
-  },
+  }
 
-  async updateFund(id: string, input: UpdateFundInput): Promise<Fund | null> {
-    const existing = await fundRepository.findById(id);
+  /**
+   * Update a fund
+   */
+  async updateFund(fundId: string, input: UpdateFundInput): Promise<Fund> {
+    const existing = await fundRepository.findById(fundId);
     if (!existing) {
       throw new Error('Fund not found');
     }
 
-    return fundRepository.update(id, input);
-  },
+    // Business Rule: Trim fund name if provided
+    const updateData: UpdateFundInput = { ...input };
+    if (updateData.fund_name !== undefined) {
+      updateData.fund_name = updateData.fund_name.trim();
+      if (!updateData.fund_name) {
+        throw new Error('Fund name cannot be empty');
+      }
+    }
 
-  async deleteFund(id: string): Promise<boolean> {
-    const existing = await fundRepository.findById(id);
+    return fundRepository.update(fundId, updateData);
+  }
+
+  /**
+   * Delete a fund
+   */
+  async deleteFund(fundId: string): Promise<boolean> {
+    const existing = await fundRepository.findById(fundId);
     if (!existing) {
       throw new Error('Fund not found');
     }
 
-    return fundRepository.delete(id);
-  },
+    return fundRepository.delete(fundId);
+  }
 
-  async activateFund(id: string): Promise<Fund | null> {
-    return fundRepository.update(id, { is_active: true });
-  },
+  /**
+   * Activate a fund
+   */
+  async activateFund(fundId: string): Promise<Fund> {
+    return fundRepository.update(fundId, { is_active: true });
+  }
 
-  async deactivateFund(id: string): Promise<Fund | null> {
-    return fundRepository.update(id, { is_active: false });
-  },
+  /**
+   * Deactivate a fund
+   */
+  async deactivateFund(fundId: string): Promise<Fund> {
+    return fundRepository.update(fundId, { is_active: false });
+  }
 
+  /**
+   * Get fund statistics for an account
+   */
   async getFundStats(accountId: string): Promise<{
     total: number;
     active: number;
@@ -77,6 +123,8 @@ export const fundService = {
       active: activeCount,
       inactive: totalCount - activeCount,
     };
-  },
-};
+  }
+}
+
+export const fundService = new FundService();
 
