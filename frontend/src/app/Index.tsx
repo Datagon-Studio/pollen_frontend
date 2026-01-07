@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
@@ -26,33 +26,10 @@ import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { useAccount } from "@/hooks/useAccount";
+import { fundApi, Fund } from "@/services";
 
-const funds = [
-  { id: "all", name: "All Funds" },
-  { id: "emergency", name: "Emergency Fund" },
-  { id: "annual", name: "Annual Dues" },
-  { id: "building", name: "Building Fund" },
-  { id: "youth", name: "Youth Program" },
-  { id: "scholarship", name: "Scholarship Fund" },
-];
-
-// Fund-specific stats data
-const fundStats = {
-  all: { balance: 24580, today: 225, month: 4850, monthContributions: 32, pending: 1275, pendingCount: 8, activeFunds: 5, totalFunds: 7, members: 48, newMembers: 3 },
-  emergency: { balance: 8200, today: 150, month: 1200, monthContributions: 12, pending: 350, pendingCount: 2, activeFunds: 1, totalFunds: 1, members: 42, newMembers: 1 },
-  annual: { balance: 5600, today: 75, month: 900, monthContributions: 8, pending: 225, pendingCount: 3, activeFunds: 1, totalFunds: 1, members: 48, newMembers: 2 },
-  building: { balance: 6800, today: 0, month: 1400, monthContributions: 6, pending: 400, pendingCount: 2, activeFunds: 1, totalFunds: 1, members: 35, newMembers: 0 },
-  youth: { balance: 2100, today: 0, month: 650, monthContributions: 4, pending: 150, pendingCount: 1, activeFunds: 1, totalFunds: 1, members: 28, newMembers: 0 },
-  scholarship: { balance: 1880, today: 0, month: 700, monthContributions: 2, pending: 150, pendingCount: 0, activeFunds: 1, totalFunds: 1, members: 22, newMembers: 0 },
-};
-
-const recentContributions = [
-  { id: 1, member: "Alice Johnson", fund: "Emergency Fund", fundId: "emergency", amount: "$150.00", date: "Today, 2:30 PM", status: "confirmed" as const },
-  { id: 2, member: "Bob Smith", fund: "Annual Dues", fundId: "annual", amount: "$75.00", date: "Today, 11:15 AM", status: "pending" as const },
-  { id: 3, member: "Carol White", fund: "Building Fund", fundId: "building", amount: "$200.00", date: "Yesterday", status: "confirmed" as const },
-  { id: 4, member: "David Brown", fund: "Emergency Fund", fundId: "emergency", amount: "$100.00", date: "Yesterday", status: "confirmed" as const },
-  { id: 5, member: "Eve Davis", fund: "Annual Dues", fundId: "annual", amount: "$75.00", date: "Dec 30, 2025", status: "pending" as const },
-];
+// TODO: Replace with actual contributions data when contributions API is ready
+const recentContributions: any[] = [];
 
 const columns = [
   { key: "member", header: "Member" },
@@ -73,17 +50,54 @@ export default function Dashboard() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showRecordContribution, setShowRecordContribution] = useState(false);
+  const [funds, setFunds] = useState<Fund[]>([]);
+  const [loading, setLoading] = useState(true);
   const { account, getInitials } = useAccount();
 
-  const selectedFundName = funds.find((f) => f.id === selectedFund)?.name || "All Funds";
+  useEffect(() => {
+    loadFunds();
+  }, []);
+
+  const loadFunds = async () => {
+    try {
+      setLoading(true);
+      const data = await fundApi.getActive();
+      setFunds(data);
+    } catch (error) {
+      console.error("Failed to load funds:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fundsWithAll = useMemo(() => {
+    return [
+      { fund_id: "all", fund_name: "All Funds" },
+      ...funds.map(f => ({ fund_id: f.fund_id, fund_name: f.fund_name }))
+    ];
+  }, [funds]);
+
+  const selectedFundName = fundsWithAll.find((f) => f.fund_id === selectedFund)?.fund_name || "All Funds";
 
   const filteredContributions = selectedFund === "all"
     ? recentContributions
     : recentContributions.filter((c) => c.fundId === selectedFund);
 
+  // TODO: Replace with actual stats from API when contributions API is ready
   const stats = useMemo(() => {
-    return fundStats[selectedFund as keyof typeof fundStats] || fundStats.all;
-  }, [selectedFund]);
+    return {
+      balance: 0,
+      today: 0,
+      month: 0,
+      monthContributions: 0,
+      pending: 0,
+      pendingCount: 0,
+      activeFunds: funds.filter(f => f.is_active).length,
+      totalFunds: funds.length,
+      members: 0,
+      newMembers: 0,
+    };
+  }, [funds]);
 
   return (
     <AppLayout>
@@ -113,9 +127,9 @@ export default function Dashboard() {
             <SelectValue placeholder="Select Fund" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
-            {funds.map((fund) => (
-              <SelectItem key={fund.id} value={fund.id}>
-                {fund.name}
+            {fundsWithAll.map((fund) => (
+              <SelectItem key={fund.fund_id} value={fund.fund_id}>
+                {fund.fund_name}
               </SelectItem>
             ))}
           </SelectContent>
