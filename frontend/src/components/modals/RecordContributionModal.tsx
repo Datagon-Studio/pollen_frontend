@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -41,36 +41,38 @@ interface RecordContributionModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const members = [
-  { id: "1", firstName: "Alice", lastName: "Johnson" },
-  { id: "2", firstName: "Bob", lastName: "Smith" },
-  { id: "3", firstName: "Carol", lastName: "White" },
-  { id: "4", firstName: "David", lastName: "Brown" },
-  { id: "5", firstName: "Eve", lastName: "Davis" },
-  { id: "6", firstName: "Frank", lastName: "Miller" },
-  { id: "7", firstName: "Grace", lastName: "Lee" },
-  { id: "8", firstName: "Henry", lastName: "Wilson" },
-  { id: "9", firstName: "Ivy", lastName: "Chen" },
-  { id: "10", firstName: "Jack", lastName: "Taylor" },
-  { id: "11", firstName: "Karen", lastName: "Moore" },
-  { id: "12", firstName: "Leo", lastName: "Martinez" },
-];
-
-const funds = [
-  { id: "emergency", fundName: "Emergency Fund", defaultAmount: 100 },
-  { id: "annual", fundName: "Annual Dues", defaultAmount: 75 },
-  { id: "building", fundName: "Building Fund", defaultAmount: 200 },
-  { id: "youth", fundName: "Youth Program", defaultAmount: 50 },
-  { id: "scholarship", fundName: "Scholarship Fund", defaultAmount: 100 },
-  { id: "welfare", fundName: "Monthly Welfare", defaultAmount: 25 },
-  { id: "upkeep", fundName: "Community Upkeep", defaultAmount: 15 },
-];
+// TODO: Replace with actual members data when members API is ready
+const members: any[] = [];
 
 // Channel options based on spec: offline channels for manual recording
 const channels = ["Cash", "Bank Deposit", "Cheque", "Mobile Money"];
 
 export function RecordContributionModal({ open, onOpenChange }: RecordContributionModalProps) {
   const { toast } = useToast();
+  const [funds, setFunds] = useState<Fund[]>([]);
+  const [loadingFunds, setLoadingFunds] = useState(true);
+
+  useEffect(() => {
+    if (open) {
+      loadFunds();
+    }
+  }, [open]);
+
+  const loadFunds = async () => {
+    try {
+      setLoadingFunds(true);
+      const data = await fundApi.getActive();
+      setFunds(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load funds",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingFunds(false);
+    }
+  };
   const [formData, setFormData] = useState({
     member: "",
     fund: "",
@@ -85,8 +87,8 @@ export function RecordContributionModal({ open, onOpenChange }: RecordContributi
   const [fundSearch, setFundSearch] = useState("");
 
   const selectedMember = members.find(m => m.id === formData.member);
-  const selectedFund = funds.find(f => f.id === formData.fund);
-  const defaultAmount = selectedFund?.defaultAmount || 0;
+  const selectedFund = funds.find(f => f.fund_id === formData.fund);
+  const defaultAmount = selectedFund?.default_amount || 0;
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch) return members;
@@ -99,9 +101,9 @@ export function RecordContributionModal({ open, onOpenChange }: RecordContributi
   const filteredFunds = useMemo(() => {
     if (!fundSearch) return funds;
     return funds.filter(f => 
-      f.fundName.toLowerCase().includes(fundSearch.toLowerCase())
+      f.fund_name.toLowerCase().includes(fundSearch.toLowerCase())
     );
-  }, [fundSearch]);
+  }, [fundSearch, funds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +121,7 @@ export function RecordContributionModal({ open, onOpenChange }: RecordContributi
     if (amount < defaultAmount) {
       toast({
         title: "Validation Error",
-        description: `Minimum contribution for ${selectedFund?.fundName} is $${defaultAmount}.`,
+        description: `Minimum contribution for ${selectedFund?.fund_name} is $${defaultAmount}.`,
         variant: "destructive",
       });
       return;
@@ -214,7 +216,7 @@ export function RecordContributionModal({ open, onOpenChange }: RecordContributi
                     aria-expanded={fundOpen}
                     className="w-full justify-between font-normal"
                   >
-                    {selectedFund ? selectedFund.fundName : "Search fund..."}
+                    {selectedFund ? selectedFund.fund_name : "Search fund..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -230,22 +232,24 @@ export function RecordContributionModal({ open, onOpenChange }: RecordContributi
                       <CommandGroup>
                         {filteredFunds.map((fund) => (
                           <CommandItem
-                            key={fund.id}
-                            value={fund.fundName}
+                            key={fund.fund_id}
+                            value={fund.fund_name}
                             onSelect={() => {
-                              setFormData({ ...formData, fund: fund.id, amount: "" });
+                              setFormData({ ...formData, fund: fund.fund_id, amount: "" });
                               setFundOpen(false);
                             }}
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                formData.fund === fund.id ? "opacity-100" : "opacity-0"
+                                formData.fund === fund.fund_id ? "opacity-100" : "opacity-0"
                               )}
                             />
                             <div className="flex flex-col">
-                              <span>{fund.fundName}</span>
-                              <span className="text-xs text-muted-foreground">Default: ${fund.defaultAmount}</span>
+                              <span>{fund.fund_name}</span>
+                              {fund.default_amount && (
+                                <span className="text-xs text-muted-foreground">Default: ${fund.default_amount}</span>
+                              )}
                             </div>
                           </CommandItem>
                         ))}
