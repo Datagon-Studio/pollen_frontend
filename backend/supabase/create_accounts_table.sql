@@ -150,11 +150,87 @@ CREATE TRIGGER on_user_profile_created
 -- =====================================================
 -- Security: Row Level Security (RLS) Setup
 -- =====================================================
--- Note: RLS is disabled for now as per requirements
--- When ready to enable, uncomment the following:
+-- Enable RLS on both tables
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_accounts ENABLE ROW LEVEL SECURITY;
 
--- ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE user_accounts ENABLE ROW LEVEL SECURITY;
+-- =====================================================
+-- RLS Policies for accounts table
+-- =====================================================
+
+-- Policy: Service role (backend) can do everything
+-- Note: Service role should bypass RLS, but this ensures compatibility
+CREATE POLICY "Service role full access on accounts"
+ON accounts
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+-- Policy: Users can read their own account (via user_accounts join)
+CREATE POLICY "Users can read their own account"
+ON accounts
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = accounts.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Users can update their own account (via user_accounts join)
+CREATE POLICY "Users can update their own account"
+ON accounts
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = accounts.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = accounts.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Allow account creation (for trigger function and backend)
+-- SECURITY DEFINER functions run as function owner, but we need a policy
+CREATE POLICY "Allow account creation"
+ON accounts
+FOR INSERT
+WITH CHECK (true);
+
+-- =====================================================
+-- RLS Policies for user_accounts table
+-- =====================================================
+
+-- Policy: Service role (backend) can do everything
+CREATE POLICY "Service role full access on user_accounts"
+ON user_accounts
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+-- Policy: Users can read their own account links
+CREATE POLICY "Users can read their own account links"
+ON user_accounts
+FOR SELECT
+TO authenticated
+USING (user_id = auth.uid());
+
+-- Policy: Allow user_account creation (for trigger function and backend)
+CREATE POLICY "Allow user_account creation"
+ON user_accounts
+FOR INSERT
+WITH CHECK (true);
 
 -- =====================================================
 -- Verification Query
