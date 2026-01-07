@@ -41,10 +41,17 @@ export class AccountService {
 
     // Business Rule: Only allow updating account_name and account_logo
     // Status and kyc_status cannot be changed by user
-    const updateData: UpdateAccountInput = {
-      account_name: input.account_name !== undefined ? input.account_name : userAccount.account_name,
-      account_logo: input.account_logo !== undefined ? input.account_logo : userAccount.account_logo,
-    };
+    const updateData: UpdateAccountInput = {};
+    
+    // Handle account_name: use provided value, or keep existing if not provided
+    if (input.account_name !== undefined) {
+      updateData.account_name = input.account_name;
+    }
+    
+    // Handle account_logo: use provided value (including null), or keep existing if not provided
+    if (input.account_logo !== undefined) {
+      updateData.account_logo = input.account_logo;
+    }
 
     // Business Rule: Account name validation if provided
     if (updateData.account_name !== null && updateData.account_name !== undefined) {
