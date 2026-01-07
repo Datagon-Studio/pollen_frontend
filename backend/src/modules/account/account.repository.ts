@@ -108,13 +108,22 @@ export const accountRepository = {
    * Update account
    */
   async update(accountId: string, input: UpdateAccountInput): Promise<Account> {
+    // Build update object with only provided fields
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only include fields that are explicitly provided (not undefined)
+    if (input.account_name !== undefined) {
+      updateData.account_name = input.account_name;
+    }
+    if (input.account_logo !== undefined) {
+      updateData.account_logo = input.account_logo;
+    }
+
     const { data, error } = await supabase
       .from('accounts')
-      .update({
-        account_name: input.account_name ?? null,
-        account_logo: input.account_logo ?? null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('account_id', accountId)
       .select()
       .single();
