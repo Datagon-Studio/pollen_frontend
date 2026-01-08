@@ -52,11 +52,19 @@ export default function Dashboard() {
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [funds, setFunds] = useState<Fund[]>([]);
   const [loading, setLoading] = useState(true);
-  const { account, getInitials } = useAccount();
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const { account, getInitials, loading: accountLoading } = useAccount();
 
   useEffect(() => {
     loadFunds();
   }, []);
+
+  // Reset logo loaded state when account logo changes
+  useEffect(() => {
+    if (account?.account_logo) {
+      setLogoLoaded(false);
+    }
+  }, [account?.account_logo]);
 
   const loadFunds = async () => {
     try {
@@ -105,9 +113,22 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           {/* Custom Group Logo */}
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden">
-            {account?.account_logo ? (
-              <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
+            {accountLoading ? (
+              <div className="h-full w-full bg-amber/20 animate-pulse" />
+            ) : account?.account_logo ? (
+              <>
+                {!logoLoaded && (
+                  <div className="absolute inset-0 bg-amber/20 animate-pulse" />
+                )}
+                <img 
+                  src={account.account_logo} 
+                  alt="Account Logo" 
+                  className={`h-full w-full object-cover ${logoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
+                  onLoad={() => setLogoLoaded(true)}
+                  onError={() => setLogoLoaded(true)}
+                />
+              </>
             ) : (
               <span className="text-lg font-bold text-white">
                 {account ? getInitials(account.account_name) : "CG"}
