@@ -26,6 +26,7 @@ import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { useAccount } from "@/hooks/useAccount";
+import { useLogoPreload } from "@/hooks/useLogoPreload";
 import { fundApi, Fund } from "@/services";
 
 // TODO: Replace with actual contributions data when contributions API is ready
@@ -52,19 +53,12 @@ export default function Dashboard() {
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [funds, setFunds] = useState<Fund[]>([]);
   const [loading, setLoading] = useState(true);
-  const [logoLoaded, setLogoLoaded] = useState(false);
   const { account, getInitials, loading: accountLoading } = useAccount();
+  const logoLoaded = useLogoPreload(account?.account_logo);
 
   useEffect(() => {
     loadFunds();
   }, []);
-
-  // Reset logo loaded state when account logo changes
-  useEffect(() => {
-    if (account?.account_logo) {
-      setLogoLoaded(false);
-    }
-  }, [account?.account_logo]);
 
   const loadFunds = async () => {
     try {
@@ -116,19 +110,14 @@ export default function Dashboard() {
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
             {accountLoading ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
+            ) : account?.account_logo && logoLoaded ? (
+              <img 
+                src={account.account_logo} 
+                alt="Account Logo" 
+                className="h-full w-full object-cover"
+              />
             ) : account?.account_logo ? (
-              <>
-                {!logoLoaded && (
-                  <div className="absolute inset-0 bg-amber/20 animate-pulse" />
-                )}
-                <img 
-                  src={account.account_logo} 
-                  alt="Account Logo" 
-                  className={`h-full w-full object-cover ${logoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
-                  onLoad={() => setLogoLoaded(true)}
-                  onError={() => setLogoLoaded(true)}
-                />
-              </>
+              <div className="h-full w-full bg-amber/20 animate-pulse" />
             ) : (
               <span className="text-lg font-bold text-white">
                 {account ? getInitials(account.account_name) : "CG"}
