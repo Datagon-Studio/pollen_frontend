@@ -53,9 +53,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { account, getInitials: getAccountInitials } = useAccount();
+  const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [sidebarLogoLoaded, setSidebarLogoLoaded] = useState(false);
+  const [mobileLogoLoaded, setMobileLogoLoaded] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,6 +87,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
   }, [user]);
 
+  // Reset logo loaded states when account logo changes
+  useEffect(() => {
+    if (account?.account_logo) {
+      setSidebarLogoLoaded(false);
+      setMobileLogoLoaded(false);
+    }
+  }, [account?.account_logo]);
+
   const handleLogout = async () => {
     await logout();
     navigate("/signin", { replace: true });
@@ -112,9 +122,22 @@ export function AppLayout({ children }: AppLayoutProps) {
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
         <div className="ml-4 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center overflow-hidden">
-            {account?.account_logo ? (
-              <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+          <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center overflow-hidden relative">
+            {accountLoading ? (
+              <div className="h-full w-full bg-amber/20 animate-pulse" />
+            ) : account?.account_logo ? (
+              <>
+                {!mobileLogoLoaded && (
+                  <div className="absolute inset-0 bg-amber/20 animate-pulse" />
+                )}
+                <img 
+                  src={account.account_logo} 
+                  alt="Account Logo" 
+                  className={`h-full w-full object-cover ${mobileLogoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
+                  onLoad={() => setMobileLogoLoaded(true)}
+                  onError={() => setMobileLogoLoaded(true)}
+                />
+              </>
             ) : (
               <span className="text-sm font-bold text-primary-foreground">
                 {account ? getAccountInitials(account.account_name) : "PH"}
@@ -144,9 +167,22 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           <Link to="/" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0 overflow-hidden">
-              {account?.account_logo ? (
-                <img src={account.account_logo} alt="Account Logo" className="h-full w-full object-cover" />
+            <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0 overflow-hidden relative">
+              {accountLoading ? (
+                <div className="h-full w-full bg-amber/20 animate-pulse" />
+              ) : account?.account_logo ? (
+                <>
+                  {!sidebarLogoLoaded && (
+                    <div className="absolute inset-0 bg-amber/20 animate-pulse" />
+                  )}
+                  <img 
+                    src={account.account_logo} 
+                    alt="Account Logo" 
+                    className={`h-full w-full object-cover ${sidebarLogoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
+                    onLoad={() => setSidebarLogoLoaded(true)}
+                    onError={() => setSidebarLogoLoaded(true)}
+                  />
+                </>
               ) : (
                 <span className="text-lg font-bold text-charcoal">
                   {account ? getAccountInitials(account.account_name) : "PH"}
