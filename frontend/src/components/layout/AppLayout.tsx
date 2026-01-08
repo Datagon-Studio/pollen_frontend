@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccount } from "@/hooks/useAccount";
+import { useLogoPreload } from "@/hooks/useLogoPreload";
 import { userApi, UserProfile } from "@/services/user.api";
 import {
   DropdownMenu,
@@ -56,8 +57,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [sidebarLogoLoaded, setSidebarLogoLoaded] = useState(false);
-  const [mobileLogoLoaded, setMobileLogoLoaded] = useState(false);
+  const logoLoaded = useLogoPreload(account?.account_logo);
 
   useEffect(() => {
     if (user) {
@@ -87,13 +87,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
   }, [user]);
 
-  // Reset logo loaded states when account logo changes
-  useEffect(() => {
-    if (account?.account_logo) {
-      setSidebarLogoLoaded(false);
-      setMobileLogoLoaded(false);
-    }
-  }, [account?.account_logo]);
 
   const handleLogout = async () => {
     await logout();
@@ -125,19 +118,14 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center overflow-hidden relative">
             {accountLoading ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
+            ) : account?.account_logo && logoLoaded ? (
+              <img 
+                src={account.account_logo} 
+                alt="Account Logo" 
+                className="h-full w-full object-cover"
+              />
             ) : account?.account_logo ? (
-              <>
-                {!mobileLogoLoaded && (
-                  <div className="absolute inset-0 bg-amber/20 animate-pulse" />
-                )}
-                <img 
-                  src={account.account_logo} 
-                  alt="Account Logo" 
-                  className={`h-full w-full object-cover ${mobileLogoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
-                  onLoad={() => setMobileLogoLoaded(true)}
-                  onError={() => setMobileLogoLoaded(true)}
-                />
-              </>
+              <div className="h-full w-full bg-amber/20 animate-pulse" />
             ) : (
               <span className="text-sm font-bold text-primary-foreground">
                 {account ? getAccountInitials(account.account_name) : "PH"}
@@ -170,19 +158,14 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0 overflow-hidden relative">
               {accountLoading ? (
                 <div className="h-full w-full bg-amber/20 animate-pulse" />
+              ) : account?.account_logo && logoLoaded ? (
+                <img 
+                  src={account.account_logo} 
+                  alt="Account Logo" 
+                  className="h-full w-full object-cover"
+                />
               ) : account?.account_logo ? (
-                <>
-                  {!sidebarLogoLoaded && (
-                    <div className="absolute inset-0 bg-amber/20 animate-pulse" />
-                  )}
-                  <img 
-                    src={account.account_logo} 
-                    alt="Account Logo" 
-                    className={`h-full w-full object-cover ${sidebarLogoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
-                    onLoad={() => setSidebarLogoLoaded(true)}
-                    onError={() => setSidebarLogoLoaded(true)}
-                  />
-                </>
+                <div className="h-full w-full bg-amber/20 animate-pulse" />
               ) : (
                 <span className="text-lg font-bold text-charcoal">
                   {account ? getAccountInitials(account.account_name) : "PH"}
