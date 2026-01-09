@@ -31,3 +31,4 @@ export interface UpdateFundInput {
   is_active?: boolean;
 }
 
+
