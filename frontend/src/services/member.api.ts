@@ -3,8 +3,7 @@ import { apiClient } from './api-client';
 export interface Member {
   id: string;
   account_id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   dob: string | null;
   phone: string;
   phone_verified: boolean;

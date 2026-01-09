@@ -35,32 +35,39 @@ const columns = [
   {
     key: "name",
     header: "Member",
-    render: (item: Member) => (
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-full bg-amber/10 flex items-center justify-center">
-          <span className="text-sm font-medium text-amber-dark">
-            {item.first_name[0]}{item.last_name[0]}
-          </span>
-        </div>
-        <div>
-          <p className="font-medium text-foreground">{item.first_name} {item.last_name}</p>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            {item.email ? (
-              <>
-                <span>{item.email}</span>
-                {item.email_verified ? (
-                  <CheckCircle2 className="h-3 w-3 text-success" />
-                ) : (
-                  <XCircle className="h-3 w-3 text-muted-foreground" />
-                )}
-              </>
-            ) : (
-              <span className="text-muted-foreground/60">No email</span>
-            )}
+    render: (item: Member) => {
+      const nameParts = item.full_name.trim().split(/\s+/);
+      const initials = nameParts.length >= 2
+        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
+        : nameParts[0] ? nameParts[0].substring(0, 2).toUpperCase() : "??";
+      
+      return (
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-full bg-amber/10 flex items-center justify-center">
+            <span className="text-sm font-medium text-amber-dark">
+              {initials}
+            </span>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{item.full_name}</p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              {item.email ? (
+                <>
+                  <span>{item.email}</span>
+                  {item.email_verified ? (
+                    <CheckCircle2 className="h-3 w-3 text-success" />
+                  ) : (
+                    <XCircle className="h-3 w-3 text-muted-foreground" />
+                  )}
+                </>
+              ) : (
+                <span className="text-muted-foreground/60">No email</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    ),
+      );
+    },
   },
   {
     key: "phone",
@@ -167,7 +174,7 @@ export default function Members() {
   }, [account?.account_id]);
 
   const filteredMembers = members.filter((member) => {
-    const fullName = `${member.first_name} ${member.last_name}`.toLowerCase();
+    const fullName = member.full_name.toLowerCase();
     const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
       (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
       (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);

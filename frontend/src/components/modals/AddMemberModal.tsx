@@ -9,8 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Loader2, Send } from "lucide-react";
+import { Check, Loader2, Send, Copy, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -21,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { memberApi } from "@/services";
+import { useAccount } from "@/hooks/useAccount";
 
 interface AddMemberModalProps {
   open: boolean;
@@ -30,13 +32,15 @@ interface AddMemberModalProps {
 
 export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModalProps) {
   const { toast } = useToast();
+  const { account } = useAccount();
   const [saving, setSaving] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
+    membershipNumber: "",
     dob: undefined as Date | undefined,
     phone: "",
     email: "",
-    membershipNumber: "",
   });
   
   // OTP states
@@ -51,6 +55,37 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
+
+  // Generate invite link
+  const generateInviteLink = () => {
+    if (!account?.account_id) return "";
+    // Create a slug from account_id (first 8 chars) or use account name if available
+    const slug = account.account_name
+      ? account.account_name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+      : account.account_id.substring(0, 8);
+    return `https://pollenhive.app/g/${slug}/join`;
+  };
+
+  const inviteLink = generateInviteLink();
+
+  const handleCopyLink = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setLinkCopied(true);
+      toast({
+        title: "Link Copied",
+        description: "Invite link has been copied to clipboard",
+      });
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSendEmailOtp = async () => {
     if (!formData.email.trim()) {
@@ -143,9 +178,20 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       return;
     }
 
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
-      await memberApi.create({
+      // Send full_name to match backend expectation
+      const response = await memberApi.create({
+        account_id: account.account_id,
         full_name: formData.fullName.trim(),
         dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
         phone: formData.phone.trim(),
@@ -154,6 +200,10 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
         email_verified: emailVerified,
         membership_number: formData.membershipNumber.trim() || null,
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create member');
+      }
 
       toast({
         title: "Member Added",
@@ -176,7 +226,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   };
 
   const resetForm = () => {
-    setFormData({ fullName: "", dob: undefined, phone: "", email: "", membershipNumber: "" });
+    setFormData({ fullName: "", membershipNumber: "", dob: undefined, phone: "", email: "" });
     setEmailOtpSent(false);
     setEmailOtp("");
     setEmailVerified(false);
@@ -196,10 +246,48 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Member</DialogTitle>
+          <DialogTitle>Add/Invite Member</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+        <div className="space-y-6 py-4">
+          {/* Copy Invite Link Section */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Copy Invite Link</Label>
+            <div className="flex gap-2">
+              <Input
+                value={inviteLink}
+                readOnly
+                className="bg-muted text-sm font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopyLink}
+                className="shrink-0"
+              >
+                {linkCopied ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-success" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Share this link with members to let them join your group
+            </p>
+          </div>
+
+          {/* Divider */}
+          <Separator />
+
+          {/* Manual Add Member Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name */}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
@@ -211,12 +299,24 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
               />
             </div>
 
+            {/* Membership ID/Number */}
+            <div className="space-y-2">
+              <Label htmlFor="membershipNumber">Membership ID/Number (Optional)</Label>
+              <Input
+                id="membershipNumber"
+                placeholder="Optional unique ID"
+                value={formData.membershipNumber}
+                onChange={(e) => setFormData({ ...formData, membershipNumber: e.target.value })}
+              />
+            </div>
+
             {/* Date of Birth */}
             <div className="space-y-2">
-              <Label>Date of Birth</Label>
+              <Label>Date of Birth (Optional)</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    type="button"
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
@@ -242,9 +342,9 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
               </Popover>
             </div>
 
-            {/* Phone */}
+            {/* Phone Number */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number *</Label>
+              <Label htmlFor="phone">Phone Number (with OTP) *</Label>
               <div className="flex gap-2">
                 <Input
                   id="phone"
@@ -313,7 +413,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Email (Optional)</Label>
               <div className="flex gap-2">
                 <Input
                   id="email"
@@ -381,27 +481,16 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
               )}
             </div>
 
-            {/* Membership Number */}
-            <div className="space-y-2">
-              <Label htmlFor="membershipNumber">Membership Number</Label>
-              <Input
-                id="membershipNumber"
-                placeholder="Optional unique ID"
-                value={formData.membershipNumber}
-                onChange={(e) => setFormData({ ...formData, membershipNumber: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">Optional unique identifier for this member</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Adding..." : "Add Member"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Adding..." : "Add Member"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
