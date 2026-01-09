@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -6,24 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, Copy, Check, Upload, Wallet, Receipt } from "lucide-react";
+import { ExternalLink, Copy, Check, Wallet, Receipt, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Fund model based on spec with is_active and is_public
-const funds = [
-  { id: 1, fundName: "Emergency Fund", isActive: true, isPublic: true },
-  { id: 2, fundName: "Annual Dues 2026", isActive: true, isPublic: true },
-  { id: 3, fundName: "Building Renovation", isActive: true, isPublic: true },
-  { id: 4, fundName: "Youth Program", isActive: true, isPublic: false },
-  { id: 5, fundName: "Scholarship Fund", isActive: true, isPublic: true },
-];
-
-const publicExpenses = [
-  { id: 1, date: "Jan 2, 2026", expenseCategory: "Operations", expenseName: "Office supplies", amount: "$45.00" },
-  { id: 2, date: "Jan 1, 2026", expenseCategory: "Utilities", expenseName: "Electricity bill", amount: "$285.00" },
-  { id: 3, date: "Dec 30, 2025", expenseCategory: "Events", expenseName: "New Year celebration catering", amount: "$850.00" },
-  { id: 4, date: "Dec 28, 2025", expenseCategory: "Events", expenseName: "Venue decoration", amount: "$320.00" },
-];
+import { useAccount } from "@/hooks/useAccount";
+import { accountApi } from "@/services/account.api";
+import { expenseApi, Expense } from "@/services/expense.api";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark",
@@ -32,25 +21,118 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function PublicPage() {
-  const [isPublished, setIsPublished] = useState(true);
+  const { account, loading: accountLoading } = useAccount();
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [previewTab, setPreviewTab] = useState("funds");
+  const [saving, setSaving] = useState(false);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
   
-  // Account Public Page fields based on spec
-  const [urlSlug, setUrlSlug] = useState("community-group-123");
-  const [displayName, setDisplayName] = useState("Community Group");
-  const [primaryColor, setPrimaryColor] = useState("#f59e0b");
-  
-  const publicUrl = `https://pollenhive.app/g/${urlSlug}`;
+  // Color states
+  const [foregroundColor, setForegroundColor] = useState("#000000");
+  const [backgroundColor, setBackgroundColor] = useState("#ffffff");
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(publicUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Load account data and expenses
+  useEffect(() => {
+    if (account) {
+      setForegroundColor(account.foreground_color || "#000000");
+      setBackgroundColor(account.background_color || "#ffffff");
+      loadExpenses();
+    }
+  }, [account]);
+
+  const loadExpenses = async () => {
+    if (!account) return;
+    try {
+      setLoadingExpenses(true);
+      const allExpenses = await expenseApi.getAll();
+      setExpenses(allExpenses);
+    } catch (error) {
+      console.error("Error loading expenses:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load expenses",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingExpenses(false);
+    }
   };
 
-  // Only show public and active funds on public page
-  const activeFunds = funds.filter(f => f.isActive && f.isPublic);
+  const handleToggleExpenseVisibility = async (expenseId: string) => {
+    try {
+      await expenseApi.toggleVisibility(expenseId);
+      await loadExpenses();
+      toast({
+        title: "Success",
+        description: "Expense visibility updated",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update expense visibility",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!account) return;
+    try {
+      setSaving(true);
+      await accountApi.updateMyAccount({
+        foreground_color: foregroundColor,
+        background_color: backgroundColor,
+      });
+      toast({
+        title: "Success",
+        description: "Public page settings saved",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const publicUrl = account ? `https://pollenhive.app/account/${account.account_id}` : "";
+
+  const handleCopy = () => {
+    if (publicUrl) {
+      navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Filter expenses that are visible (member_visible = true)
+  const visibleExpenses = expenses.filter(e => e.member_visible);
+  const hiddenExpenses = expenses.filter(e => !e.member_visible);
+
+  if (accountLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!account) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Account not found</div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -64,9 +146,11 @@ export default function PublicPage() {
         <div className="order-2 xl:order-1">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Preview</h2>
-            <Button variant="outline" size="sm">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open in New Tab
+            <Button variant="outline" size="sm" asChild>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab
+              </a>
             </Button>
           </div>
 
@@ -84,26 +168,41 @@ export default function PublicPage() {
             </div>
 
             {/* Preview content */}
-            <div className="p-8 min-h-[500px] bg-background">
+            <div 
+              className="p-8 min-h-[500px]"
+              style={{ 
+                backgroundColor: backgroundColor,
+                color: foregroundColor 
+              }}
+            >
               <div className="max-w-md mx-auto text-center">
-                {/* Logo placeholder */}
-                <div 
-                  className="h-16 w-16 rounded-xl flex items-center justify-center mx-auto mb-4"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <span className="text-2xl font-bold text-white">PH</span>
-                </div>
+                {/* Logo */}
+                {account.account_logo && (
+                  <div className="mb-4">
+                    <img 
+                      src={account.account_logo} 
+                      alt={account.account_name || "Logo"} 
+                      className="h-16 w-16 rounded-xl mx-auto object-cover"
+                    />
+                  </div>
+                )}
 
-                <h1 className="text-2xl font-bold text-foreground mb-2">
-                  {displayName}
+                <h1 
+                  className="text-2xl font-bold mb-2"
+                  style={{ color: foregroundColor }}
+                >
+                  {account.account_name || "Community Group"}
                 </h1>
-                <p className="text-muted-foreground mb-6">
+                <p 
+                  className="mb-6 opacity-80"
+                  style={{ color: foregroundColor }}
+                >
                   Support our community by contributing to our active funds
                 </p>
 
                 {/* Public page tabs */}
                 <Tabs value={previewTab} onValueChange={setPreviewTab} className="mb-6">
-                  <TabsList className="bg-secondary w-full">
+                  <TabsList className="bg-secondary/50 w-full">
                     <TabsTrigger value="funds" className="flex-1">
                       <Wallet className="h-4 w-4 mr-2" />
                       Funds
@@ -116,52 +215,54 @@ export default function PublicPage() {
 
                   <TabsContent value="funds" className="mt-4">
                     <div className="space-y-3">
-                      {activeFunds.map((fund) => (
-                        <button
-                          key={fund.id}
-                          className="w-full bg-card border border-border rounded-lg p-4 text-left hover:border-amber/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Wallet className="h-5 w-5 text-amber" />
-                              <span className="font-medium text-foreground">
-                                {fund.fundName}
-                              </span>
-                            </div>
-                            <span className="text-amber text-sm">Contribute →</span>
-                          </div>
-                        </button>
-                      ))}
+                      <p className="text-sm opacity-70" style={{ color: foregroundColor }}>
+                        Funds will appear here
+                      </p>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="expenses" className="mt-4">
                     <div className="space-y-2 text-left">
-                      {publicExpenses.map((expense) => (
-                        <div
-                          key={expense.id}
-                          className="bg-card border border-border rounded-lg p-3"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span
-                              className={cn(
-                                "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
-                                categoryColors[expense.expenseCategory] || "bg-secondary text-secondary-foreground"
-                              )}
+                      {visibleExpenses.length === 0 ? (
+                        <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
+                          No expenses visible
+                        </p>
+                      ) : (
+                        visibleExpenses.map((expense) => {
+                          const dateValue = expense.date ? new Date(expense.date) : new Date();
+                          return (
+                            <div
+                              key={expense.expense_id}
+                              className="bg-card/50 border border-border/50 rounded-lg p-3"
                             >
-                              {expense.expenseCategory}
-                            </span>
-                            <span className="font-semibold text-foreground">{expense.amount}</span>
-                          </div>
-                          <p className="text-sm text-foreground">{expense.expenseName}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{expense.date}</p>
-                        </div>
-                      ))}
+                              <div className="flex items-center justify-between mb-1">
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
+                                    categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
+                                  )}
+                                >
+                                  {expense.expense_category}
+                                </span>
+                                <span className="font-semibold" style={{ color: foregroundColor }}>
+                                  ${Number(expense.amount).toFixed(2)}
+                                </span>
+                              </div>
+                              <p className="text-sm" style={{ color: foregroundColor }}>
+                                {expense.expense_name}
+                              </p>
+                              <p className="text-xs opacity-70 mt-1" style={{ color: foregroundColor }}>
+                                {format(dateValue, "MMM d, yyyy")}
+                              </p>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>
 
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs opacity-60" style={{ color: foregroundColor }}>
                   Powered by PollenHive
                 </p>
               </div>
@@ -171,43 +272,25 @@ export default function PublicPage() {
 
         {/* Controls */}
         <div className="order-1 xl:order-2 space-y-6">
-          {/* Publish Toggle */}
+          {/* Public URL */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-foreground">Publish Page</h3>
-                <p className="text-sm text-muted-foreground">
-                  Make your contribution page publicly accessible
-                </p>
+            <h3 className="font-medium text-foreground mb-4">Public URL</h3>
+            <div>
+              <Label className="text-sm text-muted-foreground">Your public page URL</Label>
+              <div className="flex gap-2 mt-1.5">
+                <Input value={publicUrl} readOnly className="bg-secondary" />
+                <Button variant="outline" size="icon" onClick={handleCopy}>
+                  {copied ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <Switch checked={isPublished} onCheckedChange={setIsPublished} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Share this URL to allow others to view your public page
+              </p>
             </div>
-
-            {isPublished && (
-              <div className="mt-4 pt-4 border-t border-border space-y-3">
-                <div>
-                  <Label className="text-sm text-muted-foreground">URL Slug</Label>
-                  <Input 
-                    value={urlSlug} 
-                    onChange={(e) => setUrlSlug(e.target.value)}
-                    className="mt-1.5" 
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Public URL</Label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input value={publicUrl} readOnly className="bg-secondary" />
-                    <Button variant="outline" size="icon" onClick={handleCopy}>
-                      {copied ? (
-                        <Check className="h-4 w-4 text-success" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Branding */}
@@ -216,52 +299,96 @@ export default function PublicPage() {
 
             <div className="space-y-4">
               <div>
-                <Label>Display Name</Label>
-                <Input 
-                  value={displayName} 
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="mt-1.5" 
-                />
-              </div>
-
-              <div>
-                <Label>Logo</Label>
-                <div className="mt-1.5 flex items-center gap-4">
-                  <div 
-                    className="h-14 w-14 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <span className="text-lg font-bold text-white">PH</span>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Logo
-                  </Button>
+                <Label>Foreground Color</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Input
+                    type="color"
+                    value={foregroundColor}
+                    onChange={(e) => setForegroundColor(e.target.value)}
+                    className="h-10 w-20 p-1 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={foregroundColor}
+                    onChange={(e) => setForegroundColor(e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1"
+                  />
                 </div>
               </div>
 
               <div>
-                <Label>Primary Color</Label>
+                <Label>Background Color</Label>
                 <div className="flex gap-2 mt-1.5">
-                  {["#f59e0b", "#eab308", "#84cc16", "#22c55e", "#3b82f6", "#8b5cf6"].map(
-                    (color) => (
-                      <button
-                        key={color}
-                        className={cn(
-                          "h-8 w-8 rounded-full border-2 transition-colors",
-                          primaryColor === color ? "border-foreground" : "border-transparent hover:border-foreground/20"
-                        )}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setPrimaryColor(color)}
-                      />
-                    )
-                  )}
+                  <Input
+                    type="color"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="h-10 w-20 p-1 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <Button className="w-full">Save Changes</Button>
+          {/* Expense Visibility */}
+          <div className="bg-card border border-border rounded-lg p-5">
+            <h3 className="font-medium text-foreground mb-4">Expense Visibility</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Control which expenses are visible on your public page
+            </p>
+
+            {loadingExpenses ? (
+              <div className="text-sm text-muted-foreground">Loading expenses...</div>
+            ) : expenses.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No expenses found</div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {expenses.map((expense) => {
+                  const dateValue = expense.date ? new Date(expense.date) : new Date();
+                  return (
+                    <div
+                      key={expense.expense_id}
+                      className="flex items-center justify-between p-3 border border-border rounded-lg"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-foreground truncate">
+                            {expense.expense_name}
+                          </span>
+                          {!expense.member_visible && (
+                            <span className="text-xs text-muted-foreground">(Hidden)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{expense.expense_category}</span>
+                          <span>•</span>
+                          <span>${Number(expense.amount).toFixed(2)}</span>
+                          <span>•</span>
+                          <span>{format(dateValue, "MMM d, yyyy")}</span>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={expense.member_visible}
+                        onCheckedChange={() => handleToggleExpenseVisibility(expense.expense_id)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <Button className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </div>
     </AppLayout>
