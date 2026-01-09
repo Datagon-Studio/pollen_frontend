@@ -104,3 +104,4 @@ COMMENT ON COLUMN contributions.status IS 'Contribution status: pending, confirm
 -- ORDER BY ordinal_position;
 
 
+
