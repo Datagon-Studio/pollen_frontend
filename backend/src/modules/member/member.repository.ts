@@ -1,36 +1,34 @@
+/**
+ * Member Repository
+ * 
+ * Handles all Supabase queries.
+ * No validation, no HTTP responses, no business logic.
+ */
+
 import { supabase } from '../../shared/supabase/client.js';
-
-export interface Member {
-  id: string;
-  account_id: string;
-  first_name: string;
-  last_name: string;
-  dob: string | null;
-  phone: string;
-  phone_verified: boolean;
-  email: string | null;
-  email_verified: boolean;
-  membership_number: string | null;
-  total_contributed: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export type CreateMemberInput = Omit<Member, 'id' | 'created_at' | 'updated_at' | 'total_contributed'>;
-export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>>;
+import { Member, CreateMemberInput, UpdateMemberInput } from './member.entity.js';
 
 export const memberRepository = {
-  async findById(id: string): Promise<Member | null> {
+  /**
+   * Find member by ID
+   */
+  async findById(memberId: string): Promise<Member | null> {
     const { data, error } = await supabase
       .from('members')
       .select('*')
-      .eq('id', id)
+      .eq('member_id', memberId)
       .single();
 
-    if (error) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(`Failed to find member: ${error.message}`);
+    }
     return data;
   },
 
+  /**
+   * Find all members for an account
+   */
   async findByAccountId(accountId: string): Promise<Member[]> {
     const { data, error } = await supabase
       .from('members')
@@ -39,12 +37,14 @@ export const memberRepository = {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching members:', error);
-      return [];
+      throw new Error(`Failed to fetch members: ${error.message}`);
     }
     return data || [];
   },
 
+  /**
+   * Find member by phone number
+   */
   async findByPhone(phone: string, accountId: string): Promise<Member | null> {
     const { data, error } = await supabase
       .from('members')
@@ -53,10 +53,16 @@ export const memberRepository = {
       .eq('account_id', accountId)
       .single();
 
-    if (error) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(`Failed to find member by phone: ${error.message}`);
+    }
     return data;
   },
 
+  /**
+   * Find member by email
+   */
   async findByEmail(email: string, accountId: string): Promise<Member | null> {
     const { data, error } = await supabase
       .from('members')
@@ -65,70 +71,116 @@ export const memberRepository = {
       .eq('account_id', accountId)
       .single();
 
-    if (error) return null;
-    return data;
-  },
-
-  async create(input: CreateMemberInput): Promise<Member | null> {
-    const { data, error } = await supabase
-      .from('members')
-      .insert({ ...input, total_contributed: 0 })
-      .select()
-      .single();
-
     if (error) {
-      console.error('Error creating member:', error);
-      return null;
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(`Failed to find member by email: ${error.message}`);
     }
     return data;
   },
 
-  async update(id: string, input: UpdateMemberInput): Promise<Member | null> {
+  /**
+   * Find member by membership number
+   */
+  async findByMembershipNumber(membershipNumber: string, accountId: string): Promise<Member | null> {
     const { data, error } = await supabase
       .from('members')
-      .update({ ...input, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
+      .select('*')
+      .eq('membership_number', membershipNumber)
+      .eq('account_id', accountId)
       .single();
 
     if (error) {
-      console.error('Error updating member:', error);
-      return null;
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(`Failed to find member by membership number: ${error.message}`);
     }
     return data;
   },
 
-  async delete(id: string): Promise<boolean> {
+  /**
+   * Create a new member
+   */
+  async create(input: CreateMemberInput): Promise<Member> {
+    const { data, error } = await supabase
+      .from('members')
+      .insert({
+        account_id: input.account_id,
+        full_name: input.full_name,
+        dob: input.dob || null,
+        phone: input.phone,
+        phone_verified: input.phone_verified ?? false,
+        email: input.email || null,
+        email_verified: input.email_verified ?? false,
+        membership_number: input.membership_number || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create member: ${error.message}`);
+    }
+    return data;
+  },
+
+  /**
+   * Update a member
+   */
+  async update(memberId: string, input: UpdateMemberInput): Promise<Member> {
+    // Build update object with only provided fields
+    const updateData: Record<string, unknown> = {};
+
+    if (input.full_name !== undefined) {
+      updateData.full_name = input.full_name;
+    }
+    if (input.dob !== undefined) {
+      updateData.dob = input.dob;
+    }
+    if (input.phone !== undefined) {
+      updateData.phone = input.phone;
+    }
+    if (input.phone_verified !== undefined) {
+      updateData.phone_verified = input.phone_verified;
+    }
+    if (input.email !== undefined) {
+      updateData.email = input.email;
+    }
+    if (input.email_verified !== undefined) {
+      updateData.email_verified = input.email_verified;
+    }
+    if (input.membership_number !== undefined) {
+      updateData.membership_number = input.membership_number;
+    }
+
+    const { data, error } = await supabase
+      .from('members')
+      .update(updateData)
+      .eq('member_id', memberId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update member: ${error.message}`);
+    }
+    return data;
+  },
+
+  /**
+   * Delete a member
+   */
+  async delete(memberId: string): Promise<boolean> {
     const { error } = await supabase
       .from('members')
       .delete()
-      .eq('id', id);
+      .eq('member_id', memberId);
 
     if (error) {
-      console.error('Error deleting member:', error);
-      return false;
+      throw new Error(`Failed to delete member: ${error.message}`);
     }
     return true;
   },
 
-  async updateTotalContributed(id: string, amount: number): Promise<Member | null> {
-    const { data, error } = await supabase
-      .from('members')
-      .update({ 
-        total_contributed: amount,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating member contribution total:', error);
-      return null;
-    }
-    return data;
-  },
-
+  /**
+   * Get count of active members (phone or email verified)
+   */
   async getActiveCount(accountId: string): Promise<number> {
     const { count, error } = await supabase
       .from('members')
@@ -136,10 +188,15 @@ export const memberRepository = {
       .eq('account_id', accountId)
       .or('phone_verified.eq.true,email_verified.eq.true');
 
-    if (error) return 0;
+    if (error) {
+      throw new Error(`Failed to get active count: ${error.message}`);
+    }
     return count || 0;
   },
 
+  /**
+   * Get count of inactive members (neither phone nor email verified)
+   */
   async getInactiveCount(accountId: string): Promise<number> {
     const { count, error } = await supabase
       .from('members')
@@ -148,8 +205,9 @@ export const memberRepository = {
       .eq('phone_verified', false)
       .eq('email_verified', false);
 
-    if (error) return 0;
+    if (error) {
+      throw new Error(`Failed to get inactive count: ${error.message}`);
+    }
     return count || 0;
   },
 };
-
