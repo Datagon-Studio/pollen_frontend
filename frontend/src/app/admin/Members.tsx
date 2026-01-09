@@ -189,7 +189,7 @@ export default function Members() {
         actions={
           <Button size="sm" onClick={() => setShowAddMember(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
-            Add Member
+            Add/Invite Member
           </Button>
         }
       />
