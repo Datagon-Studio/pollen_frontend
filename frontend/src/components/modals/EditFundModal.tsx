@@ -156,4 +156,3 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
     </Dialog>
   );
 }
-
