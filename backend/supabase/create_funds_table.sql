@@ -149,3 +149,4 @@ USING (
 -- WHERE table_name = 'funds'
 -- ORDER BY ordinal_position;
 
+
