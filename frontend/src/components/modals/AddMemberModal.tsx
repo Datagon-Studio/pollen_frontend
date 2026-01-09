@@ -430,23 +430,41 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                   className={cn(emailVerified && "bg-success/10 border-success")}
                 />
                 {!emailVerified && formData.email.trim() && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendEmailOtp}
-                    disabled={emailSending || !formData.email.trim()}
-                    className="shrink-0"
-                  >
-                    {emailSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-1" />
-                        Send OTP
-                      </>
-                    )}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendEmailOtp}
+                      disabled={emailSending || !formData.email.trim()}
+                      className="shrink-0"
+                    >
+                      {emailSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-1" />
+                          Send OTP
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // TODO: Send magic link when implemented
+                        toast({
+                          title: "Magic Link",
+                          description: "Magic link functionality will be implemented soon",
+                        });
+                      }}
+                      disabled={!formData.email.trim()}
+                      className="shrink-0"
+                    >
+                      Verify
+                    </Button>
+                  </>
                 )}
                 {emailVerified && (
                   <div className="flex items-center gap-1 text-success shrink-0 px-2">

@@ -27,7 +27,11 @@ export function DeleteMemberModal({ open, onOpenChange, member, onSuccess }: Del
 
     try {
       setDeleting(true);
-      await memberApi.delete(member.member_id);
+      const response = await memberApi.delete(member.member_id);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete member');
+      }
 
       toast({
         title: "Member Deleted",

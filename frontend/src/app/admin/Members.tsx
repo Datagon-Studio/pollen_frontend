@@ -20,55 +20,132 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
+import { EditMemberModal } from "@/components/modals/EditMemberModal";
+import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
 import { format } from "date-fns";
 import { memberApi, Member, isMemberActive } from "@/services/member.api";
 import { useAccount } from "@/hooks/useAccount";
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number | null | undefined) => {
+  const value = amount ?? 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(amount);
+  }).format(value);
 };
 
-const columns = [
-  {
-    key: "name",
-    header: "Member",
-    render: (item: Member) => {
-      const nameParts = item.full_name.trim().split(/\s+/);
-      const initials = nameParts.length >= 2
-        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
-        : nameParts[0] ? nameParts[0].substring(0, 2).toUpperCase() : "??";
-      
-      return (
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-amber/10 flex items-center justify-center">
-            <span className="text-sm font-medium text-amber-dark">
-              {initials}
-            </span>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">{item.full_name}</p>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {item.email ? (
-                <>
-                  <span>{item.email}</span>
-                  {item.email_verified ? (
-                    <CheckCircle2 className="h-3 w-3 text-success" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-muted-foreground" />
-                  )}
-                </>
-              ) : (
-                <span className="text-muted-foreground/60">No email</span>
-              )}
+interface MemberActionsProps {
+  member: Member;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function MemberActions({ member, onEdit, onDelete }: MemberActionsProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-card border-border">
+        <DropdownMenuItem onClick={onEdit}>Edit Member</DropdownMenuItem>
+        <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+          Remove
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export default function Members() {
+  const { account } = useAccount();
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [deletingMember, setDeletingMember] = useState<Member | null>(null);
+
+  const fetchMembers = async () => {
+    if (!account?.account_id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await memberApi.getByAccount(account.account_id);
+      if (response.success && response.data) {
+        setMembers(response.data);
+      } else {
+        throw new Error(response.error || 'Failed to load members');
+      }
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load members');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, [account?.account_id]);
+
+  const filteredMembers = members.filter((member) => {
+    const fullName = member.full_name.toLowerCase();
+    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
+      (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const isActive = isMemberActive(member);
+    const matchesStatus = statusFilter === "all" ||
+      (statusFilter === "active" && isActive) ||
+      (statusFilter === "inactive" && !isActive);
+    return matchesSearch && matchesStatus;
+  });
+
+  const activeCount = members.filter(isMemberActive).length;
+  const inactiveCount = members.length - activeCount;
+
+  const columns = [
+    {
+      key: "name",
+      header: "Member",
+      render: (item: Member) => {
+        const nameParts = item.full_name.trim().split(/\s+/);
+        const initials = nameParts.length >= 2
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
+          : nameParts[0] ? nameParts[0].substring(0, 2).toUpperCase() : "??";
+        
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-amber/10 flex items-center justify-center">
+              <span className="text-sm font-medium text-amber-dark">
+                {initials}
+              </span>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">{item.full_name}</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                {item.email ? (
+                  <>
+                    <span>{item.email}</span>
+                    {item.email_verified ? (
+                      <CheckCircle2 className="h-3 w-3 text-success" />
+                    ) : (
+                      <XCircle className="h-3 w-3 text-muted-foreground" />
+                    )}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground/60">No email</span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      );
+        );
+      },
     },
-  },
   {
     key: "phone",
     header: "Phone",
@@ -122,71 +199,15 @@ const columns = [
     key: "actions",
     header: "",
     className: "w-12",
-    render: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-card border-border">
-          <DropdownMenuItem>View Profile</DropdownMenuItem>
-          <DropdownMenuItem>Edit Member</DropdownMenuItem>
-          <DropdownMenuItem>View Contributions</DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive">Remove</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    render: (item: Member) => (
+      <MemberActions 
+        member={item} 
+        onEdit={() => setEditingMember(item)} 
+        onDelete={() => setDeletingMember(item)} 
+      />
     ),
   },
 ];
-
-export default function Members() {
-  const { account } = useAccount();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [showAddMember, setShowAddMember] = useState(false);
-
-  const fetchMembers = async () => {
-    if (!account?.account_id) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await memberApi.getByAccount(account.account_id);
-      if (response.success && response.data) {
-        setMembers(response.data);
-      } else {
-        throw new Error(response.error || 'Failed to load members');
-      }
-    } catch (err) {
-      console.error('Failed to fetch members:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load members');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMembers();
-  }, [account?.account_id]);
-
-  const filteredMembers = members.filter((member) => {
-    const fullName = member.full_name.toLowerCase();
-    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
-      (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-    const isActive = isMemberActive(member);
-    const matchesStatus = statusFilter === "all" ||
-      (statusFilter === "active" && isActive) ||
-      (statusFilter === "inactive" && !isActive);
-    return matchesSearch && matchesStatus;
-  });
-
-  const activeCount = members.filter(isMemberActive).length;
-  const inactiveCount = members.length - activeCount;
 
   return (
     <AppLayout>
@@ -255,6 +276,18 @@ export default function Members() {
       )}
 
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />
+      <EditMemberModal 
+        open={!!editingMember} 
+        onOpenChange={(open) => !open && setEditingMember(null)} 
+        member={editingMember}
+        onSuccess={fetchMembers}
+      />
+      <DeleteMemberModal 
+        open={!!deletingMember} 
+        onOpenChange={(open) => !open && setDeletingMember(null)} 
+        member={deletingMember}
+        onSuccess={fetchMembers}
+      />
     </AppLayout>
   );
 }

@@ -1,7 +1,7 @@
 import { apiClient } from './api-client';
 
 export interface Member {
-  id: string;
+  member_id: string;
   account_id: string;
   full_name: string;
   dob: string | null;
@@ -10,12 +10,12 @@ export interface Member {
   email: string | null;
   email_verified: boolean;
   membership_number: string | null;
-  total_contributed: number;
+  total_contributed: number | null;
   created_at: string;
   updated_at: string;
 }
 
-export type CreateMemberInput = Omit<Member, 'id' | 'created_at' | 'updated_at' | 'total_contributed'>;
+export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'>;
 export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>>;
 
 export interface MemberStats {
