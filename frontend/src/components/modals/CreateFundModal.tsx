@@ -27,6 +27,7 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
     description: "",
     defaultAmount: "",
     isActive: true,
+    isPublic: true,
   });
   const [saving, setSaving] = useState(false);
 
@@ -49,6 +50,7 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
         description: formData.description.trim() || null,
         default_amount: formData.defaultAmount ? parseFloat(formData.defaultAmount) : null,
         is_active: formData.isActive,
+        is_public: formData.isPublic,
       });
 
       toast({
@@ -56,7 +58,7 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
         description: `${formData.fundName} has been created successfully.`,
       });
 
-      setFormData({ fundName: "", description: "", defaultAmount: "", isActive: true });
+      setFormData({ fundName: "", description: "", defaultAmount: "", isActive: true, isPublic: true });
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
@@ -118,12 +120,23 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="is-active">Active Fund</Label>
-                <p className="text-xs text-muted-foreground">Only active funds appear on public page</p>
+                <p className="text-xs text-muted-foreground">Active funds accept contributions. Inactive funds do not.</p>
               </div>
               <Switch
                 id="is-active"
                 checked={formData.isActive}
                 onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="is-public">Public Fund</Label>
+                <p className="text-xs text-muted-foreground">Only public funds appear on public pages. Private funds only support manual additions.</p>
+              </div>
+              <Switch
+                id="is-public"
+                checked={formData.isPublic}
+                onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked })}
               />
             </div>
           </div>

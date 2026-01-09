@@ -132,7 +132,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               </span>
             )}
           </div>
-          <span className="font-semibold text-foreground">PollenHive</span>
+          <span className="font-semibold text-foreground">
+            {account?.account_name || "PollenHive"}
+          </span>
         </div>
       </header>
 
@@ -173,7 +175,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               )}
             </div>
             {sidebarOpen && (
-              <span className="font-semibold text-foreground">PollenHive</span>
+              <span className="font-semibold text-foreground">
+                {account?.account_name || "PollenHive"}
+              </span>
             )}
           </Link>
           <button

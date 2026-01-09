@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Receipt, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataTable } from "@/components/ui/data-table";
+import { Wallet, Receipt, CheckCircle2, Search, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 const funds = [
   { id: 1, name: "Emergency Fund", suggestedAmount: "$100/month", collected: 15420, target: 20000 },
@@ -34,13 +38,145 @@ const categoryColors: Record<string, string> = {
   "Maintenance": "bg-charcoal/10 text-charcoal",
 };
 
+type ContributionRow = {
+  id: number;
+  date: string;
+  fund: string;
+  amount: string;
+  status: string;
+};
+
+type ExpenseRow = {
+  id: number;
+  date: string;
+  category: string;
+  description: string;
+  amount: string;
+};
+
 export default function MemberPreview() {
-  const [activeTab, setActiveTab] = useState("funds");
+  const [activeTab, setActiveTab] = useState("my-contributions");
+  
+  // Contribution filters
+  const [contributionSearch, setContributionSearch] = useState("");
+  const [contributionFundFilter, setContributionFundFilter] = useState("all");
+  const [contributionStatusFilter, setContributionStatusFilter] = useState("all");
+  
+  // Expense filters
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("all");
 
   const totalContributed = myContributions.reduce(
     (sum, c) => sum + parseFloat(c.amount.replace("$", "")),
     0
   );
+
+  // Get unique funds and categories for filters
+  const uniqueFunds = useMemo(() => {
+    const funds = new Set(myContributions.map(c => c.fund));
+    return Array.from(funds);
+  }, []);
+
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set(publicExpenses.map(e => e.category));
+    return Array.from(categories);
+  }, []);
+
+  // Filter contributions
+  const filteredContributions = useMemo(() => {
+    return myContributions.filter((contribution) => {
+      const matchesSearch = 
+        contribution.fund.toLowerCase().includes(contributionSearch.toLowerCase()) ||
+        contribution.amount.toLowerCase().includes(contributionSearch.toLowerCase());
+      const matchesFund = contributionFundFilter === "all" || contribution.fund === contributionFundFilter;
+      const matchesStatus = contributionStatusFilter === "all" || contribution.status === contributionStatusFilter;
+      return matchesSearch && matchesFund && matchesStatus;
+    });
+  }, [contributionSearch, contributionFundFilter, contributionStatusFilter]);
+
+  // Filter expenses
+  const filteredExpenses = useMemo(() => {
+    return publicExpenses.filter((expense) => {
+      const matchesSearch = 
+        expense.description.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+        expense.category.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+        expense.amount.toLowerCase().includes(expenseSearch.toLowerCase());
+      const matchesCategory = expenseCategoryFilter === "all" || expense.category === expenseCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [expenseSearch, expenseCategoryFilter]);
+
+  // Contribution table columns
+  const contributionColumns = [
+    {
+      key: "date",
+      header: "Date",
+      className: "text-muted-foreground",
+    },
+    {
+      key: "fund",
+      header: "Fund",
+      render: (item: ContributionRow) => (
+        <span className="font-medium text-foreground">{item.fund}</span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      className: "text-right font-semibold",
+      render: (item: ContributionRow) => (
+        <span className="text-foreground">{item.amount}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (item: ContributionRow) => (
+        <div className="flex items-center gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+          <span className="text-xs text-success capitalize">{item.status}</span>
+        </div>
+      ),
+    },
+  ];
+
+  // Expense table columns
+  const expenseColumns = [
+    {
+      key: "date",
+      header: "Date",
+      className: "text-muted-foreground",
+    },
+    {
+      key: "category",
+      header: "Category",
+      render: (item: ExpenseRow) => (
+        <span
+          className={cn(
+            "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
+            categoryColors[item.category] || "bg-secondary text-secondary-foreground"
+          )}
+        >
+          {item.category}
+        </span>
+      ),
+    },
+    {
+      key: "description",
+      header: "Description",
+      render: (item: ExpenseRow) => (
+        <span className="text-foreground">{item.description}</span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      className: "text-right font-semibold",
+      render: (item: ExpenseRow) => (
+        <span className="text-foreground">{item.amount}</span>
+      ),
+    },
+  ];
 
   return (
     <AppLayout>
@@ -86,19 +222,69 @@ export default function MemberPreview() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-secondary w-full mb-6">
-            <TabsTrigger value="funds" className="flex-1">
-              <Wallet className="h-4 w-4 mr-2" />
-              Contribute
-            </TabsTrigger>
             <TabsTrigger value="my-contributions" className="flex-1">
               <Receipt className="h-4 w-4 mr-2" />
               My Contributions
+            </TabsTrigger>
+            <TabsTrigger value="funds" className="flex-1">
+              <Wallet className="h-4 w-4 mr-2" />
+              Contribute
             </TabsTrigger>
             <TabsTrigger value="expenses" className="flex-1">
               <Receipt className="h-4 w-4 mr-2" />
               Expenses
             </TabsTrigger>
           </TabsList>
+
+          {/* My Contributions Tab */}
+          <TabsContent value="my-contributions">
+            <div className="space-y-4">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search contributions..."
+                    value={contributionSearch}
+                    onChange={(e) => setContributionSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by fund" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">All Funds</SelectItem>
+                    {uniqueFunds.map((fund) => (
+                      <SelectItem key={fund} value={fund}>
+                        {fund}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={contributionStatusFilter} onValueChange={setContributionStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Table */}
+              <DataTable
+                columns={contributionColumns}
+                data={filteredContributions as any}
+                emptyMessage="No contributions found"
+              />
+            </div>
+          </TabsContent>
 
           {/* Funds Tab */}
           <TabsContent value="funds">
@@ -133,55 +319,42 @@ export default function MemberPreview() {
             </div>
           </TabsContent>
 
-          {/* My Contributions Tab */}
-          <TabsContent value="my-contributions">
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-border bg-secondary/30">
-                <p className="text-sm text-muted-foreground">Your contribution history</p>
-              </div>
-              <div className="divide-y divide-border">
-                {myContributions.map((contribution) => (
-                  <div key={contribution.id} className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">{contribution.fund}</p>
-                      <p className="text-sm text-muted-foreground">{contribution.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-foreground">{contribution.amount}</p>
-                      <div className="flex items-center gap-1 justify-end">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                        <span className="text-xs text-success capitalize">{contribution.status}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
           {/* Expenses Tab */}
           <TabsContent value="expenses">
-            <div className="space-y-2">
-              {publicExpenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="bg-card border border-border rounded-lg p-4"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
-                        categoryColors[expense.category] || "bg-secondary text-secondary-foreground"
-                      )}
-                    >
-                      {expense.category}
-                    </span>
-                    <span className="font-semibold text-foreground">{expense.amount}</span>
-                  </div>
-                  <p className="text-foreground">{expense.description}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{expense.date}</p>
+            <div className="space-y-4">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search expenses..."
+                    value={expenseSearch}
+                    onChange={(e) => setExpenseSearch(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
-              ))}
+                <Select value={expenseCategoryFilter} onValueChange={setExpenseCategoryFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {uniqueCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Table */}
+              <DataTable
+                columns={expenseColumns}
+                data={filteredExpenses as any}
+                emptyMessage="No expenses found"
+              />
             </div>
           </TabsContent>
         </Tabs>
