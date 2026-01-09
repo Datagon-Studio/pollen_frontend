@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
@@ -17,10 +17,20 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Search, Download, CalendarIcon, ArrowUpDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, Download, CalendarIcon, ArrowUpDown, Eye, EyeOff, Pencil, Trash2, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { RecordExpenseModal } from "@/components/modals/RecordExpenseModal";
+import { EditExpenseModal } from "@/components/modals/EditExpenseModal";
+import { DeleteExpenseModal } from "@/components/modals/DeleteExpenseModal";
+import { expenseApi, Expense, ExpenseStats } from "@/services";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark border-amber/30",
@@ -30,33 +40,39 @@ const categoryColors: Record<string, string> = {
   "Utilities": "bg-muted text-muted-foreground border-border",
 };
 
-const categories = ["All", "Operations", "Events", "Maintenance", "Administration", "Utilities"];
+// Helper function to format expense for display
+const formatExpenseForDisplay = (expense: Expense) => {
+  try {
+    const dateValue = expense.date ? new Date(expense.date) : new Date();
+    return {
+      expense_id: expense.expense_id,
+      expenseName: expense.expense_name,
+      expenseCategory: expense.expense_category,
+      date: format(dateValue, "MMM d, yyyy"),
+      dateValue: dateValue,
+      amount: `$${Number(expense.amount).toFixed(2)}`,
+      amountValue: Number(expense.amount),
+      notes: expense.notes || "",
+      memberVisible: expense.member_visible,
+    };
+  } catch (error) {
+    console.error("Error formatting expense:", error, expense);
+    const fallbackDate = new Date();
+    return {
+      expense_id: expense.expense_id,
+      expenseName: expense.expense_name,
+      expenseCategory: expense.expense_category,
+      date: format(fallbackDate, "MMM d, yyyy"),
+      dateValue: fallbackDate,
+      amount: `$${Number(expense.amount).toFixed(2)}`,
+      amountValue: Number(expense.amount),
+      notes: expense.notes || "",
+      memberVisible: expense.member_visible,
+    };
+  }
+};
 
-// Expense model based on spec
-interface Expense {
-  id: number;
-  expenseName: string;
-  expenseCategory: string;
-  date: string;
-  dateValue: Date;
-  amount: string;
-  amountValue: number;
-  notes: string;
-  memberVisible: boolean;
-}
-
-const expenses: Expense[] = [
-  { id: 1, expenseName: "Office supplies for monthly meeting", expenseCategory: "Operations", date: "Jan 2, 2026", dateValue: new Date(2026, 0, 2), amount: "$45.00", amountValue: 45, notes: "Printer paper, pens, folders", memberVisible: true },
-  { id: 2, expenseName: "Electricity bill - December 2025", expenseCategory: "Utilities", date: "Jan 1, 2026", dateValue: new Date(2026, 0, 1), amount: "$285.00", amountValue: 285, notes: "", memberVisible: true },
-  { id: 3, expenseName: "Catering for New Year celebration", expenseCategory: "Events", date: "Dec 30, 2025", dateValue: new Date(2025, 11, 30), amount: "$850.00", amountValue: 850, notes: "50 guests catered", memberVisible: true },
-  { id: 4, expenseName: "Venue decoration supplies", expenseCategory: "Events", date: "Dec 28, 2025", dateValue: new Date(2025, 11, 28), amount: "$320.00", amountValue: 320, notes: "", memberVisible: true },
-  { id: 5, expenseName: "HVAC system maintenance", expenseCategory: "Maintenance", date: "Dec 25, 2025", dateValue: new Date(2025, 11, 25), amount: "$175.00", amountValue: 175, notes: "Annual service", memberVisible: false },
-  { id: 6, expenseName: "Accounting software subscription", expenseCategory: "Administration", date: "Dec 22, 2025", dateValue: new Date(2025, 11, 22), amount: "$49.99", amountValue: 49.99, notes: "Monthly subscription", memberVisible: false },
-  { id: 7, expenseName: "Printing materials for newsletter", expenseCategory: "Operations", date: "Dec 20, 2025", dateValue: new Date(2025, 11, 20), amount: "$125.00", amountValue: 125, notes: "", memberVisible: true },
-  { id: 8, expenseName: "Parking lot repairs", expenseCategory: "Maintenance", date: "Dec 18, 2025", dateValue: new Date(2025, 11, 18), amount: "$450.00", amountValue: 450, notes: "Pothole filling", memberVisible: true },
-  { id: 9, expenseName: "Internet service - Q4 2025", expenseCategory: "Utilities", date: "Dec 15, 2025", dateValue: new Date(2025, 11, 15), amount: "$180.00", amountValue: 180, notes: "Quarterly payment", memberVisible: true },
-  { id: 10, expenseName: "Youth program activity materials", expenseCategory: "Events", date: "Dec 12, 2025", dateValue: new Date(2025, 11, 12), amount: "$95.00", amountValue: 95, notes: "", memberVisible: true },
-];
+type DisplayExpense = ReturnType<typeof formatExpenseForDisplay>;
 
 const columns = [
   {
@@ -67,14 +83,14 @@ const columns = [
   {
     key: "expenseName",
     header: "Expense Name",
-    render: (item: Expense) => (
+    render: (item: DisplayExpense) => (
       <span className="text-foreground font-medium">{item.expenseName}</span>
     ),
   },
   {
     key: "expenseCategory",
     header: "Category",
-    render: (item: Expense) => (
+    render: (item: DisplayExpense) => (
       <span
         className={cn(
           "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full border",
@@ -88,14 +104,14 @@ const columns = [
   {
     key: "notes",
     header: "Notes",
-    render: (item: Expense) => (
+    render: (item: DisplayExpense) => (
       <span className="text-sm text-muted-foreground">{item.notes || "—"}</span>
     ),
   },
   {
     key: "memberVisible",
     header: "Visible",
-    render: (item: Expense) => (
+    render: (item: DisplayExpense) => (
       <div className="flex items-center gap-1">
         {item.memberVisible ? (
           <Eye className="h-4 w-4 text-success" />
@@ -112,18 +128,6 @@ const columns = [
   },
 ];
 
-// Group expenses by category for summary
-const getExpensesByCategory = (filteredExpenses: Expense[]) => {
-  return filteredExpenses.reduce((acc, expense) => {
-    if (!acc[expense.expenseCategory]) {
-      acc[expense.expenseCategory] = { total: 0, count: 0 };
-    }
-    acc[expense.expenseCategory].total += expense.amountValue;
-    acc[expense.expenseCategory].count += 1;
-    return acc;
-  }, {} as Record<string, { total: number; count: number }>);
-};
-
 export default function Expenses() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -131,16 +135,147 @@ export default function Expenses() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [showRecordExpense, setShowRecordExpense] = useState(false);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [stats, setStats] = useState<ExpenseStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showEditExpense, setShowEditExpense] = useState(false);
+  const [showDeleteExpense, setShowDeleteExpense] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const { toast } = useToast();
 
-  const filteredExpenses = expenses
-    .filter((expense) => {
-      const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
-      const matchesDateFrom = !dateFrom || expense.dateValue >= dateFrom;
-      const matchesDateTo = !dateTo || expense.dateValue <= dateTo;
-      return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
-    })
+  useEffect(() => {
+    loadExpenses();
+    loadStats();
+  }, []);
+
+  const loadExpenses = async () => {
+    try {
+      setLoading(true);
+      const data = await expenseApi.getAll();
+      setExpenses(data || []);
+    } catch (error) {
+      console.error("Failed to load expenses:", error);
+      setExpenses([]);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load expenses",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const data = await expenseApi.getStats();
+      setStats(data);
+    } catch (error) {
+      console.error("Failed to load expense stats:", error);
+      setStats(null);
+    }
+  };
+
+  const handleExpenseCreated = () => {
+    setShowRecordExpense(false);
+    loadExpenses();
+    loadStats();
+  };
+
+  const handleExpenseUpdated = () => {
+    setShowEditExpense(false);
+    setSelectedExpense(null);
+    loadExpenses();
+    loadStats();
+  };
+
+  const handleExpenseDeleted = () => {
+    setShowDeleteExpense(false);
+    setSelectedExpense(null);
+    loadExpenses();
+    loadStats();
+  };
+
+  const handleEdit = useCallback((expense: Expense) => {
+    setSelectedExpense(expense);
+    setShowEditExpense(true);
+  }, []);
+
+  const handleDelete = useCallback((expense: Expense) => {
+    setSelectedExpense(expense);
+    setShowDeleteExpense(true);
+  }, []);
+
+
+  const categories = useMemo(() => {
+    const cats = stats?.categories || [];
+    return ["All", ...cats];
+  }, [stats]);
+
+  // Create columns with handlers
+  const columnsWithHandlers = useMemo(() => {
+    return [
+      ...columns,
+      {
+        key: "actions",
+        header: "",
+        className: "text-right",
+        render: (item: DisplayExpense) => {
+          const expense = expenses.find(e => e.expense_id === item.expense_id);
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-card border-border">
+                <DropdownMenuItem onClick={() => expense && handleEdit(expense)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Expense
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => expense && handleDelete(expense)} className="text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Expense
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ];
+  }, [expenses, handleEdit, handleDelete]);
+
+  const expensesByCategory = useMemo(() => {
+    return stats?.byCategory || {};
+  }, [stats]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!expenses || expenses.length === 0) {
+      return [];
+    }
+
+    try {
+      const formatted = expenses.map(formatExpenseForDisplay);
+      
+      return formatted
+        .filter((expense) => {
+          const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
+          
+          // Safe date comparison
+          let matchesDateFrom = true;
+          let matchesDateTo = true;
+          if (dateFrom && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+            matchesDateFrom = expense.dateValue >= dateFrom;
+          }
+          if (dateTo && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+            matchesDateTo = expense.dateValue <= dateTo;
+          }
+          
+          return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
+        })
     .sort((a, b) => {
       switch (sortOrder) {
         case "newest":
@@ -155,13 +290,15 @@ export default function Expenses() {
           return 0;
       }
     });
+    } catch (error) {
+      console.error("Error filtering expenses:", error);
+      return [];
+    }
+  }, [expenses, searchQuery, categoryFilter, dateFrom, dateTo, sortOrder]);
 
-  const expensesByCategory = getExpensesByCategory(filteredExpenses);
-
-  const totalExpenses = filteredExpenses.reduce(
-    (sum, e) => sum + e.amountValue,
-    0
-  );
+  const totalExpenses = useMemo(() => {
+    return filteredExpenses.reduce((sum, e) => sum + e.amountValue, 0);
+  }, [filteredExpenses]);
 
   const clearDateFilters = () => {
     setDateFrom(undefined);
@@ -188,27 +325,29 @@ export default function Expenses() {
       />
 
       {/* Category Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-        {Object.entries(expensesByCategory).map(([category, data]) => (
-          <div
-            key={category}
-            className="bg-card border border-border rounded-lg p-4"
-          >
-            <span
-              className={cn(
-                "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border mb-2",
-                categoryColors[category]
-              )}
+      {!loading && Object.keys(expensesByCategory).length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+          {Object.entries(expensesByCategory).map(([category, data]) => (
+            <div
+              key={category}
+              className="bg-card border border-border rounded-lg p-4"
             >
-              {category}
-            </span>
-            <p className="text-lg font-semibold text-foreground">
-              ${data.total.toFixed(2)}
-            </p>
-            <p className="text-xs text-muted-foreground">{data.count} expenses</p>
-          </div>
-        ))}
-      </div>
+              <span
+                className={cn(
+                  "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border mb-2",
+                  categoryColors[category] || "bg-secondary text-secondary-foreground"
+                )}
+              >
+                {category}
+              </span>
+              <p className="text-lg font-semibold text-foreground">
+                ${data.total.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">{data.count} expenses</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Summary Bar */}
       <div className="bg-card border border-border rounded-lg p-4 mb-6">
@@ -307,9 +446,35 @@ export default function Expenses() {
         </div>
       </div>
 
-      <DataTable columns={columns as any} data={filteredExpenses as any} />
+      {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading expenses...</div>
+      ) : filteredExpenses.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No expenses found. Add your first expense to get started.
+        </div>
+      ) : (
+        <DataTable columns={columnsWithHandlers as any} data={filteredExpenses as any} />
+      )}
 
-      <RecordExpenseModal open={showRecordExpense} onOpenChange={setShowRecordExpense} />
+      <RecordExpenseModal 
+        open={showRecordExpense} 
+        onOpenChange={setShowRecordExpense}
+        onSuccess={handleExpenseCreated}
+        existingCategories={stats?.categories || []}
+      />
+      <EditExpenseModal 
+        open={showEditExpense} 
+        onOpenChange={setShowEditExpense} 
+        expense={selectedExpense}
+        onSuccess={handleExpenseUpdated}
+        existingCategories={stats?.categories || []}
+      />
+      <DeleteExpenseModal 
+        open={showDeleteExpense} 
+        onOpenChange={setShowDeleteExpense} 
+        expense={selectedExpense}
+        onSuccess={handleExpenseDeleted}
+      />
     </AppLayout>
   );
 }
