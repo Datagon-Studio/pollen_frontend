@@ -20,17 +20,19 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { memberApi } from "@/services";
 
 interface AddMemberModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function AddMemberModal({ open, onOpenChange }: AddMemberModalProps) {
+export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModalProps) {
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     dob: undefined as Date | undefined,
     phone: "",
     email: "",
@@ -120,13 +122,13 @@ export function AddMemberModal({ open, onOpenChange }: AddMemberModalProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+    if (!formData.fullName.trim()) {
       toast({
         title: "Validation Error",
-        description: "First name and last name are required.",
+        description: "Full name is required.",
         variant: "destructive",
       });
       return;
@@ -141,23 +143,40 @@ export function AddMemberModal({ open, onOpenChange }: AddMemberModalProps) {
       return;
     }
 
-    const fullName = `${formData.firstName} ${formData.lastName}`;
-    const verificationStatus = [];
-    if (emailVerified) verificationStatus.push("email");
-    if (phoneVerified) verificationStatus.push("phone");
+    try {
+      setSaving(true);
+      await memberApi.create({
+        full_name: formData.fullName.trim(),
+        dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
+        phone: formData.phone.trim(),
+        phone_verified: phoneVerified,
+        email: formData.email.trim() || null,
+        email_verified: emailVerified,
+        membership_number: formData.membershipNumber.trim() || null,
+      });
 
-    toast({
-      title: "Member Added",
-      description: `${fullName} has been added${verificationStatus.length > 0 ? ` with verified ${verificationStatus.join(" and ")}` : ""}.`,
-    });
+      toast({
+        title: "Member Added",
+        description: `${formData.fullName} has been added successfully.`,
+      });
 
-    // Reset form
-    resetForm();
-    onOpenChange(false);
+      // Reset form
+      resetForm();
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create member",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetForm = () => {
-    setFormData({ firstName: "", lastName: "", dob: undefined, phone: "", email: "", membershipNumber: "" });
+    setFormData({ fullName: "", dob: undefined, phone: "", email: "", membershipNumber: "" });
     setEmailOtpSent(false);
     setEmailOtp("");
     setEmailVerified(false);
@@ -181,26 +200,15 @@ export function AddMemberModal({ open, onOpenChange }: AddMemberModalProps) {
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* First Name & Last Name */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  placeholder="First name"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Last name"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                />
-              </div>
+            {/* Full Name */}
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name *</Label>
+              <Input
+                id="fullName"
+                placeholder="Enter full name"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              />
             </div>
 
             {/* Date of Birth */}
@@ -386,10 +394,12 @@ export function AddMemberModal({ open, onOpenChange }: AddMemberModalProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit">Add Member</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Adding..." : "Add Member"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
