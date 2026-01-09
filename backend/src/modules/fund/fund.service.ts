@@ -37,6 +37,13 @@ export class FundService {
   }
 
   /**
+   * Get public active funds for an account (for public pages)
+   */
+  async getPublicActiveFundsByAccount(accountId: string): Promise<Fund[]> {
+    return fundRepository.findPublicActiveByAccountId(accountId);
+  }
+
+  /**
    * Create a new fund
    */
   async createFund(input: CreateFundInput): Promise<Fund> {
@@ -53,6 +60,7 @@ export class FundService {
       ...input,
       fund_name: input.fund_name.trim(),
       is_active: input.is_active ?? true,
+      is_public: input.is_public ?? true,
     };
 
     return fundRepository.create(fundData);

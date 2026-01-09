@@ -31,6 +31,7 @@ const mapFundToModalFormat = (fund: Fund) => ({
   contributors: 0, // TODO: Calculate from contributions when contributions API is ready
   description: fund.description || "",
   recurring: true,
+  isPublic: fund.is_public,
 });
 
 function FundCard({ 
@@ -60,6 +61,14 @@ function FundCard({
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={fund.is_active ? "active" : "inactive"} />
+          <span className={cn(
+            "text-xs px-2 py-0.5 rounded",
+            fund.is_public 
+              ? "bg-blue/20 text-blue-dark" 
+              : "bg-muted text-muted-foreground"
+          )}>
+            {fund.is_public ? "Public" : "Private"}
+          </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

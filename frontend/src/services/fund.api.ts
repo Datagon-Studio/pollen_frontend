@@ -7,6 +7,7 @@ export interface Fund {
   description: string | null;
   default_amount: number | null;
   is_active: boolean;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +22,7 @@ export interface CreateFundInput {
   description?: string | null;
   default_amount?: number | null;
   is_active?: boolean;
+  is_public?: boolean;
 }
 
 export interface UpdateFundInput {
@@ -28,6 +30,7 @@ export interface UpdateFundInput {
   description?: string | null;
   default_amount?: number | null;
   is_active?: boolean;
+  is_public?: boolean;
 }
 
 export interface FundStats {

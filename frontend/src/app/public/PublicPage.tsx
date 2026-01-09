@@ -9,13 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Copy, Check, Upload, Wallet, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Fund model based on spec with is_active
+// Fund model based on spec with is_active and is_public
 const funds = [
-  { id: 1, fundName: "Emergency Fund", isActive: true },
-  { id: 2, fundName: "Annual Dues 2026", isActive: true },
-  { id: 3, fundName: "Building Renovation", isActive: true },
-  { id: 4, fundName: "Youth Program", isActive: true },
-  { id: 5, fundName: "Scholarship Fund", isActive: true },
+  { id: 1, fundName: "Emergency Fund", isActive: true, isPublic: true },
+  { id: 2, fundName: "Annual Dues 2026", isActive: true, isPublic: true },
+  { id: 3, fundName: "Building Renovation", isActive: true, isPublic: true },
+  { id: 4, fundName: "Youth Program", isActive: true, isPublic: false },
+  { id: 5, fundName: "Scholarship Fund", isActive: true, isPublic: true },
 ];
 
 const publicExpenses = [
@@ -49,8 +49,8 @@ export default function PublicPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Only show active funds on public page
-  const activeFunds = funds.filter(f => f.isActive);
+  // Only show public and active funds on public page
+  const activeFunds = funds.filter(f => f.isActive && f.isPublic);
 
   return (
     <AppLayout>

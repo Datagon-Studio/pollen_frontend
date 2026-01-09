@@ -50,6 +50,11 @@ export const contributionService = {
       throw new Error('Fund not found');
     }
 
+    // Check if fund is active (only active funds accept contributions)
+    if (!fund.is_active) {
+      throw new Error(`Fund "${fund.fund_name}" is inactive and cannot accept contributions`);
+    }
+
     // Check minimum amount if fund has default
     if (fund.default_amount && input.amount < fund.default_amount) {
       throw new Error(`Minimum contribution for ${fund.fund_name} is $${fund.default_amount}`);

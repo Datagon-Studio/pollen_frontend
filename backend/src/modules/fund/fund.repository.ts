@@ -60,6 +60,24 @@ export const fundRepository = {
   },
 
   /**
+   * Find public active funds for an account (for public pages)
+   */
+  async findPublicActiveByAccountId(accountId: string): Promise<Fund[]> {
+    const { data, error } = await supabase
+      .from('funds')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('is_active', true)
+      .eq('is_public', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch public active funds: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  /**
    * Create a new fund
    */
   async create(input: CreateFundInput): Promise<Fund> {
@@ -71,6 +89,7 @@ export const fundRepository = {
         description: input.description ?? null,
         default_amount: input.default_amount ?? null,
         is_active: input.is_active ?? true,
+        is_public: input.is_public ?? true,
       })
       .select()
       .single();
@@ -99,6 +118,9 @@ export const fundRepository = {
     }
     if (input.is_active !== undefined) {
       updateData.is_active = input.is_active;
+    }
+    if (input.is_public !== undefined) {
+      updateData.is_public = input.is_public;
     }
 
     const { data, error } = await supabase

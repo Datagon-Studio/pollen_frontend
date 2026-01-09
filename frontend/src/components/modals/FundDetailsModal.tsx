@@ -20,6 +20,7 @@ interface Fund {
   contributors: number;
   description: string;
   recurring: boolean;
+  isPublic?: boolean;
 }
 
 interface FundDetailsModalProps {
@@ -59,6 +60,16 @@ export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalP
                     </span>
                   )}
                   <StatusBadge status={fund.status} />
+                  {fund.isPublic !== undefined && (
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded",
+                      fund.isPublic 
+                        ? "bg-blue/20 text-blue-dark" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      {fund.isPublic ? "Public" : "Private"}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

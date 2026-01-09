@@ -94,6 +94,27 @@ fundRoutes.get('/active', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/v1/funds/public/:accountId
+ * Get public active funds for an account (for public pages, no auth required)
+ */
+fundRoutes.get('/public/:accountId', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.params.accountId;
+    const funds = await fundService.getPublicActiveFundsByAccount(accountId);
+    res.status(200).json({
+      success: true,
+      data: funds,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch public funds';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
  * GET /api/v1/funds/stats
  * Get fund statistics for the authenticated user's account
  */
@@ -189,6 +210,7 @@ fundRoutes.post('/', async (req: Request, res: Response) => {
       description: req.body.description,
       default_amount: req.body.default_amount,
       is_active: req.body.is_active,
+      is_public: req.body.is_public,
     };
 
     const fund = await fundService.createFund(input);
@@ -217,6 +239,7 @@ fundRoutes.put('/:id', async (req: Request, res: Response) => {
       description: req.body.description,
       default_amount: req.body.default_amount,
       is_active: req.body.is_active,
+      is_public: req.body.is_public,
     };
 
     const fund = await fundService.updateFund(req.params.id, input);
