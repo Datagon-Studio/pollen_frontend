@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,19 +27,23 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { expenseApi } from "@/services";
 
 interface RecordExpenseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+  existingCategories?: string[];
 }
 
 const defaultCategories = ["Operations", "Events", "Maintenance", "Administration", "Utilities"];
 
-export function RecordExpenseModal({ open, onOpenChange }: RecordExpenseModalProps) {
+export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCategories = [] }: RecordExpenseModalProps) {
   const { toast } = useToast();
-  const [categories, setCategories] = useState(defaultCategories);
+  const [categories, setCategories] = useState<string[]>([]);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     expenseName: "",
     expenseCategory: "",
@@ -48,6 +52,12 @@ export function RecordExpenseModal({ open, onOpenChange }: RecordExpenseModalPro
     notes: "",
     memberVisible: true,
   });
+
+  useEffect(() => {
+    // Merge existing categories with defaults, removing duplicates
+    const allCategories = [...new Set([...defaultCategories, ...existingCategories])];
+    setCategories(allCategories);
+  }, [existingCategories]);
 
   const handleAddCategory = () => {
     if (!customCategory.trim()) {
@@ -79,7 +89,7 @@ export function RecordExpenseModal({ open, onOpenChange }: RecordExpenseModalPro
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.expenseName.trim() || !formData.expenseCategory || !formData.amount) {
@@ -91,15 +101,46 @@ export function RecordExpenseModal({ open, onOpenChange }: RecordExpenseModalPro
       return;
     }
 
-    toast({
-      title: "Expense Recorded",
-      description: `$${formData.amount} expense for ${formData.expenseCategory} has been recorded.`,
-    });
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid amount greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setFormData({ expenseName: "", expenseCategory: "", date: new Date(), amount: "", notes: "", memberVisible: true });
-    setShowCustomCategory(false);
-    setCustomCategory("");
-    onOpenChange(false);
+    try {
+      setSaving(true);
+      await expenseApi.create({
+        expense_name: formData.expenseName.trim(),
+        expense_category: formData.expenseCategory,
+        date: format(formData.date, "yyyy-MM-dd"),
+        amount: amount,
+        notes: formData.notes.trim() || null,
+        member_visible: formData.memberVisible,
+      });
+
+      toast({
+        title: "Expense Recorded",
+        description: `$${formData.amount} expense for ${formData.expenseCategory} has been recorded.`,
+      });
+
+      setFormData({ expenseName: "", expenseCategory: "", date: new Date(), amount: "", notes: "", memberVisible: true });
+      setShowCustomCategory(false);
+      setCustomCategory("");
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create expense",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -253,10 +294,12 @@ export function RecordExpenseModal({ open, onOpenChange }: RecordExpenseModalPro
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit">Add Expense</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Add Expense"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
