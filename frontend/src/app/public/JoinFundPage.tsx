@@ -87,11 +87,11 @@ export default function JoinFundPage() {
       setFund(fundData);
       */
     } catch (error) {
-      console.error("Error loading fund:", error);
+      console.error("Error loading group:", error);
       // Don't navigate away, just show error
       toast({
         title: "Error",
-        description: "Fund not found",
+        description: "Group not found",
         variant: "destructive",
       });
     } finally {
@@ -193,7 +193,7 @@ export default function JoinFundPage() {
     if (!fund?.account_id) {
       toast({
         title: "Error",
-        description: "Fund information not found",
+        description: "Group information not found",
         variant: "destructive",
       });
       return;
@@ -254,7 +254,7 @@ export default function JoinFundPage() {
   if (!fund) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Fund not found</div>
+        <div className="text-muted-foreground">Group not found</div>
       </div>
     );
   }

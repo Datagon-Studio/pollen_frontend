@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
-import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fundApi, Fund } from "@/services/fund.api";
@@ -40,6 +42,8 @@ export default function PublicFundPage() {
   const [contributionSearch, setContributionSearch] = useState("");
   const [contributionFundFilter, setContributionFundFilter] = useState("all");
   const [contributionStatusFilter, setContributionStatusFilter] = useState("all");
+  const [contributionStartDate, setContributionStartDate] = useState<Date | undefined>(undefined);
+  const [contributionEndDate, setContributionEndDate] = useState<Date | undefined>(undefined);
   
   // Filter states for expenses
   const [expenseSearch, setExpenseSearch] = useState("");
@@ -83,7 +87,7 @@ export default function PublicFundPage() {
       const mockAccount: Account = {
         account_id: "a8963668-f203-4133-85aa-059f32c35279",
         account_name: "Community Group",
-        account_logo: null,
+        account_logo: "https://via.placeholder.com/200x200/FFA500/FFFFFF?text=CG",
         foreground_color: "#1a1a1a",
         background_color: "#ffffff",
         kyc_status: "verified",
@@ -202,8 +206,8 @@ export default function PublicFundPage() {
       }
       */
     } catch (error) {
-      console.error('[PublicFundPage] Error loading fund:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Fund not found';
+      console.error('[PublicFundPage] Error loading group:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Group not found';
       toast({
         title: "Error",
         description: errorMessage,
@@ -353,29 +357,7 @@ export default function PublicFundPage() {
     setShowOtpVerification(true);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!fund) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Fund not found</p>
-            <Button onClick={() => navigate("/g")} className="w-full mt-4">
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // All hooks must be called before any conditional returns
   const backgroundColor = account?.background_color || "#ffffff";
   const foregroundColor = account?.foreground_color || "#000000";
 
@@ -402,9 +384,26 @@ export default function PublicFundPage() {
         contribution.amount.toString().includes(contributionSearch.toLowerCase());
       const matchesFund = contributionFundFilter === "all" || fundName === contributionFundFilter;
       const matchesStatus = contributionStatusFilter === "all" || contribution.status === contributionStatusFilter;
-      return matchesSearch && matchesFund && matchesStatus;
+      
+      // Date filtering
+      let matchesDate = true;
+      if (contributionStartDate || contributionEndDate) {
+        const contributionDate = new Date(contribution.date_received);
+        if (contributionStartDate) {
+          const start = new Date(contributionStartDate);
+          start.setHours(0, 0, 0, 0);
+          if (contributionDate < start) matchesDate = false;
+        }
+        if (contributionEndDate) {
+          const end = new Date(contributionEndDate);
+          end.setHours(23, 59, 59, 999);
+          if (contributionDate > end) matchesDate = false;
+        }
+      }
+      
+      return matchesSearch && matchesFund && matchesStatus && matchesDate;
     });
-  }, [contributions, contributionSearch, contributionFundFilter, contributionStatusFilter, publicFunds]);
+  }, [contributions, contributionSearch, contributionFundFilter, contributionStatusFilter, contributionStartDate, contributionEndDate, publicFunds]);
 
   // Filter expenses
   const filteredExpenses = useMemo(() => {
@@ -419,7 +418,7 @@ export default function PublicFundPage() {
   }, [expenses, expenseSearch, expenseCategoryFilter]);
 
   // Contribution table columns
-  const contributionColumns = [
+  const contributionColumns = useMemo(() => [
     {
       key: "date",
       header: "Date",
@@ -452,10 +451,10 @@ export default function PublicFundPage() {
         </div>
       ),
     },
-  ];
+  ], [publicFunds]);
 
   // Expense table columns
-  const expenseColumns = [
+  const expenseColumns = useMemo(() => [
     {
       key: "date",
       header: "Date",
@@ -494,7 +493,30 @@ export default function PublicFundPage() {
         <span className="text-foreground">${Number(item.amount).toFixed(2)}</span>
       ),
     },
-  ];
+  ], []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!fund) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Group not found</p>
+            <Button onClick={() => navigate("/g")} className="w-full mt-4">
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -590,50 +612,69 @@ export default function PublicFundPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6">
-        {/* Header */}
-        <div className="text-center mb-8">
-          {account?.account_logo && (
-            <div className="mb-4 flex justify-center">
+        {/* Header with Logo on Left */}
+        <div className="flex items-start gap-6 mb-8">
+          {/* Logo on Left */}
+          <div className="flex-shrink-0">
+            {account?.account_logo ? (
               <img 
                 src={account.account_logo} 
                 alt={account.account_name || "Logo"} 
-                className="h-20 w-20 rounded-xl object-cover"
+                className="h-20 w-20 rounded-xl object-cover shadow-lg border-2"
+                style={{ borderColor: foregroundColor + "20" }}
               />
-            </div>
-          )}
-          <h1 
-            className="text-3xl font-bold mb-2"
-            style={{ color: foregroundColor }}
-          >
-            {account?.account_name || "Community Group"}
-          </h1>
-          <p 
-            className="opacity-80 mb-6"
-            style={{ color: foregroundColor }}
-          >
-            Support our community by contributing to our active funds
-          </p>
+            ) : (
+              <div 
+                className="h-20 w-20 rounded-xl flex items-center justify-center shadow-lg border-2"
+                style={{ 
+                  backgroundColor: foregroundColor + "10",
+                  borderColor: foregroundColor + "20",
+                  color: foregroundColor
+                }}
+              >
+                <span className="text-2xl font-bold">
+                  {(account?.account_name || "CG").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* Title and Description */}
+          <div className="flex-1">
+            <h1 
+              className="text-3xl font-bold mb-2"
+              style={{ color: foregroundColor }}
+            >
+              {account?.account_name || "Community Group"}
+            </h1>
+            <p 
+              className="opacity-80 mb-4"
+              style={{ color: foregroundColor }}
+            >
+              Support our community by contributing to our active funds
+            </p>
 
-          {/* Action Buttons - Prominent at top */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-            {!isVerified && (
-              <Button 
-                onClick={handleRequestAccess} 
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-start gap-3">
+              {!isVerified && (
+                <Button 
+                  onClick={handleRequestAccess} 
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  View My Contributions
+                </Button>
+              )}
+              <Button
+                variant={isVerified ? "default" : "outline"}
                 size="lg"
+                onClick={() => navigate(`/g/${fundId}/join`)}
                 className="w-full sm:w-auto"
               >
-                <Lock className="h-4 w-4 mr-2" />
-                View My Contributions
+                Join this group
               </Button>
-            )}
-            <Button
-              variant={isVerified ? "default" : "outline"}
-              size="lg"
-              onClick={() => navigate(`/g/${fundId}/join`)}
-              className="w-full sm:w-auto"
-            >
-              Join this group
-            </Button>
+            </div>
           </div>
         </div>
 
@@ -724,42 +765,115 @@ export default function PublicFundPage() {
             <TabsContent value="contributions" className="mt-4">
               <div className="space-y-4">
                 {/* Filters */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search contributions..."
-                      value={contributionSearch}
-                      onChange={(e) => setContributionSearch(e.target.value)}
-                      className="pl-9"
-                      style={{ backgroundColor: backgroundColor, color: foregroundColor }}
-                    />
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search contributions..."
+                        value={contributionSearch}
+                        onChange={(e) => setContributionSearch(e.target.value)}
+                        className="pl-9"
+                        style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                      />
+                    </div>
+                    <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
+                      <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Filter by fund" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">All Funds</SelectItem>
+                        {uniqueFunds.map((fund) => (
+                          <SelectItem key={fund} value={fund}>
+                            {fund}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={contributionStatusFilter} onValueChange={setContributionStatusFilter}>
+                      <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
-                    <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Filter by fund" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="all">All Funds</SelectItem>
-                      {uniqueFunds.map((fund) => (
-                        <SelectItem key={fund} value={fund}>
-                          {fund}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={contributionStatusFilter} onValueChange={setContributionStatusFilter}>
-                    <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  
+                  {/* Date Range Filter */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "w-full sm:w-[200px] justify-start text-left font-normal",
+                            !contributionStartDate && "text-muted-foreground"
+                          )}
+                          style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {contributionStartDate ? format(contributionStartDate, "MMM d, yyyy") : "Start date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={contributionStartDate}
+                          onSelect={setContributionStartDate}
+                          initialFocus
+                          className="p-3"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "w-full sm:w-[200px] justify-start text-left font-normal",
+                            !contributionEndDate && "text-muted-foreground"
+                          )}
+                          style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {contributionEndDate ? format(contributionEndDate, "MMM d, yyyy") : "End date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={contributionEndDate}
+                          onSelect={setContributionEndDate}
+                          initialFocus
+                          className="p-3"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    {(contributionStartDate || contributionEndDate) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setContributionStartDate(undefined);
+                          setContributionEndDate(undefined);
+                        }}
+                        className="w-full sm:w-auto"
+                        style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                      >
+                        Clear dates
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Table */}
