@@ -100,7 +100,7 @@ export default function PublicPage() {
     }
   };
 
-  const publicUrl = account ? `https://localhost:3001/g/${account.account_id}` : "";
+  const publicUrl = account ? `https://localhost:8080/g/${account.account_id}` : "";
 
   const handleCopy = () => {
     if (publicUrl) {
