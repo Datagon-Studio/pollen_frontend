@@ -188,5 +188,20 @@ export const expenseApi = {
       throw new Error(response.error || 'Failed to delete expense');
     }
   },
+
+  /**
+   * Get public visible expenses for an account (no auth required)
+   */
+  async getPublicByAccount(accountId: string): Promise<Expense[]> {
+    const response = await request<Expense[]>(`/expenses/public/${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch public expenses');
+    }
+
+    return response.data;
+  },
 };
 

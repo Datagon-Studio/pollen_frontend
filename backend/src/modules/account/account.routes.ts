@@ -10,7 +10,13 @@ import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
 
 export const accountRoutes = Router();
 
-// All account routes require authentication
+// Public route (no auth required)
+// GET /api/v1/accounts/public/:accountId - Get public account info
+accountRoutes.get('/public/:accountId', async (req, res) => {
+  await accountController.getPublicAccount(req, res);
+});
+
+// All other account routes require authentication
 accountRoutes.use(authenticateToken);
 
 // GET /api/v1/accounts/me - Get current user's account

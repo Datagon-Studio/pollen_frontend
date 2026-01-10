@@ -155,7 +155,8 @@ fundRoutes.get('/stats', async (req: Request, res: Response) => {
 
 /**
  * GET /api/v1/funds/:id
- * Get a specific fund by ID
+ * Get a specific fund by ID (authenticated route - public route is in fund.routes.ts)
+ * Note: Public access route is defined in fund.routes.ts before auth middleware
  */
 fundRoutes.get('/:id', async (req: Request, res: Response) => {
   try {

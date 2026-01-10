@@ -50,4 +50,19 @@ export const accountApi = {
 
     return response.data;
   },
+
+  /**
+   * Get public account info by account ID (no auth required)
+   */
+  async getPublic(accountId: string): Promise<Account> {
+    const response = await request<Account>(`/accounts/public/${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch account');
+    }
+
+    return response.data;
+  },
 };

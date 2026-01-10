@@ -369,3 +369,24 @@ expenseRoutes.delete('/:id', async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * GET /api/v1/expenses/public/:accountId
+ * Get public visible expenses for an account (no auth required)
+ */
+expenseRoutes.get('/public/:accountId', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.params.accountId;
+    const expenses = await expenseService.getVisibleExpenses(accountId);
+    res.status(200).json({
+      success: true,
+      data: expenses,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch public expenses';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+});
