@@ -103,6 +103,43 @@ export class AccountController {
       });
     }
   }
+
+  /**
+   * GET /api/v1/accounts/public/:accountId
+   * Get public account info by account ID (no auth required)
+   */
+  async getPublicAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const accountId = req.params.accountId;
+      if (!accountId) {
+        res.status(400).json({
+          success: false,
+          error: 'Account ID is required',
+        });
+        return;
+      }
+
+      const account = await accountService.getAccountById(accountId);
+      if (!account) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        data: account,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch account';
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
 }
 
 export const accountController = new AccountController();

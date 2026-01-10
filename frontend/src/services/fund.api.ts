@@ -86,6 +86,21 @@ export const fundApi = {
   },
 
   /**
+   * Get public active funds for an account (no auth required)
+   */
+  async getPublicByAccount(accountId: string): Promise<Fund[]> {
+    const response = await request<Fund[]>(`/funds/public/${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch public funds');
+    }
+
+    return response.data;
+  },
+
+  /**
    * Get fund statistics for the authenticated user's account
    */
   async getStats(): Promise<FundStats> {

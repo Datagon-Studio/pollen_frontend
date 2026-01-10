@@ -13,6 +13,9 @@ import Contributions from "./app/admin/Contributions";
 import Expenses from "./app/admin/Expenses";
 import PublicPage from "./app/public/PublicPage";
 import MemberPreview from "./app/public/MemberPreview";
+import PublicFundLanding from "./app/public/PublicFundLanding";
+import PublicFundPage from "./app/public/PublicFundPage";
+import JoinFundPage from "./app/public/JoinFundPage";
 import Reports from "./app/admin/Reports";
 import Settings from "./app/admin/Settings";
 import NotFound from "./app/NotFound";
@@ -96,6 +99,9 @@ const App = () => {
           />
           <Route path="/public-page" element={<PublicPage />} />
           <Route path="/member-preview" element={<MemberPreview />} />
+          <Route path="/g" element={<PublicFundLanding />} />
+          <Route path="/g/:fundId" element={<PublicFundPage />} />
+          <Route path="/g/:fundId/join" element={<JoinFundPage />} />
           <Route
             path="/reports"
             element={

@@ -76,6 +76,17 @@ export class AccountService {
 
     return accountRepository.update(accountId, updateData);
   }
+
+  /**
+   * Get account by account ID (public access)
+   */
+  async getAccountById(accountId: string): Promise<Account | null> {
+    if (!accountId) {
+      throw new Error('Account ID is required');
+    }
+
+    return accountRepository.findByAccountId(accountId);
+  }
 }
 
 export const accountService = new AccountService();

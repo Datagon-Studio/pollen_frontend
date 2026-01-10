@@ -100,7 +100,7 @@ export default function PublicPage() {
     }
   };
 
-  const publicUrl = account ? `https://pollenhive.app/account/${account.account_id}` : "";
+  const publicUrl = account ? `localhost:8080/g/${account.account_id}` : "";
 
   const handleCopy = () => {
     if (publicUrl) {
