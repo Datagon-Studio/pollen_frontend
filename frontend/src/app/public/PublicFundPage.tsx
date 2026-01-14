@@ -802,19 +802,22 @@ export default function PublicFundPage() {
               <div className="space-y-4">
                 {/* Filters */}
                 <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search contributions..."
-                        value={contributionSearch}
-                        onChange={(e) => setContributionSearch(e.target.value)}
-                        className="pl-9"
-                        style={{ backgroundColor: backgroundColor, color: foregroundColor }}
-                      />
-                    </div>
+                  {/* Search - Full width row */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search contributions..."
+                      value={contributionSearch}
+                      onChange={(e) => setContributionSearch(e.target.value)}
+                      className="pl-9"
+                      style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                    />
+                  </div>
+                  
+                  {/* All Funds and All Status - Side by side */}
+                  <div className="flex gap-3">
                     <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
-                      <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
+                      <SelectTrigger className="flex-1" style={{ backgroundColor: backgroundColor }}>
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Filter by fund" />
                       </SelectTrigger>
@@ -828,7 +831,7 @@ export default function PublicFundPage() {
                       </SelectContent>
                     </Select>
                     <Select value={contributionStatusFilter} onValueChange={setContributionStatusFilter}>
-                      <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
+                      <SelectTrigger className="flex-1" style={{ backgroundColor: backgroundColor }}>
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
@@ -840,15 +843,15 @@ export default function PublicFundPage() {
                     </Select>
                   </div>
                   
-                  {/* Date Range Filter */}
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Start Date and End Date - Side by side */}
+                  <div className="flex gap-3">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full sm:w-[200px] justify-start text-left font-normal",
+                            "flex-1 justify-start text-left font-normal",
                             !contributionStartDate && "text-muted-foreground"
                           )}
                           style={{ backgroundColor: backgroundColor, color: foregroundColor }}
@@ -874,7 +877,7 @@ export default function PublicFundPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full sm:w-[200px] justify-start text-left font-normal",
+                            "flex-1 justify-start text-left font-normal",
                             !contributionEndDate && "text-muted-foreground"
                           )}
                           style={{ backgroundColor: backgroundColor, color: foregroundColor }}
@@ -893,23 +896,24 @@ export default function PublicFundPage() {
                         />
                       </PopoverContent>
                     </Popover>
-                    
-                    {(contributionStartDate || contributionEndDate) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setContributionStartDate(undefined);
-                          setContributionEndDate(undefined);
-                        }}
-                        className="w-full sm:w-auto"
-                        style={{ backgroundColor: backgroundColor, color: foregroundColor }}
-                      >
-                        Clear dates
-                      </Button>
-                    )}
                   </div>
+                  
+                  {/* Clear dates - Full width row */}
+                  {(contributionStartDate || contributionEndDate) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setContributionStartDate(undefined);
+                        setContributionEndDate(undefined);
+                      }}
+                      className="w-full"
+                      style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                    >
+                      Clear dates
+                    </Button>
+                  )}
                 </div>
 
                 {/* Table */}
