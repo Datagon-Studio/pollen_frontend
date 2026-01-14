@@ -8,8 +8,12 @@ export const app = express();
 
 // Security middleware
 app.use(helmet());
+// CORS: In production (Vercel), frontend and backend are same origin, so allow all
+// In dev, use configured FRONTEND_URL
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: process.env.VERCEL 
+    ? true // Allow same origin in Vercel (frontend and backend same domain)
+    : env.FRONTEND_URL,
   credentials: true,
 }));
 
