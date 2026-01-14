@@ -338,6 +338,9 @@ export default function PublicFundPage() {
       // Load member data
       await loadMemberData(mockMemberId);
       
+      // Set contributions tab as default after verification
+      setActiveTab("contributions");
+      
       toast({
         title: "Verified",
         description: "You now have access to view your contributions",
@@ -655,8 +658,8 @@ export default function PublicFundPage() {
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-start gap-3">
-              {!isVerified && (
+            {!isVerified && (
+              <div className="flex flex-col sm:flex-row items-start gap-3">
                 <Button 
                   onClick={handleRequestAccess} 
                   size="lg"
@@ -665,40 +668,61 @@ export default function PublicFundPage() {
                   <Lock className="h-4 w-4 mr-2" />
                   View My Contributions
                 </Button>
-              )}
-              <Button
-                variant={isVerified ? "default" : "outline"}
-                size="lg"
-                onClick={() => navigate(`/g/${fundId}/join`)}
-                className="w-full sm:w-auto"
-              >
-                Join this group
-              </Button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList className="bg-secondary/50 w-full">
-            <TabsTrigger value="funds" className="flex-1">
-              <Wallet className="h-4 w-4 mr-2" />
-              Funds
-            </TabsTrigger>
-            {isVerified && (
-              <TabsTrigger value="contributions" className="flex-1">
-                <Receipt className="h-4 w-4 mr-2" />
-                My Contributions
-              </TabsTrigger>
+            {isVerified ? (
+              <>
+                <TabsTrigger value="contributions" className="flex-1">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  My Contributions
+                </TabsTrigger>
+                <TabsTrigger value="funds" className="flex-1">
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Contribute
+                </TabsTrigger>
+                <TabsTrigger value="expenses" className="flex-1">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Expenses
+                </TabsTrigger>
+              </>
+            ) : (
+              <>
+                <TabsTrigger value="contributions" className="flex-1">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  My Contributions
+                </TabsTrigger>
+                <TabsTrigger value="funds" className="flex-1">
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Contribute
+                </TabsTrigger>
+                <TabsTrigger value="expenses" className="flex-1">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Expenses
+                </TabsTrigger>
+              </>
             )}
-            <TabsTrigger value="expenses" className="flex-1">
-              <Receipt className="h-4 w-4 mr-2" />
-              Expenses
-            </TabsTrigger>
           </TabsList>
 
           {/* Funds Tab */}
           <TabsContent value="funds" className="mt-4">
+            {!isVerified ? (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">Verify to contribute</p>
+                  <Button onClick={handleRequestAccess}>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Verify
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
             <div className="space-y-4">
               {publicFunds.length === 0 ? (
                 <Card>
@@ -758,11 +782,23 @@ export default function PublicFundPage() {
                 })
               )}
             </div>
+            )}
           </TabsContent>
 
           {/* My Contributions Tab */}
-          {isVerified && (
-            <TabsContent value="contributions" className="mt-4">
+          <TabsContent value="contributions" className="mt-4">
+            {!isVerified ? (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">Verify to see your contributions</p>
+                  <Button onClick={handleRequestAccess}>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Verify
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
               <div className="space-y-4">
                 {/* Filters */}
                 <div className="space-y-3">
@@ -883,11 +919,23 @@ export default function PublicFundPage() {
                   emptyMessage="No contributions found"
                 />
               </div>
-            </TabsContent>
-          )}
+            )}
+          </TabsContent>
 
           {/* Expenses Tab */}
           <TabsContent value="expenses" className="mt-4">
+            {!isVerified ? (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">Verify to see expenses</p>
+                  <Button onClick={handleRequestAccess}>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Verify
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
             <div className="space-y-4">
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-3">
@@ -924,6 +972,7 @@ export default function PublicFundPage() {
                 emptyMessage="No expenses found"
               />
             </div>
+            )}
           </TabsContent>
         </Tabs>
 
