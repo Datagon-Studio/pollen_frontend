@@ -70,11 +70,8 @@ export const contributionService = {
 
     const contribution = await contributionRepository.create(contributionData);
 
-    // Update member total if confirmed
-    if (contribution && contribution.status === 'confirmed') {
-      const newTotal = await contributionRepository.getTotalByMember(member.id);
-      await memberRepository.updateTotalContributed(member.id, newTotal);
-    }
+    // Note: total_contributed is calculated from contributions, not stored on member
+    // If you need to store it, add total_contributed field to members table and member entity
 
     return contribution;
   },
@@ -96,11 +93,8 @@ export const contributionService = {
 
     const contribution = await contributionRepository.update(id, { status: 'confirmed' });
 
-    if (contribution) {
-      // Update member total
-      const newTotal = await contributionRepository.getTotalByMember(existing.member_id);
-      await memberRepository.updateTotalContributed(existing.member_id, newTotal);
-    }
+    // Note: total_contributed is calculated from contributions, not stored on member
+    // If you need to store it, add total_contributed field to members table and member entity
 
     return contribution;
   },
@@ -122,11 +116,8 @@ export const contributionService = {
 
     const deleted = await contributionRepository.delete(id);
 
-    if (deleted && existing.status === 'confirmed') {
-      // Update member total
-      const newTotal = await contributionRepository.getTotalByMember(existing.member_id);
-      await memberRepository.updateTotalContributed(existing.member_id, newTotal);
-    }
+    // Note: total_contributed is calculated from contributions, not stored on member
+    // If you need to store it, add total_contributed field to members table and member entity
 
     return deleted;
   },
