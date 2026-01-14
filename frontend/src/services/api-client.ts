@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
-const API_BASE_URL = '/api/v1';
+// Use environment variable for API base URL, fallback to relative path for dev proxy
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
