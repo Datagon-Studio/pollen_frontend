@@ -23,8 +23,20 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/health', (_req, res) => {
+  console.log('🏥 Health check called');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Test endpoint to verify backend is running
+app.get('/test', (_req, res) => {
+  console.log('🧪 Test endpoint called');
+  res.json({ 
+    message: 'Backend is running!',
+    timestamp: new Date().toISOString(),
+    arkeselConfigured: !!process.env.ARKESEL_API_KEY,
+  });
+});
+
 
 // API Routes
 app.use('/api/v1', routes);
