@@ -63,7 +63,8 @@ export default function Dashboard() {
   const loadFunds = async () => {
     try {
       setLoading(true);
-      const data = await fundApi.getActive();
+      // Get all funds for admin dashboard (not just active)
+      const data = await fundApi.getAll();
       setFunds(data);
     } catch (error) {
       console.error("Failed to load funds:", error);
@@ -72,12 +73,17 @@ export default function Dashboard() {
     }
   };
 
+  // Filter to only show active funds in the dropdown (admins can see all funds in stats)
+  const activeFunds = useMemo(() => {
+    return funds.filter(f => f.is_active);
+  }, [funds]);
+
   const fundsWithAll = useMemo(() => {
     return [
       { fund_id: "all", fund_name: "All Funds" },
-      ...funds.map(f => ({ fund_id: f.fund_id, fund_name: f.fund_name }))
+      ...activeFunds.map(f => ({ fund_id: f.fund_id, fund_name: f.fund_name }))
     ];
-  }, [funds]);
+  }, [activeFunds]);
 
   const selectedFundName = fundsWithAll.find((f) => f.fund_id === selectedFund)?.fund_name || "All Funds";
 
@@ -94,12 +100,12 @@ export default function Dashboard() {
       monthContributions: 0,
       pending: 0,
       pendingCount: 0,
-      activeFunds: funds.filter(f => f.is_active).length,
+      activeFunds: activeFunds.length,
       totalFunds: funds.length,
       members: 0,
       newMembers: 0,
     };
-  }, [funds]);
+  }, [funds, activeFunds]);
 
   return (
     <AppLayout>
