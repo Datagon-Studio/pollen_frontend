@@ -29,12 +29,7 @@ interface FundDetailsModalProps {
   fund: Fund | null;
 }
 
-const recentContributions = [
-  { member: "Alice Johnson", amount: "$150.00", date: "Today" },
-  { member: "Bob Smith", amount: "$75.00", date: "Yesterday" },
-  { member: "Carol White", amount: "$200.00", date: "Dec 30" },
-  { member: "David Brown", amount: "$100.00", date: "Dec 28" },
-];
+// Recent contributions will be loaded from API if needed
 
 export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalProps) {
   if (!fund) return null;
@@ -132,21 +127,25 @@ export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalP
             <span className="font-medium text-foreground">{fund.suggestedAmount}</span>
           </div>
 
-          {/* Recent Contributions */}
-          <div>
+          {/* Recent Contributions - Load from API when fundId is available */}
+          {/* <div>
             <h4 className="text-sm font-medium text-foreground mb-3">Recent Contributions</h4>
             <div className="space-y-2">
-              {recentContributions.map((contribution, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{contribution.member}</p>
-                    <p className="text-xs text-muted-foreground">{contribution.date}</p>
+              {recentContributions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No contributions yet</p>
+              ) : (
+                recentContributions.map((contribution, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{contribution.member}</p>
+                      <p className="text-xs text-muted-foreground">{contribution.date}</p>
+                    </div>
+                    <span className="font-medium text-foreground">{contribution.amount}</span>
                   </div>
-                  <span className="font-medium text-foreground">{contribution.amount}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          </div>
+          </div> */}
         </div>
 
         <div className="flex justify-end gap-2">
