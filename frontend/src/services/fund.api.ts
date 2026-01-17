@@ -1,4 +1,4 @@
-import { request } from './api-client.js';
+import { request } from './api-client';
 
 export interface Fund {
   fund_id: string;
