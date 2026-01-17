@@ -17,13 +17,14 @@ CREATE TABLE IF NOT EXISTS contributions (
   
   -- Contribution Details
   channel TEXT NOT NULL CHECK (channel IN ('offline', 'online')),
+  payment_method TEXT NULL, -- Payment method: Cash, Bank Deposit, Cheque, Mobile Money, Bank Transfer, etc.
   amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
   date_received TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  received_by_user_id UUID NULL, -- User who received the contribution (for offline)
+  received_by_user_id UUID NULL REFERENCES users(user_id) ON DELETE SET NULL, -- User who received the contribution (for offline only)
   
   -- Optional Fields
   comment TEXT NULL,
-  payment_reference TEXT NULL, -- For online payments (transaction ID, etc.)
+  payment_reference TEXT NULL, -- For online payments (transaction ID, reference number, etc.)
   
   -- Status
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'failed', 'reversed')),
@@ -67,6 +68,7 @@ COMMENT ON COLUMN contributions.account_id IS 'Foreign key to accounts table';
 COMMENT ON COLUMN contributions.fund_id IS 'Foreign key to funds table';
 COMMENT ON COLUMN contributions.member_id IS 'Foreign key to members table (nullable for anonymous contributions)';
 COMMENT ON COLUMN contributions.channel IS 'Contribution channel: offline or online';
+COMMENT ON COLUMN contributions.payment_method IS 'Payment method: Cash, Bank Deposit, Cheque, Mobile Money, Bank Transfer, etc.';
 COMMENT ON COLUMN contributions.amount IS 'Contribution amount, must be greater than 0';
 COMMENT ON COLUMN contributions.date_received IS 'Date and time when contribution was received';
 COMMENT ON COLUMN contributions.received_by_user_id IS 'User ID who received the contribution (required for offline)';
