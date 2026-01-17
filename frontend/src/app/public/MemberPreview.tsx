@@ -8,6 +8,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Wallet, Receipt, CheckCircle2, Search, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { contributionApi, Contribution } from "@/services/contribution.api";
 
 const funds = [
   { id: 1, name: "Emergency Fund", suggestedAmount: "$100/month", collected: 15420, target: 20000 },
@@ -24,12 +25,7 @@ const publicExpenses = [
   { id: 5, date: "Dec 25, 2025", category: "Maintenance", description: "HVAC system maintenance", amount: "$175.00" },
 ];
 
-const myContributions = [
-  { id: 1, date: "Jan 2, 2026", fund: "Emergency Fund", amount: "$150.00", status: "confirmed" },
-  { id: 2, date: "Dec 15, 2025", fund: "Annual Dues 2026", amount: "$75.00", status: "confirmed" },
-  { id: 3, date: "Dec 1, 2025", fund: "Building Renovation", amount: "$200.00", status: "confirmed" },
-  { id: 4, date: "Nov 15, 2025", fund: "Emergency Fund", amount: "$100.00", status: "confirmed" },
-];
+// Contributions will be loaded from API
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark",
@@ -56,6 +52,8 @@ type ExpenseRow = {
 
 export default function MemberPreview() {
   const [activeTab, setActiveTab] = useState("my-contributions");
+  const [contributions, setContributions] = useState<ContributionRow[]>([]);
+  const [loading, setLoading] = useState(false);
   
   // Contribution filters
   const [contributionSearch, setContributionSearch] = useState("");
@@ -66,16 +64,16 @@ export default function MemberPreview() {
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("all");
 
-  const totalContributed = myContributions.reduce(
+  const totalContributed = contributions.reduce(
     (sum, c) => sum + parseFloat(c.amount.replace("$", "")),
     0
   );
 
   // Get unique funds and categories for filters
   const uniqueFunds = useMemo(() => {
-    const funds = new Set(myContributions.map(c => c.fund));
+    const funds = new Set(contributions.map(c => c.fund));
     return Array.from(funds);
-  }, []);
+  }, [contributions]);
 
   const uniqueCategories = useMemo(() => {
     const categories = new Set(publicExpenses.map(e => e.category));
@@ -84,7 +82,7 @@ export default function MemberPreview() {
 
   // Filter contributions
   const filteredContributions = useMemo(() => {
-    return myContributions.filter((contribution) => {
+    return contributions.filter((contribution) => {
       const matchesSearch = 
         contribution.fund.toLowerCase().includes(contributionSearch.toLowerCase()) ||
         contribution.amount.toLowerCase().includes(contributionSearch.toLowerCase());
@@ -92,7 +90,7 @@ export default function MemberPreview() {
       const matchesStatus = contributionStatusFilter === "all" || contribution.status === contributionStatusFilter;
       return matchesSearch && matchesFund && matchesStatus;
     });
-  }, [contributionSearch, contributionFundFilter, contributionStatusFilter]);
+  }, [contributions, contributionSearch, contributionFundFilter, contributionStatusFilter]);
 
   // Filter expenses
   const filteredExpenses = useMemo(() => {
