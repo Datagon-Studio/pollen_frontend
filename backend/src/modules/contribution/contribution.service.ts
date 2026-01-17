@@ -23,31 +23,39 @@ export const contributionService = {
     return contributionRepository.findPendingByAccountId(accountId);
   },
 
-  async createContribution(input: CreateContributionInput): Promise<Contribution | null> {
+  async createContribution(input: CreateContributionInput, userId?: string): Promise<Contribution | null> {
     // Validate required fields
-    if (!input.member_id) {
-      throw new Error('Member ID is required');
-    }
     if (!input.fund_id) {
       throw new Error('Fund ID is required');
+    }
+    if (!input.account_id) {
+      throw new Error('Account ID is required');
     }
     if (!input.amount || input.amount <= 0) {
       throw new Error('Valid amount is required');
     }
-    if (!input.payment_method) {
-      throw new Error('Payment method is required');
-    }
 
-    // Validate member exists
-    const member = await memberRepository.findById(input.member_id);
-    if (!member) {
-      throw new Error('Member not found');
+    // Validate member exists if provided (member_id is nullable for anonymous donations)
+    if (input.member_id) {
+      const member = await memberRepository.findById(input.member_id);
+      if (!member) {
+        throw new Error('Member not found');
+      }
+      // Verify member belongs to the same account
+      if (member.account_id !== input.account_id) {
+        throw new Error('Member does not belong to this account');
+      }
     }
 
     // Validate fund exists
     const fund = await fundRepository.findById(input.fund_id);
     if (!fund) {
       throw new Error('Fund not found');
+    }
+
+    // Verify fund belongs to the same account
+    if (fund.account_id !== input.account_id) {
+      throw new Error('Fund does not belong to this account');
     }
 
     // Check if fund is active (only active funds accept contributions)
@@ -60,18 +68,26 @@ export const contributionService = {
       throw new Error(`Minimum contribution for ${fund.fund_name} is $${fund.default_amount}`);
     }
 
+    // Business rule: For offline contributions, received_by_user_id is required
+    if (input.channel === 'offline' && !input.received_by_user_id && !userId) {
+      throw new Error('Received by user ID is required for offline contributions');
+    }
+
+    // Business rule: For online contributions, payment_reference should be provided
+    if (input.channel === 'online' && !input.payment_reference) {
+      // Allow it but log warning - might be pending webhook confirmation
+    }
+
     // Set defaults
     const contributionData: CreateContributionInput = {
       ...input,
       channel: input.channel || 'offline',
       status: input.status || 'pending',
       date_received: input.date_received || new Date().toISOString(),
+      received_by_user_id: input.received_by_user_id || (input.channel === 'offline' ? userId : null) || null,
     };
 
     const contribution = await contributionRepository.create(contributionData);
-
-    // Note: total_contributed is calculated from contributions, not stored on member
-    // If you need to store it, add total_contributed field to members table and member entity
 
     return contribution;
   },
@@ -105,7 +121,7 @@ export const contributionService = {
       throw new Error('Contribution not found');
     }
 
-    return contributionRepository.update(id, { status: 'rejected' });
+    return contributionRepository.update(id, { status: 'failed' });
   },
 
   async deleteContribution(id: string): Promise<boolean> {
