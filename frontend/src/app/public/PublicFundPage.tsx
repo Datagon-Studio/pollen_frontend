@@ -221,64 +221,10 @@ export default function PublicFundPage() {
 
   const loadMemberData = async (memberId: string) => {
     try {
-      // HARDCODED EXAMPLE DATA FOR TESTING
-      const mockContributions: Contribution[] = [
-        {
-          id: "contrib1",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          member_id: memberId,
-          fund_id: fundId || "",
-          amount: 150.00,
-          channel: "online",
-          payment_method: "Mobile Money",
-          status: "confirmed",
-          date_received: "2026-01-02",
-          comment: null,
-          payment_reference: "MM123456",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: "contrib2",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          member_id: memberId,
-          fund_id: "b1234567-c234-5678-90ab-cdef12345678",
-          amount: 75.00,
-          channel: "offline",
-          payment_method: "Cash",
-          status: "confirmed",
-          date_received: "2025-12-15",
-          comment: "Annual dues payment",
-          payment_reference: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: "contrib3",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          member_id: memberId,
-          fund_id: "c2345678-d345-6789-01bc-def234567890",
-          amount: 200.00,
-          channel: "online",
-          payment_method: "Bank Transfer",
-          status: "confirmed",
-          date_received: "2025-12-01",
-          comment: null,
-          payment_reference: "BT789012",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      
-      setContributions(mockContributions);
-      
-      // Uncomment below to use real API calls instead:
-      /*
       const contributionsData = await contributionApi.getByMember(memberId);
       if (contributionsData.success && contributionsData.data) {
         setContributions(contributionsData.data);
       }
-      */
     } catch (error) {
       console.error("Failed to load contributions:", error);
     }
