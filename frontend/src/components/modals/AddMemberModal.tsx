@@ -131,30 +131,85 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       });
       return;
     }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setPhoneSending(true);
-    // Simulate sending OTP
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setPhoneSending(false);
-    setPhoneOtpSent(true);
-    toast({
-      title: "OTP Sent",
-      description: `Verification code sent to ${formData.phone}`,
-    });
+    try {
+      const response = await memberApi.sendPhoneVerificationOTP(formData.phone.trim(), account.account_id);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
+
+      setPhoneOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${formData.phone}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneSending(false);
+    }
   };
 
   const handleVerifyPhoneOtp = async () => {
-    if (!phoneOtp.trim()) return;
+    if (!phoneOtp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setPhoneVerifying(true);
-    // Simulate verification
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setPhoneVerifying(false);
-    setPhoneVerified(true);
-    toast({
-      title: "Phone Verified",
-      description: "Phone number has been verified successfully.",
-    });
+    try {
+      const response = await memberApi.verifyPhoneVerificationOTP(
+        formData.phone.trim(),
+        phoneOtp.trim(),
+        account.account_id
+      );
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to verify OTP');
+      }
+
+      setPhoneVerified(true);
+      toast({
+        title: "Phone Verified",
+        description: "Phone number has been verified successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneVerifying(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,6 +228,15 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       toast({
         title: "Validation Error",
         description: "Phone number is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!phoneVerified) {
+      toast({
+        title: "Verification Required",
+        description: "Please verify the phone number before adding the member.",
         variant: "destructive",
       });
       return;
