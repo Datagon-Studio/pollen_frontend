@@ -1,17 +1,18 @@
 import { supabase } from '../../shared/supabase/client.js';
 
 export interface Contribution {
-  id: string;
+  contribution_id: string;
   account_id: string;
-  member_id: string;
   fund_id: string;
+  member_id: string | null;
+  channel: 'offline' | 'online';
+  payment_method: string | null;
   amount: number;
-  channel: 'online' | 'offline';
-  payment_method: string;
-  status: 'pending' | 'confirmed' | 'rejected';
   date_received: string;
+  received_by_user_id: string | null;
   comment: string | null;
   payment_reference: string | null;
+  status: 'pending' | 'confirmed' | 'failed' | 'reversed';
   created_at: string;
   updated_at: string;
 }
@@ -21,15 +22,15 @@ export interface ContributionWithDetails extends Contribution {
   fund_name: string;
 }
 
-export type CreateContributionInput = Omit<Contribution, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateContributionInput = Partial<Omit<CreateContributionInput, 'account_id' | 'member_id' | 'fund_id'>>;
+export type CreateContributionInput = Omit<Contribution, 'contribution_id' | 'created_at' | 'updated_at'>;
+export type UpdateContributionInput = Partial<Omit<CreateContributionInput, 'account_id' | 'fund_id'>>;
 
 export const contributionRepository = {
   async findById(id: string): Promise<Contribution | null> {
     const { data, error } = await supabase
       .from('contributions')
       .select('*')
-      .eq('id', id)
+      .eq('contribution_id', id)
       .single();
 
     if (error) return null;
@@ -41,8 +42,8 @@ export const contributionRepository = {
       .from('contributions')
       .select(`
         *,
-        members!inner(first_name, last_name),
-        funds!inner(fund_name)
+        members(full_name),
+        funds(fund_name)
       `)
       .eq('account_id', accountId)
       .order('date_received', { ascending: false });
@@ -54,8 +55,8 @@ export const contributionRepository = {
 
     return (data || []).map((c: any) => ({
       ...c,
-      member_name: `${c.members.first_name} ${c.members.last_name}`,
-      fund_name: c.funds.fund_name,
+      member_name: c.members?.full_name || 'Anonymous',
+      fund_name: c.funds?.fund_name || 'Unknown',
     }));
   },
 
@@ -92,8 +93,8 @@ export const contributionRepository = {
       .from('contributions')
       .select(`
         *,
-        members!inner(first_name, last_name),
-        funds!inner(fund_name)
+        members(full_name),
+        funds(fund_name)
       `)
       .eq('account_id', accountId)
       .eq('status', 'pending')
@@ -106,8 +107,8 @@ export const contributionRepository = {
 
     return (data || []).map((c: any) => ({
       ...c,
-      member_name: `${c.members.first_name} ${c.members.last_name}`,
-      fund_name: c.funds.fund_name,
+      member_name: c.members?.full_name || 'Anonymous',
+      fund_name: c.funds?.fund_name || 'Unknown',
     }));
   },
 
@@ -129,7 +130,7 @@ export const contributionRepository = {
     const { data, error } = await supabase
       .from('contributions')
       .update({ ...input, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq('contribution_id', id)
       .select()
       .single();
 
@@ -144,7 +145,7 @@ export const contributionRepository = {
     const { error } = await supabase
       .from('contributions')
       .delete()
-      .eq('id', id);
+      .eq('contribution_id', id);
 
     if (error) {
       console.error('Error deleting contribution:', error);
@@ -161,7 +162,7 @@ export const contributionRepository = {
       .eq('status', 'confirmed');
 
     if (error) return 0;
-    return (data || []).reduce((sum, c) => sum + c.amount, 0);
+    return (data || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0);
   },
 
   async getTotalByMember(memberId: string): Promise<number> {
@@ -172,7 +173,7 @@ export const contributionRepository = {
       .eq('status', 'confirmed');
 
     if (error) return 0;
-    return (data || []).reduce((sum, c) => sum + c.amount, 0);
+    return (data || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0);
   },
 
   async getContributorCountByFund(fundId: string): Promise<number> {
@@ -183,7 +184,7 @@ export const contributionRepository = {
       .eq('status', 'confirmed');
 
     if (error) return 0;
-    const uniqueMembers = new Set((data || []).map(c => c.member_id));
+    const uniqueMembers = new Set((data || []).map((c: any) => c.member_id).filter((id: string | null) => id !== null));
     return uniqueMembers.size;
   },
 
@@ -206,7 +207,7 @@ export const contributionRepository = {
       .eq('status', 'pending');
 
     if (error) return 0;
-    return (data || []).reduce((sum, c) => sum + c.amount, 0);
+    return (data || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0);
   },
 };
 
