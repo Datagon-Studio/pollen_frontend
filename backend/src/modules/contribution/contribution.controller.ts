@@ -1,16 +1,34 @@
 import { Router, Request, Response } from 'express';
 import { contributionService } from './contribution.service.js';
 import { sendSuccess, sendError, sendCreated, sendNotFound, sendBadRequest } from '../../shared/utils/api-response.js';
+import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
+import { accountService } from '../account/account.service.js';
 
 export const contributionRoutes = Router();
+
+// All contribution routes require authentication
+contributionRoutes.use(authenticateToken);
 
 // GET /api/v1/contributions?accountId=xxx
 contributionRoutes.get('/', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
     const accountId = req.query.accountId as string;
+    
     if (!accountId) {
       return sendBadRequest(res, 'Account ID is required');
     }
+
+    // Verify user has access to this account
+    if (userId) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== accountId) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const contributions = await contributionService.getContributionsByAccount(accountId);
     sendSuccess(res, contributions);
   } catch (error) {
@@ -21,10 +39,22 @@ contributionRoutes.get('/', async (req: Request, res: Response) => {
 // GET /api/v1/contributions/pending?accountId=xxx
 contributionRoutes.get('/pending', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
     const accountId = req.query.accountId as string;
+    
     if (!accountId) {
       return sendBadRequest(res, 'Account ID is required');
     }
+
+    // Verify user has access to this account
+    if (userId) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== accountId) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const contributions = await contributionService.getPendingContributions(accountId);
     sendSuccess(res, contributions);
   } catch (error) {
@@ -88,7 +118,22 @@ contributionRoutes.get('/:id', async (req: Request, res: Response) => {
 // POST /api/v1/contributions
 contributionRoutes.post('/', async (req: Request, res: Response) => {
   try {
-    const contribution = await contributionService.createContribution(req.body);
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    // Verify user has access to the account
+    if (req.body.account_id) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== req.body.account_id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
+    const contribution = await contributionService.createContribution(req.body, userId);
     if (!contribution) {
       return sendBadRequest(res, 'Failed to create contribution');
     }
@@ -102,6 +147,22 @@ contributionRoutes.post('/', async (req: Request, res: Response) => {
 // PUT /api/v1/contributions/:id
 contributionRoutes.put('/:id', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    // Verify user has access to the contribution's account
+    const existing = await contributionService.getContribution(req.params.id);
+    if (existing) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== existing.account_id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const contribution = await contributionService.updateContribution(req.params.id, req.body);
     if (!contribution) {
       return sendNotFound(res, 'Contribution not found');
@@ -116,6 +177,22 @@ contributionRoutes.put('/:id', async (req: Request, res: Response) => {
 // POST /api/v1/contributions/:id/confirm
 contributionRoutes.post('/:id/confirm', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    // Verify user has access to the contribution's account
+    const existing = await contributionService.getContribution(req.params.id);
+    if (existing) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== existing.account_id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const contribution = await contributionService.confirmContribution(req.params.id);
     if (!contribution) {
       return sendNotFound(res, 'Contribution not found');
@@ -130,6 +207,22 @@ contributionRoutes.post('/:id/confirm', async (req: Request, res: Response) => {
 // POST /api/v1/contributions/:id/reject
 contributionRoutes.post('/:id/reject', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    // Verify user has access to the contribution's account
+    const existing = await contributionService.getContribution(req.params.id);
+    if (existing) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== existing.account_id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const contribution = await contributionService.rejectContribution(req.params.id);
     if (!contribution) {
       return sendNotFound(res, 'Contribution not found');
@@ -144,6 +237,22 @@ contributionRoutes.post('/:id/reject', async (req: Request, res: Response) => {
 // DELETE /api/v1/contributions/:id
 contributionRoutes.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    // Verify user has access to the contribution's account
+    const existing = await contributionService.getContribution(req.params.id);
+    if (existing) {
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount || userAccount.account_id !== existing.account_id) {
+        return sendError(res, 'Access denied', 403);
+      }
+    }
+
     const deleted = await contributionService.deleteContribution(req.params.id);
     if (!deleted) {
       return sendNotFound(res, 'Contribution not found');
