@@ -12,8 +12,48 @@ import { memberService } from './member.service.js';
 import { CreateMemberInput, UpdateMemberInput } from './member.entity.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import { accountService } from '../account/account.service.js';
+import { arkeselService } from '../../shared/services/arkesel.service.js';
+import { otpCache } from '../../shared/services/otp-cache.service.js';
 
 export const memberRoutes = Router();
+
+/**
+ * GET /api/v1/members/test-otp
+ * Test endpoint to verify Arkesel configuration
+ */
+memberRoutes.get('/test-otp', async (req: Request, res: Response) => {
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🧪 [TEST] OTP Configuration Check');
+  console.log('═══════════════════════════════════════════════════════');
+  
+  const apiKey = process.env.ARKESEL_API_KEY;
+  const hasApiKey = !!apiKey;
+  const apiKeyPreview = apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET';
+  
+  console.log('🔑 API Key Status:', {
+    exists: hasApiKey,
+    length: apiKey?.length || 0,
+    preview: apiKeyPreview,
+  });
+  
+  console.log('🌐 Base URL: https://sms.arkesel.com');
+  console.log('📍 Endpoint: /api/otp/generate');
+  console.log('═══════════════════════════════════════════════════════');
+  
+  res.status(200).json({
+    success: true,
+    config: {
+      hasApiKey,
+      apiKeyLength: apiKey?.length || 0,
+      apiKeyPreview,
+      baseUrl: 'https://sms.arkesel.com',
+      endpoint: '/api/otp/generate',
+    },
+    message: hasApiKey 
+      ? 'Arkesel API key is configured. Check logs when sending OTP.' 
+      : '⚠️ ARKESEL_API_KEY is not set in environment variables!',
+  });
+});
 
 /**
  * GET /api/v1/members
@@ -267,3 +307,151 @@ memberRoutes.post('/:id/verify-email', async (req: Request, res: Response) => {
     });
   }
 });
+
+
+
+
+
+/**
+ * POST /api/v1/members/:id/send-phone-otp
+ * Send OTP to member's phone number
+ */
+memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => {
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📞 [CONTROLLER] POST /members/:id/send-phone-otp');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🆔 Member ID:', req.params.id);
+  console.log('📋 Request Body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const member = await memberService.getMember(req.params.id);
+    console.log('👤 Member Found:', member ? 'Yes' : 'No');
+    
+    if (!member) {
+      console.error('❌ Member not found');
+      return res.status(404).json({
+        success: false,
+        error: 'Member not found',
+      });
+    }
+
+    console.log('📱 Member Phone:', member.phone);
+    
+    if (!member.phone) {
+      console.error('❌ Member does not have a phone number');
+      return res.status(400).json({
+        success: false,
+        error: 'Member does not have a phone number',
+      });
+    }
+
+    console.log('🚀 Calling Arkesel service to send OTP...');
+    
+    // Send OTP via Arkesel (Arkesel generates and sends the OTP)
+    const result = await arkeselService.sendOTP(
+      member.phone,
+      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      5,
+      6
+    );
+
+    console.log('📊 Arkesel Service Result:', JSON.stringify(result, null, 2));
+
+    if (!result.success) {
+      console.error('❌ Arkesel service returned error:', result.error);
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to send OTP',
+      });
+    }
+
+    console.log('✅ OTP sent successfully via Arkesel');
+    console.log('═══════════════════════════════════════════════════════');
+
+    // Note: Arkesel generates the OTP, we don't get it in response
+    // Verification will be done via Arkesel's verify endpoint
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully',
+    });
+  } catch (error) {
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ [CONTROLLER] Exception in send-phone-otp');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('🔴 Error:', error);
+    if (error instanceof Error) {
+      console.error('💬 Message:', error.message);
+      console.error('📚 Stack:', error.stack);
+    }
+    console.error('═══════════════════════════════════════════════════════');
+    
+    const message = error instanceof Error ? error.message : 'Failed to send OTP';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
+ * POST /api/v1/members/:id/verify-phone-otp
+ * Verify OTP code and mark phone as verified
+ */
+memberRoutes.post('/:id/verify-phone-otp', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP code is required',
+      });
+    }
+
+    const member = await memberService.getMember(req.params.id);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        error: 'Member not found',
+      });
+    }
+
+    if (!member.phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Member does not have a phone number',
+      });
+    }
+
+    // Verify OTP via Arkesel API
+    const verifyResult = await arkeselService.verifyOTP(member.phone, code);
+
+    if (!verifyResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: verifyResult.error || 'Invalid or expired OTP code',
+      });
+    }
+
+    // Mark phone as verified
+    const updatedMember = await memberService.verifyPhone(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: updatedMember,
+      message: 'Phone verified successfully',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to verify OTP';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+// NOTE: /otp/send and /otp/verify routes are defined in member.routes.ts
+// (before auth middleware) to make them public. They are NOT defined here
+// to avoid route conflicts.
