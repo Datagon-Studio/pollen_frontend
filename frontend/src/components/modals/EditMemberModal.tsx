@@ -73,19 +73,24 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       return;
     }
     
+    if (!member) return;
+    
     setPhoneSending(true);
     try {
-      // TODO: Call actual API to send OTP
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setPhoneOtpSent(true);
-      toast({
-        title: "OTP Sent",
-        description: `Verification code sent to ${formData.phone}`,
-      });
+      const response = await memberApi.sendPhoneOTP(member.member_id);
+      if (response.success) {
+        setPhoneOtpSent(true);
+        toast({
+          title: "OTP Sent",
+          description: `Verification code sent to ${formData.phone}`,
+        });
+      } else {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send OTP",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
     } finally {
@@ -96,11 +101,11 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
   const handleVerifyPhoneOtp = async () => {
     if (!phoneOtp.trim()) return;
     
+    if (!member) return;
+    
     setPhoneVerifying(true);
     try {
-      if (!member) return;
-      // Call API to verify phone
-      const response = await memberApi.verifyPhone(member.member_id);
+      const response = await memberApi.verifyPhoneOTP(member.member_id, phoneOtp);
       if (response.success && response.data) {
         setPhoneVerified(true);
         setPhoneOtpSent(false);
