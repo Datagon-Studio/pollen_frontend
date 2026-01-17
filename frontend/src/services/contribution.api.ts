@@ -1,17 +1,18 @@
 import { apiClient } from './api-client';
 
 export interface Contribution {
-  id: string;
+  contribution_id: string;
   account_id: string;
-  member_id: string;
   fund_id: string;
+  member_id: string | null;
+  channel: 'offline' | 'online';
+  payment_method: string | null;
   amount: number;
-  channel: 'online' | 'offline';
-  payment_method: string;
-  status: 'pending' | 'confirmed' | 'rejected';
   date_received: string;
+  received_by_user_id: string | null;
   comment: string | null;
   payment_reference: string | null;
+  status: 'pending' | 'confirmed' | 'failed' | 'reversed';
   created_at: string;
   updated_at: string;
 }
@@ -21,8 +22,8 @@ export interface ContributionWithDetails extends Contribution {
   fund_name: string;
 }
 
-export type CreateContributionInput = Omit<Contribution, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateContributionInput = Partial<Omit<CreateContributionInput, 'account_id' | 'member_id' | 'fund_id'>>;
+export type CreateContributionInput = Omit<Contribution, 'contribution_id' | 'created_at' | 'updated_at'>;
+export type UpdateContributionInput = Partial<Omit<CreateContributionInput, 'account_id' | 'fund_id'>>;
 
 export interface ContributionStats {
   pendingCount: number;
