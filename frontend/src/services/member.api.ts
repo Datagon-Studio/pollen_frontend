@@ -53,6 +53,52 @@ export const memberApi = {
     return apiClient.post<Member>(`/members/${id}/verify-phone`);
   },
 
+  /**
+   * Send OTP to member's phone
+   */
+  async sendPhoneOTP(id: string) {
+    return apiClient.post(`/members/${id}/send-phone-otp`);
+  },
+
+  /**
+   * Verify OTP code for member's phone
+   */
+  async verifyPhoneOTP(id: string, code: string) {
+    return apiClient.post<Member>(`/members/${id}/verify-phone-otp`, { code });
+  },
+
+  /**
+   * Send OTP to phone (public endpoint - for viewing contributions)
+   */
+  async sendOTP(phone: string, accountId: string) {
+    return apiClient.post('/members/otp/send', { phone, accountId });
+  },
+
+  /**
+   * Verify OTP code (public endpoint - for viewing contributions)
+   */
+  async verifyOTP(phone: string, code: string, accountId: string) {
+    return apiClient.post<{ member_id: string; full_name: string }>('/members/otp/verify', {
+      phone,
+      code,
+      accountId,
+    });
+  },
+
+  /**
+   * Send OTP for phone verification during member creation (admin only)
+   */
+  async sendPhoneVerificationOTP(phone: string, accountId: string) {
+    return apiClient.post('/members/verify-phone/send', { phone, accountId });
+  },
+
+  /**
+   * Verify OTP for phone verification during member creation (admin only)
+   */
+  async verifyPhoneVerificationOTP(phone: string, code: string, accountId: string) {
+    return apiClient.post('/members/verify-phone/verify', { phone, code, accountId });
+  },
+
   async verifyEmail(id: string) {
     return apiClient.post<Member>(`/members/${id}/verify-email`);
   },
