@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User } from "lucide-react";
+import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,145 +21,388 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
+import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import { fundApi, Fund } from "@/services";
+import { useAccount } from "@/hooks/useAccount";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
-const funds = [
-  { id: "all", fundName: "All Funds" },
-  { id: "emergency", fundName: "Emergency Fund" },
-  { id: "annual", fundName: "Annual Dues" },
-  { id: "building", fundName: "Building Fund" },
-  { id: "youth", fundName: "Youth Program" },
-  { id: "scholarship", fundName: "Scholarship Fund" },
-];
+// Simple cache with TTL
+const cache = {
+  contributions: null as ContributionWithDetails[] | null,
+  contributionsTimestamp: 0,
+  funds: null as Fund[] | null,
+  fundsTimestamp: 0,
+  CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+};
 
-// Contribution model based on spec
-interface Contribution {
-  id: number;
+interface ContributionRow {
+  contribution_id: string;
   dateReceived: string;
   memberName: string;
   fundName: string;
   fundId: string;
   amount: string;
   channel: "offline" | "online";
-  paymentMethod: string;
-  status: "pending" | "confirmed";
+  paymentMethod: string | null;
+  status: "pending" | "confirmed" | "failed" | "reversed";
   comment: string;
   paymentReference: string | null;
 }
 
-const contributions: Contribution[] = [
-  { id: 1, dateReceived: "Jan 2, 2026", memberName: "Alice Johnson", fundName: "Emergency Fund", fundId: "emergency", amount: "$150.00", channel: "online", paymentMethod: "Bank Transfer", status: "confirmed", comment: "", paymentReference: "TXN-001234" },
-  { id: 2, dateReceived: "Jan 2, 2026", memberName: "Bob Smith", fundName: "Annual Dues", fundId: "annual", amount: "$75.00", channel: "offline", paymentMethod: "Cash", status: "pending", comment: "Paid at meeting", paymentReference: null },
-  { id: 3, dateReceived: "Jan 1, 2026", memberName: "Carol White", fundName: "Building Fund", fundId: "building", amount: "$200.00", channel: "online", paymentMethod: "Mobile Money", status: "confirmed", comment: "", paymentReference: "TXN-001235" },
-  { id: 4, dateReceived: "Jan 1, 2026", memberName: "David Brown", fundName: "Emergency Fund", fundId: "emergency", amount: "$100.00", channel: "online", paymentMethod: "Bank Transfer", status: "confirmed", comment: "", paymentReference: "TXN-001236" },
-  { id: 5, dateReceived: "Dec 30, 2025", memberName: "Eve Davis", fundName: "Annual Dues", fundId: "annual", amount: "$75.00", channel: "offline", paymentMethod: "Cash", status: "pending", comment: "Will confirm receipt", paymentReference: null },
-  { id: 6, dateReceived: "Dec 29, 2025", memberName: "Frank Miller", fundName: "Youth Program", fundId: "youth", amount: "$50.00", channel: "offline", paymentMethod: "Cheque", status: "confirmed", comment: "Cheque #1234", paymentReference: null },
-  { id: 7, dateReceived: "Dec 28, 2025", memberName: "Grace Lee", fundName: "Scholarship Fund", fundId: "scholarship", amount: "$100.00", channel: "online", paymentMethod: "Mobile Money", status: "confirmed", comment: "", paymentReference: "TXN-001237" },
-  { id: 8, dateReceived: "Dec 27, 2025", memberName: "Henry Wilson", fundName: "Building Fund", fundId: "building", amount: "$200.00", channel: "online", paymentMethod: "Bank Transfer", status: "confirmed", comment: "", paymentReference: "TXN-001238" },
-  { id: 9, dateReceived: "Dec 26, 2025", memberName: "Ivy Chen", fundName: "Emergency Fund", fundId: "emergency", amount: "$150.00", channel: "offline", paymentMethod: "Cash", status: "confirmed", comment: "Collected by treasurer", paymentReference: null },
-  { id: 10, dateReceived: "Dec 25, 2025", memberName: "Jack Taylor", fundName: "Annual Dues", fundId: "annual", amount: "$75.00", channel: "online", paymentMethod: "Mobile Money", status: "confirmed", comment: "", paymentReference: "TXN-001239" },
-];
-
-const columns = [
-  {
-    key: "dateReceived",
-    header: "Date Received",
-    className: "text-muted-foreground",
-  },
-  {
-    key: "memberName",
-    header: "Member",
-    render: (item: Contribution) => (
-      <span className="font-medium text-foreground">{item.memberName}</span>
-    ),
-  },
-  {
-    key: "fundName",
-    header: "Fund",
-  },
-  {
-    key: "amount",
-    header: "Amount",
-    className: "text-right font-semibold",
-  },
-  {
-    key: "comment",
-    header: "Comment",
-    render: (item: Contribution) => (
-      <span className="text-sm text-muted-foreground">{item.comment || "—"}</span>
-    ),
-  },
-  {
-    key: "paymentMethod",
-    header: "Method",
-    render: (item: Contribution) => (
-      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-secondary text-secondary-foreground">
-        {item.paymentMethod}
-      </span>
-    ),
-  },
-  {
-    key: "channel",
-    header: "Channel",
-    render: (item: Contribution) => (
-      <div className="flex items-center gap-1.5">
-        {item.channel === "online" ? (
-          <>
-            <Monitor className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs text-success">Online</span>
-          </>
-        ) : (
-          <>
-            <User className="h-3.5 w-3.5 text-amber" />
-            <span className="text-xs text-amber">Offline</span>
-          </>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (item: Contribution) => <StatusBadge status={item.status as "pending" | "confirmed"} />,
-  },
-  {
-    key: "actions",
-    header: "",
-    className: "w-12",
-    render: (item: Contribution) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-card border-border">
-          <DropdownMenuItem>View Details</DropdownMenuItem>
-          {item.status === "pending" && (
-            <>
-              <DropdownMenuItem className="text-success">
-                <Check className="h-4 w-4 mr-2" />
-                Confirm
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                <X className="h-4 w-4 mr-2" />
-                Reject
-              </DropdownMenuItem>
-            </>
-          )}
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
-];
+// Columns will be defined inside component to access handlers
 
 export default function Contributions() {
+  const { account } = useAccount();
+  const { toast } = useToast();
+  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [fundFilter, setFundFilter] = useState("all");
   const [showRecordContribution, setShowRecordContribution] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const filteredContributions = contributions.filter((c) => {
+  // Load contributions with caching
+  const loadContributions = useCallback(async (forceRefresh = false) => {
+    if (!account?.account_id) return;
+    
+    const now = Date.now();
+    const cacheKey = activeTab === "pending" ? "pending" : "all";
+    
+    // Use cache if valid and not forcing refresh
+    if (!forceRefresh && cache.contributions && (now - cache.contributionsTimestamp) < cache.CACHE_TTL) {
+      setContributions(cache.contributions);
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      if (!forceRefresh) setLoading(true);
+      
+      // Cancel previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      
+      const response = activeTab === "pending" 
+        ? await contributionApi.getPending(account.account_id)
+        : await contributionApi.getByAccount(account.account_id);
+      
+      if (response.success && response.data) {
+        setContributions(response.data);
+        cache.contributions = response.data;
+        cache.contributionsTimestamp = now;
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      toast({
+        title: "Error",
+        description: "Failed to load contributions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [account?.account_id, activeTab, toast]);
+
+  // Load funds with caching
+  const loadFunds = useCallback(async (forceRefresh = false) => {
+    if (!account?.account_id) {
+      setFunds([]);
+      return;
+    }
+    
+    const now = Date.now();
+    
+    // Use cache if valid and not forcing refresh
+    if (!forceRefresh && cache.funds && (now - cache.fundsTimestamp) < cache.CACHE_TTL) {
+      setFunds(cache.funds);
+      return;
+    }
+    
+    try {
+      const data = await fundApi.getAll();
+      if (Array.isArray(data)) {
+        setFunds(data);
+        cache.funds = data;
+        cache.fundsTimestamp = now;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to load funds";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [account?.account_id, toast]);
+
+  useEffect(() => {
+    if (account?.account_id) {
+      loadContributions();
+    }
+  }, [account?.account_id, activeTab, loadContributions]);
+
+  useEffect(() => {
+    if (account?.account_id) {
+      loadFunds();
+    }
+  }, [account?.account_id, loadFunds]);
+
+  // Optimistic update handlers
+  const handleConfirm = useCallback(async (id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (!contribution) return;
+
+    // Optimistic update
+    const previousContributions = [...contributions];
+    setContributions(prev => prev.map(c => 
+      c.contribution_id === id ? { ...c, status: 'confirmed' as const } : c
+    ));
+
+    try {
+      const response = await contributionApi.confirm(id);
+      if (response.success) {
+        // Invalidate cache and refresh silently
+        cache.contributions = null;
+        loadContributions(true);
+      } else {
+        // Rollback on error
+        setContributions(previousContributions);
+        throw new Error(response.error || "Failed to confirm contribution");
+      }
+    } catch (error) {
+      // Rollback on error
+      setContributions(previousContributions);
+      const errorMessage = error instanceof Error ? error.message : "Failed to confirm contribution";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [contributions, loadContributions, toast]);
+
+  const handleReject = useCallback(async (id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (!contribution) return;
+
+    // Optimistic update
+    const previousContributions = [...contributions];
+    setContributions(prev => prev.map(c => 
+      c.contribution_id === id ? { ...c, status: 'failed' as const } : c
+    ));
+
+    try {
+      const response = await contributionApi.reject(id);
+      if (response.success) {
+        // Invalidate cache and refresh silently
+        cache.contributions = null;
+        loadContributions(true);
+      } else {
+        // Rollback on error
+        setContributions(previousContributions);
+        throw new Error(response.error || "Failed to reject contribution");
+      }
+    } catch (error) {
+      // Rollback on error
+      setContributions(previousContributions);
+      const errorMessage = error instanceof Error ? error.message : "Failed to reject contribution";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [contributions, loadContributions, toast]);
+
+  const handleViewDetails = useCallback((id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (contribution) {
+      toast({
+        title: "Contribution Details",
+        description: (
+          <div className="space-y-1 text-sm">
+            <p><strong>Member:</strong> {contribution.member_name || "Anonymous"}</p>
+            <p><strong>Fund:</strong> {contribution.fund_name}</p>
+            <p><strong>Amount:</strong> ${contribution.amount.toFixed(2)}</p>
+            <p><strong>Payment Method:</strong> {contribution.payment_method || contribution.channel}</p>
+            <p><strong>Date:</strong> {format(new Date(contribution.date_received), "PPP")}</p>
+            {contribution.comment && <p><strong>Comment:</strong> {contribution.comment}</p>}
+            {contribution.payment_reference && <p><strong>Reference:</strong> {contribution.payment_reference}</p>}
+          </div>
+        ),
+      });
+    }
+  }, [contributions, toast]);
+
+  const handleEdit = useCallback((id: string) => {
+    toast({
+      title: "Edit Contribution",
+      description: "Edit functionality coming soon",
+    });
+  }, [toast]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm("Are you sure you want to delete this contribution? This action cannot be undone.")) {
+      return;
+    }
+
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (!contribution) return;
+
+    // Optimistic update
+    const previousContributions = [...contributions];
+    setContributions(prev => prev.filter(c => c.contribution_id !== id));
+
+    try {
+      const response = await contributionApi.delete(id);
+      if (response.success) {
+        // Invalidate cache and refresh silently
+        cache.contributions = null;
+        loadContributions(true);
+      } else {
+        // Rollback on error
+        setContributions(previousContributions);
+        throw new Error(response.error || "Failed to delete contribution");
+      }
+    } catch (error) {
+      // Rollback on error
+      setContributions(previousContributions);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete contribution";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [contributions, loadContributions, toast]);
+
+  // Define columns inside component to access handlers
+  const columns = useMemo(() => [
+    {
+      key: "dateReceived",
+      header: "Date Received",
+      className: "text-muted-foreground",
+    },
+    {
+      key: "memberName",
+      header: "Member",
+      render: (item: ContributionRow) => (
+        <span className="font-medium text-foreground">{item.memberName}</span>
+      ),
+    },
+    {
+      key: "fundName",
+      header: "Fund",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      className: "text-right font-semibold",
+    },
+    {
+      key: "comment",
+      header: "Comment",
+      render: (item: ContributionRow) => (
+        <span className="text-sm text-muted-foreground">{item.comment || "—"}</span>
+      ),
+    },
+    {
+      key: "channel",
+      header: "Payment Method",
+      render: (item: ContributionRow) => (
+        <div className="flex items-center gap-1.5">
+          {item.paymentMethod ? (
+            <span className="text-xs font-medium text-foreground">{item.paymentMethod}</span>
+          ) : item.channel === "online" ? (
+            <>
+              <Monitor className="h-3.5 w-3.5 text-success" />
+              <span className="text-xs text-success">Online</span>
+            </>
+          ) : (
+            <>
+              <User className="h-3.5 w-3.5 text-amber" />
+              <span className="text-xs text-amber">Offline</span>
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (item: ContributionRow) => <StatusBadge status={item.status as "pending" | "confirmed"} />,
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "w-12",
+      render: (item: ContributionRow) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-card border-border">
+            <DropdownMenuItem onClick={() => handleViewDetails(item.contribution_id)}>
+              View Details
+            </DropdownMenuItem>
+            {item.status === "pending" && (
+              <>
+                <DropdownMenuItem 
+                  className="text-success"
+                  onClick={() => handleConfirm(item.contribution_id)}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Confirm
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onClick={() => handleReject(item.contribution_id)}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Reject
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-destructive"
+              onClick={() => handleDelete(item.contribution_id)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ], [handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete]);
+
+  const contributionRows: ContributionRow[] = useMemo(() => {
+    return contributions.map((c) => ({
+      contribution_id: c.contribution_id,
+      dateReceived: format(new Date(c.date_received), "MMM d, yyyy"),
+      memberName: c.member_name || "Anonymous",
+      fundName: c.fund_name,
+      fundId: c.fund_id,
+      amount: `$${c.amount.toFixed(2)}`,
+      channel: c.channel,
+      paymentMethod: c.payment_method,
+      status: c.status,
+      comment: c.comment || "",
+      paymentReference: c.payment_reference,
+    }));
+  }, [contributions]);
+
+  const filteredContributions = contributionRows.filter((c) => {
     const matchesSearch =
       c.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.fundName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -175,7 +418,12 @@ export default function Contributions() {
   const confirmedCount = contributions.filter((c) => c.status === "confirmed").length;
   const pendingAmount = contributions
     .filter((c) => c.status === "pending")
-    .reduce((sum, c) => sum + parseFloat(c.amount.replace("$", "")), 0);
+    .reduce((sum, c) => sum + c.amount, 0);
+
+  const fundOptions = [
+    { id: "all", fundName: "All Funds" },
+    ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
+  ];
 
   return (
     <AppLayout>
@@ -208,7 +456,12 @@ export default function Contributions() {
                 Total pending: ${pendingAmount.toFixed(2)}
               </p>
             </div>
-            <Button variant="outline" size="sm" className="border-amber text-amber hover:bg-amber/10">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-amber text-amber hover:bg-amber/10"
+              onClick={() => setActiveTab("pending")}
+            >
               Review All
             </Button>
           </div>
@@ -235,14 +488,20 @@ export default function Contributions() {
             <Select value={fundFilter} onValueChange={setFundFilter}>
               <SelectTrigger className="w-[180px]">
                 <FolderOpen className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by fund" />
+                <SelectValue placeholder={funds.length > 0 ? "Filter by fund" : "Loading funds..."} />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
-                {funds.map((fund) => (
-                  <SelectItem key={fund.id} value={fund.id}>
-                    {fund.fundName}
+                {fundOptions.length > 0 ? (
+                  fundOptions.map((fund) => (
+                    <SelectItem key={fund.id} value={fund.id}>
+                      {fund.fundName}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-funds" disabled>
+                    No funds available
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
 
@@ -259,15 +518,27 @@ export default function Contributions() {
         </div>
       </Tabs>
 
-      <DataTable
-        columns={columns as any}
-        data={filteredContributions as any}
-        rowClassName={(item: any) =>
-          item.status === "pending" ? "border-l-2 border-l-amber" : ""
-        }
-      />
+      {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading contributions...</div>
+      ) : (
+        <DataTable
+          columns={columns as any}
+          data={filteredContributions as any}
+          rowClassName={(item: any) =>
+            item.status === "pending" ? "border-l-2 border-l-amber" : ""
+          }
+        />
+      )}
 
-      <RecordContributionModal open={showRecordContribution} onOpenChange={setShowRecordContribution} />
+      <RecordContributionModal 
+        open={showRecordContribution} 
+        onOpenChange={setShowRecordContribution}
+        onSuccess={() => {
+          cache.contributions = null; // Invalidate cache
+          loadContributions(true);
+          loadFunds(true);
+        }}
+      />
     </AppLayout>
   );
 }
