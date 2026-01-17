@@ -17,6 +17,7 @@ import { contributionApi, Contribution } from "@/services/contribution.api";
 import { expenseApi, Expense } from "@/services/expense.api";
 import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
+import { memberApi } from "@/services/member.api";
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark",
@@ -292,20 +293,32 @@ export default function PublicFundPage() {
       });
       return;
     }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account information not available",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setSendingOtp(true);
     try {
-      // TODO: Call actual API to send OTP to member's phone
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setOtpSent(true);
-      toast({
-        title: "OTP Sent",
-        description: `Verification code sent to ${phone}`,
-      });
+      const response = await memberApi.sendOTP(phone, account.account_id);
+      if (response.success) {
+        setOtpSent(true);
+        toast({
+          title: "OTP Sent",
+          description: `Verification code sent to ${phone}`,
+        });
+      } else {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send OTP",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
     } finally {
@@ -322,33 +335,41 @@ export default function PublicFundPage() {
       });
       return;
     }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account information not available",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setVerifying(true);
     try {
-      // TODO: Call actual API to verify OTP and get member ID
-      // For now, simulate verification
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // TODO: Get actual member ID from API response
-      const mockMemberId = "mock-member-id";
-      setMemberId(mockMemberId);
-      setIsVerified(true);
-      setShowOtpVerification(false);
-      
-      // Load member data
-      await loadMemberData(mockMemberId);
-      
-      // Set contributions tab as default after verification
-      setActiveTab("contributions");
-      
-      toast({
-        title: "Verified",
-        description: "You now have access to view your contributions",
-      });
+      const response = await memberApi.verifyOTP(phone, otp, account.account_id);
+      if (response.success && response.data) {
+        setMemberId(response.data.member_id);
+        setIsVerified(true);
+        setShowOtpVerification(false);
+        
+        // Load member data
+        await loadMemberData(response.data.member_id);
+        
+        // Set contributions tab as default after verification
+        setActiveTab("contributions");
+        
+        toast({
+          title: "Verified",
+          description: "You now have access to view your contributions",
+        });
+      } else {
+        throw new Error(response.error || 'Invalid OTP');
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Invalid OTP. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
