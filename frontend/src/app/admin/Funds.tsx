@@ -11,6 +11,8 @@ import { EditFundModal } from "@/components/modals/EditFundModal";
 import { DeleteFundModal } from "@/components/modals/DeleteFundModal";
 import { FundDetailsModal } from "@/components/modals/FundDetailsModal";
 import { fundApi, Fund } from "@/services";
+import { contributionApi, FundContributionStats } from "@/services/contribution.api";
+import { useAccount } from "@/hooks/useAccount";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -20,15 +22,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
 
+interface FundWithStats extends Fund {
+  totalCollected?: number;
+  contributorCount?: number;
+}
+
 // For FundDetailsModal compatibility
-const mapFundToModalFormat = (fund: Fund) => ({
+const mapFundToModalFormat = (fund: FundWithStats) => ({
   id: fund.fund_id,
   name: fund.fund_name,
   status: fund.is_active ? "active" as const : "inactive" as const,
   suggestedAmount: fund.default_amount ? `$${fund.default_amount}` : null,
-  collected: 0, // TODO: Calculate from contributions when contributions API is ready
+  collected: fund.totalCollected || 0,
   target: null,
-  contributors: 0, // TODO: Calculate from contributions when contributions API is ready
+  contributors: fund.contributorCount || 0,
   description: fund.description || "",
   recurring: true,
   isPublic: fund.is_public,
@@ -40,7 +47,7 @@ function FundCard({
   onEdit, 
   onDelete 
 }: { 
-  fund: Fund; 
+  fund: FundWithStats; 
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -118,26 +125,57 @@ export default function Funds() {
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showEditFund, setShowEditFund] = useState(false);
   const [showDeleteFund, setShowDeleteFund] = useState(false);
-  const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
-  const [funds, setFunds] = useState<Fund[]>([]);
+  const [selectedFund, setSelectedFund] = useState<FundWithStats | null>(null);
+  const [funds, setFunds] = useState<FundWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const { account } = useAccount();
   const { toast } = useToast();
 
   useEffect(() => {
-    loadFunds();
-  }, []);
+    if (account?.account_id) {
+      loadFunds();
+    }
+  }, [account?.account_id]);
 
   const loadFunds = async () => {
+    if (!account?.account_id) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
-      const data = await fundApi.getAll();
-      setFunds(data);
+      const fundsData = await fundApi.getAll();
+      
+      // Fetch stats for each fund (with error handling)
+      const fundsWithStats = await Promise.all(
+        fundsData.map(async (fund) => {
+          try {
+            const statsResponse = await contributionApi.getFundStats(fund.fund_id);
+            if (statsResponse.success && statsResponse.data) {
+              return {
+                ...fund,
+                totalCollected: statsResponse.data.totalCollected || 0,
+                contributorCount: statsResponse.data.contributorCount || 0,
+              };
+            }
+            return { ...fund, totalCollected: 0, contributorCount: 0 };
+          } catch (error) {
+            console.error(`Failed to load stats for fund ${fund.fund_id}:`, error);
+            return { ...fund, totalCollected: 0, contributorCount: 0 };
+          }
+        })
+      );
+      
+      setFunds(fundsWithStats);
     } catch (error) {
+      console.error("Failed to load funds:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load funds",
         variant: "destructive",
       });
+      setFunds([]);
     } finally {
       setLoading(false);
     }
@@ -160,12 +198,12 @@ export default function Funds() {
     loadFunds();
   };
 
-  const handleEdit = (fund: Fund) => {
+  const handleEdit = (fund: FundWithStats) => {
     setSelectedFund(fund);
     setShowEditFund(true);
   };
 
-  const handleDelete = (fund: Fund) => {
+  const handleDelete = (fund: FundWithStats) => {
     setSelectedFund(fund);
     setShowDeleteFund(true);
   };
@@ -174,9 +212,8 @@ export default function Funds() {
   const inactiveFunds = funds.filter((f) => !f.is_active);
 
   const totalCollected = useMemo(() => {
-    // TODO: Calculate from contributions when contributions API is ready
-    return 0;
-  }, []);
+    return funds.reduce((sum, fund) => sum + (fund.totalCollected || 0), 0);
+  }, [funds]);
 
   return (
     <AppLayout>
