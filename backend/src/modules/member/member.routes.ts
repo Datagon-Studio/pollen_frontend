@@ -6,9 +6,10 @@
 
 import { Router, Request, Response } from 'express';
 import { memberRoutes } from './member.controller.js';
-import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { authenticateToken, AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from './member.service.js';
+import { accountService } from '../account/account.service.js';
 
 export const memberRoutesWithAuth = Router();
 
@@ -86,9 +87,10 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
     );
 
     if (!result.success) {
+      console.error('Failed to send public OTP:', result.error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to send OTP. Please try again later.',
+        error: result.error || 'Failed to send OTP. Please try again later.',
       });
     }
 
@@ -97,9 +99,10 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
       message: 'OTP sent successfully',
     });
   } catch (error) {
+    console.error('Exception sending public OTP:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to send OTP',
+      error: error instanceof Error ? error.message : 'Failed to send OTP',
     });
   }
 });
@@ -260,9 +263,10 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: R
     );
 
     if (!result.success) {
+      console.error('Failed to send OTP for phone verification:', result.error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to send OTP. Please try again later.',
+        error: result.error || 'Failed to send OTP. Please try again later.',
       });
     }
 
@@ -271,9 +275,10 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: R
       message: 'OTP sent successfully',
     });
   } catch (error) {
+    console.error('Exception sending OTP for phone verification:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to send OTP',
+      error: error instanceof Error ? error.message : 'Failed to send OTP',
     });
   }
 });
