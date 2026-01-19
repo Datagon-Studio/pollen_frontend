@@ -21,6 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
+import { EditContributionModal } from "@/components/modals/EditContributionModal";
+import { DeleteContributionModal } from "@/components/modals/DeleteContributionModal";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
@@ -62,6 +64,8 @@ export default function Contributions() {
   const [activeTab, setActiveTab] = useState("all");
   const [fundFilter, setFundFilter] = useState("all");
   const [showRecordContribution, setShowRecordContribution] = useState(false);
+  const [editingContribution, setEditingContribution] = useState<ContributionWithDetails | null>(null);
+  const [deletingContribution, setDeletingContribution] = useState<ContributionWithDetails | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load contributions with caching
@@ -240,46 +244,18 @@ export default function Contributions() {
   }, [contributions, toast]);
 
   const handleEdit = useCallback((id: string) => {
-    toast({
-      title: "Edit Contribution",
-      description: "Edit functionality coming soon",
-    });
-  }, [toast]);
-
-  const handleDelete = useCallback(async (id: string) => {
-    if (!confirm("Are you sure you want to delete this contribution? This action cannot be undone.")) {
-      return;
-    }
-
     const contribution = contributions.find(c => c.contribution_id === id);
-    if (!contribution) return;
-
-    // Optimistic update
-    const previousContributions = [...contributions];
-    setContributions(prev => prev.filter(c => c.contribution_id !== id));
-
-    try {
-      const response = await contributionApi.delete(id);
-      if (response.success) {
-        // Invalidate cache and refresh silently
-        cache.contributions = null;
-        loadContributions(true);
-      } else {
-        // Rollback on error
-        setContributions(previousContributions);
-        throw new Error(response.error || "Failed to delete contribution");
-      }
-    } catch (error) {
-      // Rollback on error
-      setContributions(previousContributions);
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete contribution";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+    if (contribution) {
+      setEditingContribution(contribution);
     }
-  }, [contributions, loadContributions, toast]);
+  }, [contributions]);
+
+  const handleDelete = useCallback((id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (contribution) {
+      setDeletingContribution(contribution);
+    }
+  }, [contributions]);
 
   // Define columns inside component to access handlers
   const columns = useMemo(() => [
@@ -537,6 +513,28 @@ export default function Contributions() {
           cache.contributions = null; // Invalidate cache
           loadContributions(true);
           loadFunds(true);
+        }}
+      />
+
+      <EditContributionModal
+        open={!!editingContribution}
+        onOpenChange={(open) => !open && setEditingContribution(null)}
+        contribution={editingContribution}
+        onSuccess={() => {
+          cache.contributions = null; // Invalidate cache
+          loadContributions(true);
+          setEditingContribution(null);
+        }}
+      />
+
+      <DeleteContributionModal
+        open={!!deletingContribution}
+        onOpenChange={(open) => !open && setDeletingContribution(null)}
+        contribution={deletingContribution}
+        onSuccess={() => {
+          cache.contributions = null; // Invalidate cache
+          loadContributions(true);
+          setDeletingContribution(null);
         }}
       />
     </AppLayout>
