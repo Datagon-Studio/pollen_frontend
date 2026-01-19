@@ -39,7 +39,10 @@ class ArkeselService {
     expiry: number = 5,
     length: number = 6
   ): Promise<{ success: boolean; code?: string; messageId?: string; error?: string }> {
+    console.log('📱 [Arkesel] Sending OTP to:', phone);
+    
     if (!this.apiKey) {
+      console.error('❌ [Arkesel] API key not configured');
       return {
         success: false,
         error: 'Arkesel API key not configured',
@@ -48,6 +51,7 @@ class ArkeselService {
 
     // Format phone number (remove spaces, dashes, plus signs)
     const formattedPhone = phone.replace(/[\s\-+]/g, '');
+    console.log('📱 [Arkesel] Formatted phone:', formattedPhone);
 
     // Default message template - Arkesel uses %otp_code% as placeholder
     const defaultMessage = `Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.`;
@@ -72,6 +76,7 @@ class ArkeselService {
     };
 
     const endpoint = `${this.baseUrl}/api/otp/generate`;
+    console.log('📤 [Arkesel] Request body:', JSON.stringify(requestBody, null, 2));
 
     try {
       // Exact format matching Arkesel documentation
@@ -85,19 +90,25 @@ class ArkeselService {
       });
 
       const responseText = await response.text();
+      
+      // Log response for debugging
+      console.log('Arkesel OTP Response Status:', response.status);
+      console.log('Arkesel OTP Response Text:', responseText);
 
       let data: SendOTPResponse;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
+        console.error('Failed to parse Arkesel response:', responseText);
         return {
           success: false,
-          error: 'Invalid response from OTP service',
+          error: `Invalid response from OTP service: ${responseText.substring(0, 100)}`,
         };
       }
 
       // Check response code
       if (data.code === '1000') {
+        console.log('OTP sent successfully via Arkesel');
         return {
           success: true,
           messageId: data.ussd_code,
@@ -118,13 +129,15 @@ class ArkeselService {
         '1011': 'Internal error',
       };
 
-      const errorMessage = errorMessages[data.code] || data.message || 'Failed to send OTP';
+      const errorMessage = errorMessages[data.code] || data.message || `Failed to send OTP (code: ${data.code})`;
+      console.error('Arkesel OTP Error:', errorMessage, 'Response:', data);
       
       return {
         success: false,
         error: errorMessage,
       };
     } catch (error) {
+      console.error('Arkesel OTP Network Error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Network error',
