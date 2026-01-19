@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +8,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Wallet, TrendingUp, Users, Calendar } from "lucide-react";
+import { Wallet, TrendingUp, Users, Calendar, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import { format } from "date-fns";
 
 interface Fund {
   id: number;
@@ -32,10 +35,39 @@ interface FundDetailsModalProps {
 // Recent contributions will be loaded from API if needed
 
 export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalProps) {
+  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
+  const [loadingContributions, setLoadingContributions] = useState(false);
+
+  useEffect(() => {
+    if (open && fund?.id) {
+      loadContributions();
+    }
+  }, [open, fund?.id]);
+
+  const loadContributions = async () => {
+    if (!fund?.id) return;
+    
+    try {
+      setLoadingContributions(true);
+      const response = await contributionApi.getByFund(String(fund.id));
+      if (response.success && response.data) {
+        setContributions(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load contributions:", error);
+    } finally {
+      setLoadingContributions(false);
+    }
+  };
+
   if (!fund) return null;
 
   const progress = fund.target ? (fund.collected / fund.target) * 100 : null;
   const isComplete = progress !== null && progress >= 100;
+  const recentContributions = contributions
+    .filter(c => c.status === 'confirmed')
+    .sort((a, b) => new Date(b.date_received).getTime() - new Date(a.date_received).getTime())
+    .slice(0, 5);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,25 +159,37 @@ export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalP
             <span className="font-medium text-foreground">{fund.suggestedAmount}</span>
           </div>
 
-          {/* Recent Contributions - Load from API when fundId is available */}
-          {/* <div>
+          {/* Recent Contributions */}
+          <div>
             <h4 className="text-sm font-medium text-foreground mb-3">Recent Contributions</h4>
-            <div className="space-y-2">
-              {recentContributions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No contributions yet</p>
-              ) : (
-                recentContributions.map((contribution, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{contribution.member}</p>
-                      <p className="text-xs text-muted-foreground">{contribution.date}</p>
+            {loadingContributions ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentContributions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No contributions yet</p>
+                ) : (
+                  recentContributions.map((contribution) => (
+                    <div key={contribution.contribution_id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {contribution.member_name || "Anonymous"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(contribution.date_received), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                      <span className="font-medium text-foreground">
+                        ${contribution.amount.toFixed(2)}
+                      </span>
                     </div>
-                    <span className="font-medium text-foreground">{contribution.amount}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div> */}
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2">
