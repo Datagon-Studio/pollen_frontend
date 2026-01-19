@@ -28,9 +28,18 @@ import { RecordContributionModal } from "@/components/modals/RecordContributionM
 import { useAccount } from "@/hooks/useAccount";
 import { useLogoPreload } from "@/hooks/useLogoPreload";
 import { fundApi, Fund } from "@/services";
+import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import { reportingApi, DashboardStats } from "@/services/reporting.api";
+import { format } from "date-fns";
 
-// TODO: Replace with actual contributions data when contributions API is ready
-const recentContributions: any[] = [];
+interface ContributionRow {
+  member: string;
+  fund: string;
+  amount: string;
+  date: string;
+  status: "pending" | "confirmed" | "failed" | "reversed";
+  fundId: string;
+}
 
 const columns = [
   { key: "member", header: "Member" },
@@ -40,7 +49,7 @@ const columns = [
   {
     key: "status",
     header: "Status",
-    render: (item: typeof recentContributions[0]) => (
+    render: (item: ContributionRow) => (
       <StatusBadge status={item.status} />
     ),
   },
@@ -52,22 +61,54 @@ export default function Dashboard() {
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [funds, setFunds] = useState<Fund[]>([]);
+  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { account, getInitials, loading: accountLoading } = useAccount();
   const logoLoaded = useLogoPreload(account?.account_logo);
 
   useEffect(() => {
-    loadFunds();
-  }, []);
+    if (account?.account_id) {
+      loadFunds();
+      loadContributions();
+      loadStats();
+    }
+  }, [account?.account_id]);
 
   const loadFunds = async () => {
     try {
-      setLoading(true);
       // Get all funds for admin dashboard (not just active)
       const data = await fundApi.getAll();
       setFunds(data);
     } catch (error) {
       console.error("Failed to load funds:", error);
+    }
+  };
+
+  const loadContributions = async () => {
+    if (!account?.account_id) return;
+    
+    try {
+      const response = await contributionApi.getByAccount(account.account_id);
+      if (response.success && response.data) {
+        setContributions(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load contributions:", error);
+    }
+  };
+
+  const loadStats = async () => {
+    if (!account?.account_id) return;
+    
+    try {
+      setLoading(true);
+      const response = await reportingApi.getDashboard(account.account_id);
+      if (response.success && response.data) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load stats:", error);
     } finally {
       setLoading(false);
     }
@@ -87,25 +128,50 @@ export default function Dashboard() {
 
   const selectedFundName = fundsWithAll.find((f) => f.fund_id === selectedFund)?.fund_name || "All Funds";
 
+  const recentContributions: ContributionRow[] = useMemo(() => {
+    return contributions
+      .sort((a, b) => new Date(b.date_received).getTime() - new Date(a.date_received).getTime())
+      .slice(0, 10)
+      .map(c => ({
+        member: c.member_name || "Anonymous",
+        fund: c.fund_name,
+        amount: `$${c.amount.toFixed(2)}`,
+        date: format(new Date(c.date_received), "MMM d, yyyy"),
+        status: c.status,
+        fundId: c.fund_id,
+      }));
+  }, [contributions]);
+
   const filteredContributions = selectedFund === "all"
     ? recentContributions
     : recentContributions.filter((c) => c.fundId === selectedFund);
 
-  // TODO: Replace with actual stats from API when contributions API is ready
-  const stats = useMemo(() => {
+  const displayStats = useMemo(() => {
+    if (!stats) {
+      return {
+        balance: 0,
+        month: 0,
+        monthContributions: 0,
+        pending: 0,
+        pendingCount: 0,
+        activeFunds: activeFunds.length,
+        totalFunds: funds.length,
+        members: 0,
+        newMembers: 0,
+      };
+    }
     return {
-      balance: 0,
-      today: 0,
-      month: 0,
-      monthContributions: 0,
-      pending: 0,
-      pendingCount: 0,
-      activeFunds: activeFunds.length,
-      totalFunds: funds.length,
-      members: 0,
-      newMembers: 0,
+      balance: stats.totalBalance,
+      month: stats.thisMonth,
+      monthContributions: stats.monthContributions,
+      pending: stats.pending,
+      pendingCount: stats.pendingCount,
+      activeFunds: stats.activeFunds,
+      totalFunds: stats.totalFunds,
+      members: stats.members,
+      newMembers: stats.newMembersThisMonth,
     };
-  }, [funds, activeFunds]);
+  }, [stats, funds, activeFunds]);
 
   return (
     <AppLayout>
@@ -156,38 +222,37 @@ export default function Dashboard() {
       <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${selectedFund === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-4 mb-8`}>
         <StatCard
           title="Total Balance"
-          value={`$${stats.balance.toLocaleString()}`}
+          value={loading ? "..." : `$${displayStats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={Wallet}
           accentBorder
-          trend={{ value: "12%", positive: true }}
         />
         <StatCard
           title="This Month"
-          value={`$${stats.month.toLocaleString()}`}
-          subtitle={`${stats.monthContributions} contributions`}
+          value={loading ? "..." : `$${displayStats.month.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle={loading ? "..." : `${displayStats.monthContributions} contributions`}
           icon={CalendarDays}
           accentBorder
         />
         <StatCard
           title="Pending"
-          value={`$${stats.pending.toLocaleString()}`}
-          subtitle={`${stats.pendingCount} awaiting confirmation`}
+          value={loading ? "..." : `$${displayStats.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle={loading ? "..." : `${displayStats.pendingCount} awaiting confirmation`}
           icon={Clock}
           accentBorder
         />
         {selectedFund === "all" && (
           <StatCard
             title="Active Funds"
-            value={stats.activeFunds.toString()}
-            subtitle={`of ${stats.totalFunds} total`}
+            value={displayStats.activeFunds.toString()}
+            subtitle={`of ${displayStats.totalFunds} total`}
             icon={FolderOpen}
             accentBorder
           />
         )}
         <StatCard
           title="Members"
-          value={stats.members.toString()}
-          subtitle={`${stats.newMembers} new this month`}
+          value={loading ? "..." : displayStats.members.toString()}
+          subtitle={loading ? "..." : `${displayStats.newMembers} new this month`}
           icon={Users}
           accentBorder
         />
@@ -259,7 +324,14 @@ export default function Dashboard() {
       {/* Modals */}
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} />
       <CreateFundModal open={showCreateFund} onOpenChange={setShowCreateFund} />
-      <RecordContributionModal open={showRecordContribution} onOpenChange={setShowRecordContribution} />
+      <RecordContributionModal 
+        open={showRecordContribution} 
+        onOpenChange={setShowRecordContribution}
+        onSuccess={() => {
+          loadContributions();
+          loadStats();
+        }}
+      />
     </AppLayout>
   );
 }
