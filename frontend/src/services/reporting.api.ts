@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+import { request } from './api-client';
 
 export interface DashboardStats {
   totalBalance: number;
@@ -43,16 +43,40 @@ export interface NetPosition {
 }
 
 export const reportingApi = {
-  async getDashboard(accountId: string) {
-    return apiClient.get<DashboardStats>(`/reports/dashboard?accountId=${accountId}`);
+  async getDashboard(accountId: string): Promise<DashboardStats> {
+    const response = await request<DashboardStats>(`/reports/dashboard?accountId=${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch dashboard stats');
+    }
+
+    return response.data;
   },
 
-  async getMonthlyOverview(accountId: string, months = 6) {
-    return apiClient.get<MonthlyData[]>(`/reports/monthly?accountId=${accountId}&months=${months}`);
+  async getMonthlyOverview(accountId: string, months = 6): Promise<MonthlyData[]> {
+    const response = await request<MonthlyData[]>(`/reports/monthly?accountId=${accountId}&months=${months}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch monthly overview');
+    }
+
+    return response.data;
   },
 
-  async getFundBreakdown(accountId: string) {
-    return apiClient.get<FundBreakdown[]>(`/reports/fund-breakdown?accountId=${accountId}`);
+  async getFundBreakdown(accountId: string): Promise<FundBreakdown[]> {
+    const response = await request<FundBreakdown[]>(`/reports/fund-breakdown?accountId=${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch fund breakdown');
+    }
+
+    return response.data;
   },
 
   async getContributionsByPeriod(
@@ -60,18 +84,41 @@ export const reportingApi = {
     startDate: string,
     endDate: string,
     groupBy: 'day' | 'week' | 'month' = 'month'
-  ) {
-    return apiClient.get<ContributionsByPeriod[]>(
-      `/reports/contributions-by-period?accountId=${accountId}&startDate=${startDate}&endDate=${endDate}&groupBy=${groupBy}`
+  ): Promise<ContributionsByPeriod[]> {
+    const response = await request<ContributionsByPeriod[]>(
+      `/reports/contributions-by-period?accountId=${accountId}&startDate=${startDate}&endDate=${endDate}&groupBy=${groupBy}`,
+      { method: 'GET' }
     );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch contributions by period');
+    }
+
+    return response.data;
   },
 
-  async getExpensesSummary(accountId: string) {
-    return apiClient.get<ExpensesSummary>(`/reports/expenses-summary?accountId=${accountId}`);
+  async getExpensesSummary(accountId: string): Promise<ExpensesSummary> {
+    const response = await request<ExpensesSummary>(`/reports/expenses-summary?accountId=${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch expenses summary');
+    }
+
+    return response.data;
   },
 
-  async getNetPosition(accountId: string) {
-    return apiClient.get<NetPosition>(`/reports/net-position?accountId=${accountId}`);
+  async getNetPosition(accountId: string): Promise<NetPosition> {
+    const response = await request<NetPosition>(`/reports/net-position?accountId=${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch net position');
+    }
+
+    return response.data;
   },
 };
 
