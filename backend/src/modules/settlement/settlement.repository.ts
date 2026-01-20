@@ -33,6 +33,8 @@ export const settlementRepository = {
         settlement_type: input.settlement_type,
         account_name: input.account_name,
         account_number: input.account_number,
+        bank_name: input.bank_name ?? null,
+        bank_branch: input.bank_branch ?? null,
         provider: input.provider ?? null,
         is_active: input.is_active ?? true,
       })
@@ -102,12 +104,22 @@ export const settlementRepository = {
       }
     }
 
+    const updateData: any = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Ensure bank fields are null for mobile_money and provider is null for bank
+    if (input.settlement_type === 'mobile_money') {
+      updateData.bank_name = null;
+      updateData.bank_branch = null;
+    } else if (input.settlement_type === 'bank') {
+      updateData.provider = null;
+    }
+
     const { data, error } = await supabase
       .from('account_settlement_details')
-      .update({
-        ...input,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('settlement_id', settlementId)
       .select()
       .single();
