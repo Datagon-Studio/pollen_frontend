@@ -143,7 +143,7 @@ export const reportingService = {
     // Get funds with contribution totals
     const { data: funds } = await supabase
       .from('funds')
-      .select('id, fund_name')
+      .select('fund_id, fund_name')
       .eq('account_id', accountId)
       .eq('is_active', true);
 
@@ -155,7 +155,7 @@ export const reportingService = {
         const { data: contributions } = await supabase
           .from('contributions')
           .select('amount')
-          .eq('fund_id', fund.id)
+          .eq('fund_id', fund.fund_id)
           .eq('status', 'confirmed');
 
         const total = (contributions || []).reduce((sum, c) => sum + c.amount, 0);
