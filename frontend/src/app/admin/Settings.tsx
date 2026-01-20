@@ -27,9 +27,10 @@ import {
   Banknote,
   X,
 } from "lucide-react";
-import { accountApi, Account } from "@/services/account.api";
+import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/services/account.api";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
 
 export default function Settings() {
   const [account, setAccount] = useState<Account | null>(null);
@@ -41,8 +42,25 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // KYC state
+  const [kyc, setKyc] = useState<AccountKYC | null>(null);
+  const [loadingKYC, setLoadingKYC] = useState(true);
+  const [savingKYC, setSavingKYC] = useState(false);
+  const [accountType, setAccountType] = useState<'individual' | 'business'>('business');
+  const [officialName, setOfficialName] = useState("");
+  const [businessRegFile, setBusinessRegFile] = useState<File | null>(null);
+  const [passportPhotoFile, setPassportPhotoFile] = useState<File | null>(null);
+  const [nationalIdFile, setNationalIdFile] = useState<File | null>(null);
+  const businessRegInputRef = useRef<HTMLInputElement>(null);
+  const passportPhotoInputRef = useRef<HTMLInputElement>(null);
+  const nationalIdInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    loadAccount();
+    const init = async () => {
+      await loadAccount();
+      await loadKYC();
+    };
+    init();
   }, []);
 
   const loadAccount = async () => {
@@ -61,6 +79,24 @@ export default function Settings() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadKYC = async () => {
+    try {
+      setLoadingKYC(true);
+      const kycData = await kycApi.getMyAccountKYC();
+      if (kycData) {
+        setKyc(kycData);
+        setAccountType(kycData.account_type);
+        setOfficialName(kycData.official_name);
+      }
+    } catch (error) {
+      console.error("Error loading KYC:", error);
+      // Don't show error toast - KYC might not exist yet
+      // Just set loading to false
+    } finally {
+      setLoadingKYC(false);
     }
   };
 
@@ -139,6 +175,181 @@ export default function Settings() {
         variant: "destructive",
       });
       throw err; // Re-throw to prevent saving if upload fails
+    }
+  };
+
+  const uploadKYCDocument = async (file: File, bucket: string, folder: string): Promise<string> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${folder}/${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Store the file path (not URL) in the database
+      // We'll generate signed URLs on-demand when viewing
+      return fileName;
+    } catch (err) {
+      console.error(`Error uploading ${folder}:`, err);
+      throw err;
+    }
+  };
+
+  const handleKYCDocumentChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'business_reg' | 'passport' | 'national_id'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (type === 'national_id' || type === 'business_reg') {
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid file",
+          description: "Please select a PDF file",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "PDF size must be less than 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (type === 'passport') {
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Image size must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (type === 'business_reg') {
+      setBusinessRegFile(file);
+    } else if (type === 'passport') {
+      setPassportPhotoFile(file);
+    } else {
+      setNationalIdFile(file);
+    }
+  };
+
+  const handleSubmitKYC = async () => {
+    if (!account) return;
+
+    if (!officialName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Official name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!nationalIdFile && !kyc?.national_id_url) {
+      toast({
+        title: "Validation Error",
+        description: "National ID document is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (accountType === 'business' && !businessRegFile && !kyc?.business_registration_url) {
+      toast({
+        title: "Validation Error",
+        description: "Business registration document is required for business accounts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (accountType === 'individual' && !passportPhotoFile && !kyc?.passport_photo_url) {
+      toast({
+        title: "Validation Error",
+        description: "Passport photo is required for individual accounts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingKYC(true);
+    try {
+      let businessRegUrl = kyc?.business_registration_url || null;
+      let passportPhotoUrl = kyc?.passport_photo_url || null;
+      let nationalIdUrl = kyc?.national_id_url || "";
+
+      // Upload documents
+      if (businessRegFile) {
+        businessRegUrl = await uploadKYCDocument(businessRegFile, "kyc-documents", "business-registration");
+      }
+      if (passportPhotoFile) {
+        passportPhotoUrl = await uploadKYCDocument(passportPhotoFile, "kyc-documents", "passport-photo");
+      }
+      if (nationalIdFile) {
+        nationalIdUrl = await uploadKYCDocument(nationalIdFile, "kyc-documents", "national-id");
+      }
+
+      const input: SubmitKYCInput = {
+        account_type: accountType,
+        official_name: officialName.trim(),
+        business_registration_url: accountType === 'business' ? businessRegUrl : null,
+        passport_photo_url: accountType === 'individual' ? passportPhotoUrl : null,
+        national_id_url: nationalIdUrl,
+      };
+
+      const updatedKYC = await kycApi.submitKYC(input);
+      setKyc(updatedKYC);
+      
+      // Reload account to get updated KYC status
+      await loadAccount();
+
+      // Clear file inputs
+      setBusinessRegFile(null);
+      setPassportPhotoFile(null);
+      setNationalIdFile(null);
+      if (businessRegInputRef.current) businessRegInputRef.current.value = "";
+      if (passportPhotoInputRef.current) passportPhotoInputRef.current.value = "";
+      if (nationalIdInputRef.current) nationalIdInputRef.current.value = "";
+
+      toast({
+        title: "Success",
+        description: "KYC information submitted successfully. Your account is now pending verification.",
+      });
+    } catch (error) {
+      console.error("Error submitting KYC:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit KYC information",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingKYC(false);
     }
   };
 
@@ -318,59 +529,183 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            {/* KYC Status Badge */}
-            <div className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-lg">
-              <div>
-                <p className="font-medium text-foreground">Current KYC Status</p>
-                <p className="text-sm text-muted-foreground">Verified accounts can accept online payments</p>
-              </div>
-              <StatusBadge status={account?.kyc_status || "unverified"} />
+          {loadingKYC ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : (
+            <div className="space-y-4">
+              {/* KYC Status Badge */}
+              <div className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-lg">
+                <div>
+                  <p className="font-medium text-foreground">Current KYC Status</p>
+                  <p className="text-sm text-muted-foreground">Verified accounts can accept online payments</p>
+                </div>
+                <StatusBadge status={account?.kyc_status || "unverified"} />
+              </div>
 
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success" />
+              {/* Account Type */}
+              <div>
+                <Label htmlFor="accountType">Account Type *</Label>
+                <Select value={accountType} onValueChange={(v: 'individual' | 'business') => setAccountType(v)}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="individual">Individual / Personal</SelectItem>
+                    <SelectItem value="business">Business / Organization</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Official Name */}
+              <div>
+                <Label htmlFor="officialName">Official Name *</Label>
+                <Input
+                  id="officialName"
+                  value={officialName}
+                  onChange={(e) => setOfficialName(e.target.value)}
+                  className="mt-1.5"
+                  placeholder="Enter official registered name"
+                />
+              </div>
+
+              {/* Business Registration (only for business) */}
+              {accountType === 'business' && (
                 <div>
-                  <p className="font-medium text-foreground">Official Name</p>
-                  <p className="text-sm text-muted-foreground">Community Group Association</p>
+                  <Label>Business Registration Document *</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Upload PDF of business registration certificate</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={businessRegInputRef}
+                      accept="application/pdf"
+                      onChange={(e) => handleKYCDocumentChange(e, 'business_reg')}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => businessRegInputRef.current?.click()}
+                      className="flex-1"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {businessRegFile ? businessRegFile.name : kyc?.business_registration_url ? "Change Document" : "Upload PDF"}
+                    </Button>
+                    {kyc?.business_registration_url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          // Generate a fresh signed URL for viewing
+                          // The stored value is the file path
+                          const { data } = await supabase.storage
+                            .from('kyc-documents')
+                            .createSignedUrl(kyc.business_registration_url!, 3600);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
+                        }}
+                      >
+                        View
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Passport Photo (only for individual) */}
+              {accountType === 'individual' && (
+                <div>
+                  <Label>Passport Photo *</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Upload passport-sized photo</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={passportPhotoInputRef}
+                      accept="image/*"
+                      onChange={(e) => handleKYCDocumentChange(e, 'passport')}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => passportPhotoInputRef.current?.click()}
+                      className="flex-1"
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      {passportPhotoFile ? passportPhotoFile.name : kyc?.passport_photo_url ? "Change Photo" : "Upload Photo"}
+                    </Button>
+                    {kyc?.passport_photo_url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(kyc.passport_photo_url!, '_blank')}
+                      >
+                        View
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* National ID */}
+              <div>
+                <Label>National ID Document *</Label>
+                <p className="text-xs text-muted-foreground mb-2">Upload PDF with front and back of National ID combined</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={nationalIdInputRef}
+                    accept="application/pdf"
+                    onChange={(e) => handleKYCDocumentChange(e, 'national_id')}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => nationalIdInputRef.current?.click()}
+                    className="flex-1"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {nationalIdFile ? nationalIdFile.name : kyc?.national_id_url ? "Change Document" : "Upload PDF"}
+                  </Button>
+                  {kyc?.national_id_url && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        // Generate a fresh signed URL for viewing
+                        // The stored value is the file path
+                        const { data } = await supabase.storage
+                          .from('kyc-documents')
+                          .createSignedUrl(kyc.national_id_url, 3600);
+                        if (data?.signedUrl) {
+                          window.open(data.signedUrl, '_blank');
+                        }
+                      }}
+                    >
+                      View
+                    </Button>
+                  )}
                 </div>
               </div>
-              <span className="text-xs text-success">Verified</span>
-            </div>
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium text-foreground">Account Type</p>
-                  <p className="text-sm text-muted-foreground">Business / Organization</p>
-                </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleSubmitKYC} disabled={savingKYC} size="sm">
+                  {savingKYC ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit KYC Information"
+                  )}
+                </Button>
               </div>
-              <span className="text-xs text-success">Verified</span>
             </div>
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium text-foreground">National ID</p>
-                  <p className="text-sm text-muted-foreground">Administrator identity confirmed</p>
-                </div>
-              </div>
-              <span className="text-xs text-success">Verified</span>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-amber" />
-                <div>
-                  <p className="font-medium text-foreground">Business Registration</p>
-                  <p className="text-sm text-muted-foreground">Optional for non-profits</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                Upload
-              </Button>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Settlement Details */}
