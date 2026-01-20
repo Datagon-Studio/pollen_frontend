@@ -154,7 +154,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
       return;
     }
 
-    if (!formData.member || !formData.fund || !formData.amount || !formData.channel) {
+    if (!formData.fund || !formData.amount || !formData.channel) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -193,7 +193,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
       const response = await contributionApi.create({
         account_id: account.account_id,
         fund_id: formData.fund,
-        member_id: formData.member,
+        member_id: formData.member || null, // Convert empty string to null for anonymous donations
         amount: amount,
         channel: channel,
         payment_method: formData.channel, // Store the actual payment method selected
