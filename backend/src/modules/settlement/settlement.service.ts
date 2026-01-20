@@ -33,6 +33,8 @@ export class SettlementService {
         settlement_type: input.settlement_type,
         account_name: input.account_name,
         account_number: input.account_number,
+        bank_name: input.bank_name ?? null,
+        bank_branch: input.bank_branch ?? null,
         provider: input.provider ?? null,
         is_active: input.is_active ?? true,
       });
