@@ -112,11 +112,11 @@ The system is built to serve **families, churches, associations, informal groups
 
 * `settlement_id` (PK)  
 * `account_id` (FK)  
-* `settlement_type` ( mobile\_money)  
-* `account_name`  
-* `account_number`  
-* `provider` (optional)  
-* `is_active`  
+* `settlement_type` (bank, mobile_money)  
+* `account_name` (required - name on account/MoMo)  
+* `account_number` (required - bank account number or MoMo number)  
+* `provider` (nullable - required for mobile_money, e.g., MTN, Vodafone, AirtelTigo)  
+* `is_active` (boolean)  
 * `created_at`, `updated_at`
 
 ### **4.6 Fund**
