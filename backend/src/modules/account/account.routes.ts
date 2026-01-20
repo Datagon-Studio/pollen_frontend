@@ -60,3 +60,33 @@ accountRoutes.get('/me', async (req, res) => {
 accountRoutes.put('/me', async (req, res) => {
   await accountController.updateMyAccount(req, res);
 });
+
+// GET /api/v1/accounts/me/kyc - Get current user's account KYC
+accountRoutes.get('/me/kyc', async (req, res) => {
+  await accountController.getMyAccountKYC(req, res);
+});
+
+// POST /api/v1/accounts/me/kyc - Submit KYC information
+accountRoutes.post('/me/kyc', async (req, res) => {
+  await accountController.submitKYC(req, res);
+});
+
+// PUT /api/v1/accounts/me/kyc - Update KYC information
+accountRoutes.put('/me/kyc', async (req, res) => {
+  await accountController.updateKYC(req, res);
+});
+
+// GET /api/v1/accounts/kyc/all - Get all KYC submissions (admin)
+accountRoutes.get('/kyc/all', async (req, res) => {
+  await accountController.getAllKYC(req, res);
+});
+
+// POST /api/v1/accounts/:accountId/kyc/verify - Verify KYC (admin)
+accountRoutes.post('/:accountId/kyc/verify', async (req, res) => {
+  await accountController.verifyKYC(req, res);
+});
+
+// POST /api/v1/accounts/:accountId/kyc/reject - Reject KYC (admin)
+accountRoutes.post('/:accountId/kyc/reject', async (req, res) => {
+  await accountController.rejectKYC(req, res);
+});
