@@ -67,14 +67,6 @@ export default function Dashboard() {
   const { account, getInitials, loading: accountLoading } = useAccount();
   const logoLoaded = useLogoPreload(account?.account_logo);
 
-  useEffect(() => {
-    if (account?.account_id) {
-      loadFunds();
-      loadContributions();
-      loadStats();
-    }
-  }, [account?.account_id]);
-
   const loadFunds = async () => {
     try {
       // Get all funds for admin dashboard (not just active)
@@ -98,17 +90,24 @@ export default function Dashboard() {
     }
   };
 
+  useEffect(() => {
+    if (account?.account_id) {
+      loadFunds();
+      loadContributions();
+      loadStats();
+    }
+  }, [account?.account_id]);
+
   const loadStats = async () => {
     if (!account?.account_id) return;
     
     try {
       setLoading(true);
-      const response = await reportingApi.getDashboard(account.account_id);
-      if (response.success && response.data) {
-        setStats(response.data);
-      }
+      const dashboardStats = await reportingApi.getDashboard(account.account_id);
+      setStats(dashboardStats);
     } catch (error) {
       console.error("Failed to load stats:", error);
+      setStats(null);
     } finally {
       setLoading(false);
     }
