@@ -63,7 +63,10 @@ export default function Settings() {
   const [settlementType, setSettlementType] = useState<'bank' | 'mobile_money'>('mobile_money');
   const [settlementAccountName, setSettlementAccountName] = useState("");
   const [settlementAccountNumber, setSettlementAccountNumber] = useState("");
+  const [settlementBankName, setSettlementBankName] = useState("");
+  const [settlementBankBranch, setSettlementBankBranch] = useState("");
   const [settlementProvider, setSettlementProvider] = useState("");
+  const [settlementOtherProvider, setSettlementOtherProvider] = useState("");
   const [settlementIsActive, setSettlementIsActive] = useState(true);
 
   useEffect(() => {
@@ -122,7 +125,17 @@ export default function Settings() {
         setSettlementType(active.settlement_type);
         setSettlementAccountName(active.account_name);
         setSettlementAccountNumber(active.account_number);
-        setSettlementProvider(active.provider || "");
+        setSettlementBankName(active.bank_name || "");
+        setSettlementBankBranch(active.bank_branch || "");
+        const provider = active.provider || "";
+        setSettlementProvider(provider);
+        // If provider is not in the standard list, set it as "Other" and store the name
+        if (provider && !["MTN Mobile Money", "Vodafone Cash", "AirtelTigo Money"].includes(provider)) {
+          setSettlementProvider("Other");
+          setSettlementOtherProvider(provider);
+        } else {
+          setSettlementOtherProvider("");
+        }
         setSettlementIsActive(active.is_active);
       }
     } catch (error) {
@@ -153,22 +166,54 @@ export default function Settings() {
       return;
     }
 
-    if (settlementType === 'mobile_money' && !settlementProvider.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Mobile money provider is required",
-        variant: "destructive",
-      });
-      return;
+    // Validate mobile money number is exactly 10 digits
+    if (settlementType === 'mobile_money') {
+      const accountNumberDigits = settlementAccountNumber.trim().replace(/\D/g, '');
+      if (accountNumberDigits.length !== 10) {
+        toast({
+          title: "Validation Error",
+          description: "Mobile money number must be exactly 10 digits",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (settlementType === 'mobile_money') {
+      if (!settlementProvider.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Mobile money provider is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // If "Other" is selected, require the other provider name
+      if (settlementProvider === "Other" && !settlementOtherProvider.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Please specify the mobile money provider name",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setSavingSettlement(true);
     try {
+      // Determine the provider value - use "Other" provider name if "Other" is selected
+      const providerValue = settlementType === 'mobile_money' 
+        ? (settlementProvider === "Other" ? settlementOtherProvider.trim() : settlementProvider.trim())
+        : null;
+
       const input: CreateSettlementDetailsInput = {
         settlement_type: settlementType,
         account_name: settlementAccountName.trim(),
         account_number: settlementAccountNumber.trim(),
-        provider: settlementType === 'mobile_money' ? settlementProvider.trim() : null,
+        bank_name: settlementType === 'bank' ? settlementBankName.trim() || null : null,
+        bank_branch: settlementType === 'bank' ? settlementBankBranch.trim() || null : null,
+        provider: providerValue,
         is_active: settlementIsActive,
       };
 
@@ -827,6 +872,10 @@ export default function Settings() {
                     setSettlementType(v);
                     if (v === 'bank') {
                       setSettlementProvider("");
+                      setSettlementOtherProvider("");
+                    } else {
+                      setSettlementBankName("");
+                      setSettlementBankBranch("");
                     }
                   }}
                 >
@@ -862,6 +911,26 @@ export default function Settings() {
                       />
                     </div>
                   </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Bank Name</Label>
+                      <Input
+                        value={settlementBankName}
+                        onChange={(e) => setSettlementBankName(e.target.value)}
+                        placeholder="Bank name"
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label>Bank Branch</Label>
+                      <Input
+                        value={settlementBankBranch}
+                        onChange={(e) => setSettlementBankBranch(e.target.value)}
+                        placeholder="Bank branch"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -871,7 +940,12 @@ export default function Settings() {
                     <Label>Mobile Money Service *</Label>
                     <Select 
                       value={settlementProvider} 
-                      onValueChange={setSettlementProvider}
+                      onValueChange={(value) => {
+                        setSettlementProvider(value);
+                        if (value !== "Other") {
+                          setSettlementOtherProvider("");
+                        }
+                      }}
                     >
                       <SelectTrigger className="mt-1.5">
                         <SelectValue placeholder="Select service provider" />
@@ -880,11 +954,21 @@ export default function Settings() {
                         <SelectItem value="MTN Mobile Money">MTN Mobile Money</SelectItem>
                         <SelectItem value="Vodafone Cash">Vodafone Cash</SelectItem>
                         <SelectItem value="AirtelTigo Money">AirtelTigo Money</SelectItem>
-                        <SelectItem value="Orange Money">Orange Money</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  {settlementProvider === "Other" && (
+                    <div>
+                      <Label>Provider Name *</Label>
+                      <Input
+                        value={settlementOtherProvider}
+                        onChange={(e) => setSettlementOtherProvider(e.target.value)}
+                        placeholder="Enter mobile money provider name"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  )}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Name on MoMo *</Label>
@@ -900,7 +984,8 @@ export default function Settings() {
                       <Input
                         value={settlementAccountNumber}
                         onChange={(e) => setSettlementAccountNumber(e.target.value)}
-                        placeholder="Mobile money number"
+                        placeholder="Mobile money number (10 digits)"
+                        maxLength={10}
                         className="mt-1.5"
                       />
                     </div>
