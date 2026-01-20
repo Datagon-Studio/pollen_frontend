@@ -42,7 +42,7 @@ export const reportingService = {
     // Get all contributions
     const { data: contributions } = await supabase
       .from('contributions')
-      .select('amount, status, created_at')
+      .select('amount, status, created_at, date_received')
       .eq('account_id', accountId);
 
     // Get all expenses
@@ -66,9 +66,11 @@ export const reportingService = {
     // Calculate stats
     const confirmedContributions = (contributions || []).filter(c => c.status === 'confirmed');
     const pendingContributions = (contributions || []).filter(c => c.status === 'pending');
-    const monthContributions = confirmedContributions.filter(c => 
-      c.created_at >= startOfMonth && c.created_at <= endOfMonth
-    );
+    // Use date_received for contributions instead of created_at for monthly calculation
+    const monthContributions = confirmedContributions.filter(c => {
+      const dateReceived = c.date_received || c.created_at;
+      return dateReceived >= startOfMonth && dateReceived <= endOfMonth;
+    });
     const newMembers = (members || []).filter(m => 
       m.created_at >= startOfMonth && m.created_at <= endOfMonth
     );
