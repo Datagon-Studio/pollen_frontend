@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS account_settlement_details (
   account_name TEXT NOT NULL,
   account_number TEXT NOT NULL,
   
+  -- Bank-specific fields (only for bank settlement_type)
+  bank_name TEXT NULL,
+  bank_branch TEXT NULL,
+  
   -- Provider (required for mobile_money, optional for bank)
   -- Examples: MTN Mobile Money, Vodafone Cash, AirtelTigo Money, etc.
   provider TEXT NULL,
@@ -71,6 +75,8 @@ COMMENT ON COLUMN account_settlement_details.account_id IS 'Foreign key to accou
 COMMENT ON COLUMN account_settlement_details.settlement_type IS 'Type of settlement: bank or mobile_money';
 COMMENT ON COLUMN account_settlement_details.account_name IS 'Name on account (bank account holder name or MoMo account name)';
 COMMENT ON COLUMN account_settlement_details.account_number IS 'Account number (bank account number or MoMo number)';
+COMMENT ON COLUMN account_settlement_details.bank_name IS 'Bank name (only for bank settlement_type)';
+COMMENT ON COLUMN account_settlement_details.bank_branch IS 'Bank branch (only for bank settlement_type)';
 COMMENT ON COLUMN account_settlement_details.provider IS 'Provider/service name (required for mobile_money: MTN, Vodafone, AirtelTigo, etc.)';
 COMMENT ON COLUMN account_settlement_details.is_active IS 'Whether this is the active settlement account for receiving funds';
 
