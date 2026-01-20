@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/services/account.api";
+import { settlementApi, SettlementDetails, CreateSettlementDetailsInput } from "@/services/settlement.api";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
@@ -55,10 +56,21 @@ export default function Settings() {
   const passportPhotoInputRef = useRef<HTMLInputElement>(null);
   const nationalIdInputRef = useRef<HTMLInputElement>(null);
 
+  // Settlement state
+  const [settlementDetails, setSettlementDetails] = useState<SettlementDetails | null>(null);
+  const [loadingSettlement, setLoadingSettlement] = useState(true);
+  const [savingSettlement, setSavingSettlement] = useState(false);
+  const [settlementType, setSettlementType] = useState<'bank' | 'mobile_money'>('mobile_money');
+  const [settlementAccountName, setSettlementAccountName] = useState("");
+  const [settlementAccountNumber, setSettlementAccountNumber] = useState("");
+  const [settlementProvider, setSettlementProvider] = useState("");
+  const [settlementIsActive, setSettlementIsActive] = useState(true);
+
   useEffect(() => {
     const init = async () => {
       await loadAccount();
       await loadKYC();
+      await loadSettlementDetails();
     };
     init();
   }, []);
@@ -97,6 +109,85 @@ export default function Settings() {
       // Just set loading to false
     } finally {
       setLoadingKYC(false);
+    }
+  };
+
+  const loadSettlementDetails = async () => {
+    try {
+      setLoadingSettlement(true);
+      const settlements = await settlementApi.getMySettlementDetails();
+      const active = settlements.find(s => s.is_active) || settlements[0] || null;
+      if (active) {
+        setSettlementDetails(active);
+        setSettlementType(active.settlement_type);
+        setSettlementAccountName(active.account_name);
+        setSettlementAccountNumber(active.account_number);
+        setSettlementProvider(active.provider || "");
+        setSettlementIsActive(active.is_active);
+      }
+    } catch (error) {
+      console.error("Error loading settlement details:", error);
+    } finally {
+      setLoadingSettlement(false);
+    }
+  };
+
+  const handleSaveSettlementDetails = async () => {
+    if (!account) return;
+
+    if (!settlementAccountName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Account name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!settlementAccountNumber.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Account number is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (settlementType === 'mobile_money' && !settlementProvider.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Mobile money provider is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingSettlement(true);
+    try {
+      const input: CreateSettlementDetailsInput = {
+        settlement_type: settlementType,
+        account_name: settlementAccountName.trim(),
+        account_number: settlementAccountNumber.trim(),
+        provider: settlementType === 'mobile_money' ? settlementProvider.trim() : null,
+        is_active: settlementIsActive,
+      };
+
+      const updated = await settlementApi.upsertSettlementDetails(input);
+      setSettlementDetails(updated);
+      
+      toast({
+        title: "Success",
+        description: "Settlement details saved successfully",
+      });
+    } catch (error) {
+      console.error("Error saving settlement details:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save settlement details",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSettlement(false);
     }
   };
 
@@ -722,41 +813,126 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Settlement Type</Label>
-              <Select defaultValue="mobile_money">
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="bank">Bank Account</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                </SelectContent>
-              </Select>
+          {loadingSettlement ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
+          ) : (
+            <div className="space-y-4">
               <div>
-                <Label>Account Name</Label>
-                <Input defaultValue="Community Group" className="mt-1.5" />
+                <Label>Settlement Type *</Label>
+                <Select 
+                  value={settlementType} 
+                  onValueChange={(v: 'bank' | 'mobile_money') => {
+                    setSettlementType(v);
+                    if (v === 'bank') {
+                      setSettlementProvider("");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="bank">Bank Account</SelectItem>
+                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label>Account Number</Label>
-                <Input defaultValue="024XXXXXXX" className="mt-1.5" />
+
+              {settlementType === 'bank' && (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Account Name *</Label>
+                      <Input
+                        value={settlementAccountName}
+                        onChange={(e) => setSettlementAccountName(e.target.value)}
+                        placeholder="Name on bank account"
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label>Account Number *</Label>
+                      <Input
+                        value={settlementAccountNumber}
+                        onChange={(e) => setSettlementAccountNumber(e.target.value)}
+                        placeholder="Bank account number"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {settlementType === 'mobile_money' && (
+                <>
+                  <div>
+                    <Label>Mobile Money Service *</Label>
+                    <Select 
+                      value={settlementProvider} 
+                      onValueChange={setSettlementProvider}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Select service provider" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="MTN Mobile Money">MTN Mobile Money</SelectItem>
+                        <SelectItem value="Vodafone Cash">Vodafone Cash</SelectItem>
+                        <SelectItem value="AirtelTigo Money">AirtelTigo Money</SelectItem>
+                        <SelectItem value="Orange Money">Orange Money</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Name on MoMo *</Label>
+                      <Input
+                        value={settlementAccountName}
+                        onChange={(e) => setSettlementAccountName(e.target.value)}
+                        placeholder="Name registered on MoMo"
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label>MoMo Number *</Label>
+                      <Input
+                        value={settlementAccountNumber}
+                        onChange={(e) => setSettlementAccountNumber(e.target.value)}
+                        placeholder="Mobile money number"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <p className="font-medium text-foreground">Active Settlement Account</p>
+                  <p className="text-sm text-muted-foreground">Funds will be sent to this account</p>
+                </div>
+                <Switch 
+                  checked={settlementIsActive}
+                  onCheckedChange={setSettlementIsActive}
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleSaveSettlementDetails} disabled={savingSettlement} size="sm">
+                  {savingSettlement ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Settlement Details"
+                  )}
+                </Button>
               </div>
             </div>
-            <div>
-              <Label>Provider</Label>
-              <Input defaultValue="MTN Mobile Money" className="mt-1.5" />
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <div>
-                <p className="font-medium text-foreground">Active Settlement Account</p>
-                <p className="text-sm text-muted-foreground">Funds will be sent to this account</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Notifications */}
