@@ -10,6 +10,8 @@
 import { Request, Response } from 'express';
 import { accountService } from './account.service.js';
 import { UpdateAccountInput } from './account.entity.js';
+import { accountKYCService } from './account-kyc.service.js';
+import { CreateAccountKYCInput, UpdateAccountKYCInput } from './account-kyc.entity.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 
 export class AccountController {
@@ -135,6 +137,270 @@ export class AccountController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch account';
       res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * GET /api/v1/accounts/me/kyc
+   * Get current user's account KYC information
+   */
+  async getMyAccountKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      const kyc = await accountKYCService.getKYCByAccountId(userAccount.account_id);
+
+      res.status(200).json({
+        success: true,
+        data: kyc,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch KYC';
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/v1/accounts/me/kyc
+   * Submit or update KYC information
+   */
+  async submitKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      const input: CreateAccountKYCInput = {
+        account_id: userAccount.account_id,
+        account_type: req.body.account_type,
+        official_name: req.body.official_name,
+        business_registration_url: req.body.business_registration_url ?? null,
+        passport_photo_url: req.body.passport_photo_url ?? null,
+        national_id_url: req.body.national_id_url,
+      };
+
+      const kyc = await accountKYCService.submitKYC(input);
+
+      res.status(200).json({
+        success: true,
+        data: kyc,
+        message: 'KYC information submitted successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to submit KYC';
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * PUT /api/v1/accounts/me/kyc
+   * Update KYC information
+   */
+  async updateKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      const input: UpdateAccountKYCInput = {
+        account_type: req.body.account_type,
+        official_name: req.body.official_name,
+        business_registration_url: req.body.business_registration_url ?? null,
+        passport_photo_url: req.body.passport_photo_url ?? null,
+        national_id_url: req.body.national_id_url,
+      };
+
+      const kyc = await accountKYCService.updateKYC(userAccount.account_id, input);
+
+      res.status(200).json({
+        success: true,
+        data: kyc,
+        message: 'KYC information updated successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update KYC';
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * GET /api/v1/accounts/kyc/all
+   * Get all KYC submissions (admin only)
+   */
+  async getAllKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // TODO: Add admin role check here later
+      // For now, allow all authenticated users
+
+      const kycList = await accountKYCService.getAllKYC();
+
+      // Enrich with account information
+      const enrichedKYC = await Promise.all(
+        kycList.map(async (kyc) => {
+          const account = await accountService.getAccountById(kyc.account_id);
+          return {
+            ...kyc,
+            account_name: account?.account_name || null,
+            account_kyc_status: account?.kyc_status || null,
+          };
+        })
+      );
+
+      res.status(200).json({
+        success: true,
+        data: enrichedKYC,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch KYC list';
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/v1/accounts/:accountId/kyc/verify
+   * Verify a KYC submission (admin only)
+   */
+  async verifyKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // TODO: Add admin role check here later
+      // For now, allow all authenticated users
+
+      const { accountId } = req.params;
+
+      const kyc = await accountKYCService.verifyKYC(accountId, userId);
+
+      res.status(200).json({
+        success: true,
+        data: kyc,
+        message: 'KYC verified successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to verify KYC';
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/v1/accounts/:accountId/kyc/reject
+   * Reject a KYC submission (admin only)
+   */
+  async rejectKYC(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // TODO: Add admin role check here later
+      // For now, allow all authenticated users
+
+      const { accountId } = req.params;
+
+      await accountKYCService.rejectKYC(accountId, userId);
+
+      res.status(200).json({
+        success: true,
+        message: 'KYC rejected successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reject KYC';
+      res.status(400).json({
         success: false,
         error: message,
       });
