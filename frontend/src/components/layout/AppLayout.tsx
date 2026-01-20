@@ -9,6 +9,7 @@ import {
   Globe,
   BarChart3,
   Settings,
+  Shield,
   Menu,
   X,
   ChevronRight,
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { label: "Public Page", href: "/public-page", icon: Globe },
   { label: "Member Preview", href: "/member-preview", icon: Users },
   { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "KYC Verification", href: "/kyc-verification", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
