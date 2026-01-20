@@ -6,7 +6,6 @@ import { contributionRoutes } from './modules/contribution/contribution.controll
 import { expenseRoutesWithAuth } from './modules/expense/expense.routes.js';
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
-import { paymentRoutes } from './modules/payment/payment.routes.js';
 
 export const routes = Router();
 
@@ -17,5 +16,4 @@ routes.use('/contributions', contributionRoutes);
 routes.use('/expenses', expenseRoutesWithAuth);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
-routes.use('/payments', paymentRoutes);
 
