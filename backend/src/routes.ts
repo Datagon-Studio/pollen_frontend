@@ -6,6 +6,7 @@ import { contributionRoutes } from './modules/contribution/contribution.controll
 import { expenseRoutesWithAuth } from './modules/expense/expense.routes.js';
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
+import { settlementRoutes } from './modules/settlement/settlement.controller.js';
 
 export const routes = Router();
 
@@ -16,4 +17,5 @@ routes.use('/contributions', contributionRoutes);
 routes.use('/expenses', expenseRoutesWithAuth);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
+routes.use('/settlements', settlementRoutes);
 
