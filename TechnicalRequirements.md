@@ -102,9 +102,9 @@ The system is built to serve **families, churches, associations, informal groups
 * `account_id` (FK)  
 * `account_type` (individual, business)  
 * `official_name`  
-* `business_registration` (nullable)  
-* `national_id`  
-* `kyc_documents` (optional file references)  
+* `business_registration_url` (nullable, PDF - required if `account_type = business`)  
+* `passport_photo_url` (nullable, image - required if `account_type = individual`)  
+* `national_id_url` (required, PDF - front and back combined)  
 * `verified_by`, `verified_at`  
 * `created_at`, `updated_at`
 
