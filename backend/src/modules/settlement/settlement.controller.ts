@@ -53,7 +53,7 @@ settlementRoutes.post('/me', async (req: Request, res: Response) => {
       return sendError(res, 'Account not found', 404);
     }
 
-    const { settlement_type, account_name, account_number, provider, is_active } = req.body;
+    const { settlement_type, account_name, account_number, bank_name, bank_branch, provider, is_active } = req.body;
 
     if (!settlement_type || !['bank', 'mobile_money'].includes(settlement_type)) {
       return sendBadRequest(res, 'Valid settlement_type (bank or mobile_money) is required');
@@ -67,6 +67,14 @@ settlementRoutes.post('/me', async (req: Request, res: Response) => {
       return sendBadRequest(res, 'Account number is required');
     }
 
+    // Validate mobile money number is exactly 10 digits
+    if (settlement_type === 'mobile_money') {
+      const accountNumberDigits = account_number.trim().replace(/\D/g, '');
+      if (accountNumberDigits.length !== 10) {
+        return sendBadRequest(res, 'Mobile money number must be exactly 10 digits');
+      }
+    }
+
     if (settlement_type === 'mobile_money' && (!provider || typeof provider !== 'string' || !provider.trim())) {
       return sendBadRequest(res, 'Provider is required for mobile money settlement type');
     }
@@ -76,7 +84,9 @@ settlementRoutes.post('/me', async (req: Request, res: Response) => {
       settlement_type,
       account_name: account_name.trim(),
       account_number: account_number.trim(),
-      provider: provider?.trim() || null,
+      bank_name: settlement_type === 'bank' ? (bank_name?.trim() || null) : null,
+      bank_branch: settlement_type === 'bank' ? (bank_branch?.trim() || null) : null,
+      provider: settlement_type === 'mobile_money' ? (provider?.trim() || null) : null,
       is_active: is_active !== undefined ? is_active : true,
     };
 
@@ -111,6 +121,8 @@ settlementRoutes.put('/:id', async (req: Request, res: Response) => {
       settlement_type: req.body.settlement_type,
       account_name: req.body.account_name,
       account_number: req.body.account_number,
+      bank_name: req.body.bank_name,
+      bank_branch: req.body.bank_branch,
       provider: req.body.provider,
       is_active: req.body.is_active,
     };
