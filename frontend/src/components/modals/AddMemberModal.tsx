@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import * as React from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Loader2, Send, Copy, CheckCircle2 } from "lucide-react";
+import { Check, Loader2, Send, Copy, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -20,9 +21,134 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, getYear, getMonth, setMonth as setMonthDate, setYear as setYearDate } from "date-fns";
 import { memberApi } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
+import type { CaptionProps } from "react-day-picker";
+
+// DatePicker component with custom caption
+interface DatePickerWithInputsProps {
+  selected?: Date;
+  onSelect?: (date: Date | undefined) => void;
+  fromYear?: number;
+  toYear?: number;
+}
+
+function DatePickerWithInputs({ selected, onSelect, fromYear = 1920, toYear = new Date().getFullYear() }: DatePickerWithInputsProps) {
+  const [month, setMonthState] = useState<Date>(selected || new Date());
+  
+  // Custom Caption component with typeable month/year inputs
+  function CustomCaption(props: CaptionProps) {
+    const { displayMonth } = props;
+    const currentYear = getYear(displayMonth);
+    const currentMonth = getMonth(displayMonth);
+    
+    const [yearInput, setYearInput] = useState(String(currentYear));
+
+    const handleYearChange = (value: string) => {
+      setYearInput(value);
+      const yearNum = parseInt(value);
+      if (!isNaN(yearNum) && yearNum >= fromYear && yearNum <= toYear) {
+        const newDate = setYearDate(displayMonth, yearNum);
+        setMonthState(newDate);
+      }
+    };
+
+    const handleYearBlur = () => {
+      const yearNum = parseInt(yearInput);
+      if (isNaN(yearNum) || yearNum < fromYear || yearNum > toYear) {
+        setYearInput(String(currentYear));
+      }
+    };
+
+    const handlePreviousMonth = () => {
+      const newDate = new Date(displayMonth);
+      newDate.setMonth(newDate.getMonth() - 1);
+      setMonthState(newDate);
+    };
+
+    const handleNextMonth = () => {
+      const newDate = new Date(displayMonth);
+      newDate.setMonth(newDate.getMonth() + 1);
+      setMonthState(newDate);
+    };
+
+    // Update inputs when displayMonth changes externally
+    useEffect(() => {
+      setYearInput(String(getYear(displayMonth)));
+    }, [displayMonth]);
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthName = monthNames[currentMonth];
+
+    return (
+      <div className="flex items-center gap-3 px-1 py-2">
+        {/* Navigation arrows on the left */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePreviousMonth}
+            className="h-7 w-7 p-0"
+            type="button"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextMonth}
+            className="h-7 w-7 p-0"
+            type="button"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Month name */}
+        <div className="text-sm font-medium text-foreground min-w-[80px]">
+          {monthName}
+        </div>
+        
+        {/* Year input */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Label htmlFor="year-input" className="text-xs text-muted-foreground">Year:</Label>
+          <Input
+            id="year-input"
+            type="number"
+            min={fromYear}
+            max={toYear}
+            value={yearInput}
+            onChange={(e) => handleYearChange(e.target.value)}
+            onBlur={handleYearBlur}
+            className="h-7 w-20 text-center text-sm px-1"
+            placeholder="YYYY"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Calendar
+      mode="single"
+      selected={selected}
+      onSelect={onSelect}
+      month={month}
+      onMonthChange={(date) => setMonthState(date)}
+      initialFocus
+      className="p-3 pointer-events-auto"
+      fromYear={fromYear}
+      toYear={toYear}
+      components={{
+        Caption: CustomCaption,
+      }}
+    />
+  );
+}
 
 interface AddMemberModalProps {
   open: boolean;
@@ -383,22 +509,20 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                     type="button"
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal h-10 rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm hover:bg-accent hover:text-accent-foreground",
                       !formData.dob && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dob ? format(formData.dob, "PPP") : "Select date"}
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {formData.dob ? format(formData.dob, "PPP") : "Select date"}
+                    </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
-                  <Calendar
-                    mode="single"
+                <PopoverContent className="w-auto p-0 bg-card border-border shadow-lg" align="start">
+                  <DatePickerWithInputs
                     selected={formData.dob}
                     onSelect={(date) => setFormData({ ...formData, dob: date })}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                    captionLayout="dropdown-buttons"
                     fromYear={1920}
                     toYear={new Date().getFullYear()}
                   />
