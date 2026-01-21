@@ -1154,7 +1154,7 @@ export default function Settings() {
               <div>
                 <p className="font-medium text-foreground">Pending Confirmations</p>
                 <p className="text-sm text-muted-foreground">
-                  Daily summary of contributions awaiting confirmation
+                  Weekly reminders for contributions awaiting confirmation
                 </p>
               </div>
               <Switch defaultChecked />
@@ -1168,16 +1168,6 @@ export default function Settings() {
                 </p>
               </div>
               <Switch />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">Member Portal</p>
-                <p className="text-sm text-muted-foreground">
-                  Allow members to view their contributions via OTP
-                </p>
-              </div>
-              <Switch defaultChecked />
             </div>
           </div>
         </section>
