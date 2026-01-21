@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
@@ -12,18 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { EditMemberModal } from "@/components/modals/EditMemberModal";
 import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
 import { format } from "date-fns";
 import { memberApi, Member, isMemberActive } from "@/services/member.api";
+import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 
 const formatCurrency = (amount: number | null | undefined) => {
@@ -61,10 +64,14 @@ function MemberActions({ member, onEdit, onDelete }: MemberActionsProps) {
 export default function Members() {
   const { account } = useAccount();
   const [members, setMembers] = useState<Member[]>([]);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingContributions, setLoadingContributions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
@@ -89,9 +96,64 @@ export default function Members() {
     }
   };
 
+  const fetchContributions = async () => {
+    if (!account?.account_id) return;
+    
+    try {
+      setLoadingContributions(true);
+      const response = await contributionApi.getByAccount(account.account_id);
+      if (response.success && response.data) {
+        setContributions(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch contributions:', err);
+    } finally {
+      setLoadingContributions(false);
+    }
+  };
+
   useEffect(() => {
     fetchMembers();
+    fetchContributions();
   }, [account?.account_id]);
+
+  // Calculate total contributed for each member based on date range
+  const memberContributions = useMemo(() => {
+    const totals: Record<string, number> = {};
+    
+    contributions.forEach((contribution) => {
+      // Only count confirmed contributions
+      if (contribution.status !== 'confirmed' || !contribution.member_id) {
+        return;
+      }
+
+      const contributionDate = new Date(contribution.date_received);
+      
+      // Check date range filters
+      if (startDate) {
+        const startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        if (contributionDate < startOfDay) {
+          return;
+        }
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (contributionDate > endOfDay) {
+          return;
+        }
+      }
+
+      // Sum up contributions for this member
+      if (!totals[contribution.member_id]) {
+        totals[contribution.member_id] = 0;
+      }
+      totals[contribution.member_id] += contribution.amount;
+    });
+
+    return totals;
+  }, [contributions, startDate, endDate]);
 
   const filteredMembers = members.filter((member) => {
     const fullName = member.full_name.toLowerCase();
@@ -108,7 +170,7 @@ export default function Members() {
   const activeCount = members.filter(isMemberActive).length;
   const inactiveCount = members.length - activeCount;
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: "name",
       header: "Member",
@@ -182,9 +244,10 @@ export default function Members() {
     key: "total_contributed",
     header: "Total Contributed",
     className: "text-right font-medium",
-    render: (item: Member) => (
-      <span>{formatCurrency(item.total_contributed)}</span>
-    ),
+    render: (item: Member) => {
+      const total = memberContributions[item.member_id] ?? 0;
+      return <span>{formatCurrency(total)}</span>;
+    },
   },
   {
     key: "updated_at",
@@ -207,7 +270,7 @@ export default function Members() {
       />
     ),
   },
-];
+], [memberContributions, setEditingMember, setDeletingMember]);
 
   return (
     <AppLayout>
@@ -223,7 +286,7 @@ export default function Members() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -244,6 +307,63 @@ export default function Members() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+        
+        {/* Date Range Filters */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              {startDate ? format(startDate, "PPP") : "Start date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+            <Calendar
+              mode="single"
+              selected={startDate}
+              onSelect={setStartDate}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        {startDate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStartDate(undefined)}
+            className="h-9 w-9 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              {endDate ? format(endDate, "PPP") : "End date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+            <Calendar
+              mode="single"
+              selected={endDate}
+              onSelect={setEndDate}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        {endDate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setEndDate(undefined)}
+            className="h-9 w-9 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Summary */}
