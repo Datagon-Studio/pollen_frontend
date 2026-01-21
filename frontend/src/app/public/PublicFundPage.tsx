@@ -27,12 +27,11 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function PublicFundPage() {
-  const { fundId } = useParams<{ fundId: string }>();
+  const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
-  const [fund, setFund] = useState<Fund | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [publicFunds, setPublicFunds] = useState<Fund[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -61,151 +60,42 @@ export default function PublicFundPage() {
   const [memberId, setMemberId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (fundId) {
+    if (accountId) {
       loadData();
     }
-  }, [fundId]);
+  }, [accountId]);
 
   const loadData = async () => {
-    if (!fundId) return;
+    if (!accountId) return;
     try {
       setLoading(true);
-      console.log('[PublicFundPage] Loading fund:', fundId);
+      console.log('[PublicGroupPage] Loading group:', accountId);
       
-      // HARDCODED EXAMPLE DATA FOR TESTING
-      const mockFund: Fund = {
-        fund_id: fundId,
-        account_id: "a8963668-f203-4133-85aa-059f32c35279",
-        fund_name: "Emergency Fund",
-        description: "Support our community emergency fund for urgent needs",
-        default_amount: 100,
-        is_active: true,
-        is_public: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      const mockAccount: Account = {
-        account_id: "a8963668-f203-4133-85aa-059f32c35279",
-        account_name: "Community Group",
-        account_logo: "https://via.placeholder.com/200x200/FFA500/FFFFFF?text=CG",
-        foreground_color: "#1a1a1a",
-        background_color: "#ffffff",
-        kyc_status: "verified",
-        status: "active",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      const mockPublicFunds: Fund[] = [
-        {
-          fund_id: fundId,
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          fund_name: "Emergency Fund",
-          description: "Support our community emergency fund for urgent needs",
-          default_amount: 100,
-          is_active: true,
-          is_public: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          fund_id: "b1234567-c234-5678-90ab-cdef12345678",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          fund_name: "Annual Dues 2026",
-          description: "Annual membership dues for 2026",
-          default_amount: 75,
-          is_active: true,
-          is_public: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          fund_id: "c2345678-d345-6789-01bc-def234567890",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          fund_name: "Building Renovation",
-          description: "Funds for community building renovations",
-          default_amount: 200,
-          is_active: true,
-          is_public: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      
-      const mockExpenses: Expense[] = [
-        {
-          expense_id: "exp1",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          expense_name: "Office supplies for monthly meeting",
-          expense_category: "Operations",
-          date: "2026-01-02",
-          amount: 45.00,
-          created_by_user_id: "user1",
-          notes: null,
-          member_visible: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          expense_id: "exp2",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          expense_name: "Electricity bill - December 2025",
-          expense_category: "Utilities",
-          date: "2026-01-01",
-          amount: 285.00,
-          created_by_user_id: "user1",
-          notes: null,
-          member_visible: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          expense_id: "exp3",
-          account_id: "a8963668-f203-4133-85aa-059f32c35279",
-          expense_name: "Catering for New Year celebration",
-          expense_category: "Events",
-          date: "2025-12-30",
-          amount: 850.00,
-          created_by_user_id: "user1",
-          notes: null,
-          member_visible: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      
-      // Use hardcoded data
-      setFund(mockFund);
-      setAccount(mockAccount);
-      setPublicFunds(mockPublicFunds);
-      setExpenses(mockExpenses);
-      
-      // Uncomment below to use real API calls instead:
-      /*
-      const fundData = await fundApi.getById(fundId);
-      setFund(fundData);
-      
-      // Load public funds for the account
-      const publicFundsData = await fundApi.getPublicByAccount(fundData.account_id);
-      setPublicFunds(publicFundsData);
-      
-      // Load account info for branding
+      // Load account info for branding (includes logo and name)
       try {
-        const accountData = await accountApi.getPublic(fundData.account_id);
+        const accountData = await accountApi.getPublic(accountId);
         setAccount(accountData);
       } catch (error) {
         console.error("Failed to load account:", error);
+        toast({
+          title: "Error",
+          description: "Group not found",
+          variant: "destructive",
+        });
+        return;
       }
+      
+      // Load public funds for the account
+      const publicFundsData = await fundApi.getPublicByAccount(accountId);
+      setPublicFunds(publicFundsData);
       
       // Load expenses (public ones)
       try {
-        const expensesData = await expenseApi.getPublicByAccount(fundData.account_id);
+        const expensesData = await expenseApi.getPublicByAccount(accountId);
         setExpenses(expensesData.filter(e => e.member_visible));
       } catch (error) {
         console.error("Failed to load expenses:", error);
       }
-      */
     } catch (error) {
       console.error('[PublicFundPage] Error loading group:', error);
       const errorMessage = error instanceof Error ? error.message : 'Group not found';
@@ -400,7 +290,7 @@ export default function PublicFundPage() {
     },
     {
       key: "fund",
-      header: "Fund",
+      header: "Group",
       render: (item: Record<string, unknown>) => {
         const contribution = item as unknown as Contribution;
         const fundName = publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name || contribution.fund_id;
@@ -487,7 +377,7 @@ export default function PublicFundPage() {
     );
   }
 
-  if (!fund) {
+  if (!account) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
@@ -635,7 +525,7 @@ export default function PublicFundPage() {
               className="opacity-80 mb-4"
               style={{ color: foregroundColor }}
             >
-              Support our community by contributing to our active funds
+              Support our community by contributing to our active groups
             </p>
 
             {/* Action Buttons */}
@@ -690,7 +580,7 @@ export default function PublicFundPage() {
             )}
           </TabsList>
 
-          {/* Funds Tab */}
+          {/* Groups Tab */}
           <TabsContent value="funds" className="mt-4">
             {!isVerified ? (
               <Card>
@@ -708,14 +598,14 @@ export default function PublicFundPage() {
               {publicFunds.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6">
-                    <p className="text-center text-muted-foreground">No public funds available</p>
+                    <p className="text-center text-muted-foreground">No groups available</p>
                   </CardContent>
                 </Card>
               ) : (
                 publicFunds.map((f) => {
                   // HARDCODED EXAMPLE DATA - Progress calculation
-                  const mockCollected = f.fund_id === fundId ? 15420 : f.fund_id === "b1234567-c234-5678-90ab-cdef12345678" ? 3600 : 8750;
-                  const mockTarget = f.fund_id === fundId ? 20000 : f.fund_id === "b1234567-c234-5678-90ab-cdef12345678" ? 3600 : 50000;
+                  const mockCollected = 15420;
+                  const mockTarget = 20000;
                   const progress = (mockCollected / mockTarget) * 100;
                   return (
                     <Card key={f.fund_id} className="hover:border-amber/50 transition-colors">
@@ -800,10 +690,10 @@ export default function PublicFundPage() {
                     <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
                       <SelectTrigger className="flex-1" style={{ backgroundColor: backgroundColor }}>
                         <Filter className="h-4 w-4 mr-2" />
-                        <SelectValue placeholder="Filter by fund" />
+                        <SelectValue placeholder="Filter by group" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
-                        <SelectItem value="all">All Funds</SelectItem>
+                        <SelectItem value="all">All Groups</SelectItem>
                         {uniqueFunds.map((fund) => (
                           <SelectItem key={fund} value={fund}>
                             {fund}

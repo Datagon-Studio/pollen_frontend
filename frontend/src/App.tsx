@@ -107,8 +107,8 @@ const App = () => {
             }
           />
           <Route path="/g" element={<PublicFundLanding />} />
-          <Route path="/g/:fundId" element={<PublicFundPage />} />
-          <Route path="/g/:fundId/join" element={<JoinFundPage />} />
+          <Route path="/g/:accountId" element={<PublicFundPage />} />
+          <Route path="/g/:accountId/join" element={<JoinFundPage />} />
           <Route
             path="/reports"
             element={

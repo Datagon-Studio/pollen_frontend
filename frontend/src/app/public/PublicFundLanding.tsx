@@ -20,7 +20,7 @@ export default function PublicFundLanding() {
       return;
     }
 
-    // Navigate to the public group page
+    // Navigate to the public group page using account ID
     navigate(`/g/${groupId.trim()}`);
   };
 

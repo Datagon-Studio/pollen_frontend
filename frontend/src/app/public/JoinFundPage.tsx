@@ -16,15 +16,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { memberApi } from "@/services";
-import { fundApi } from "@/services";
+import { accountApi } from "@/services/account.api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function JoinFundPage() {
-  const { fundId } = useParams<{ fundId: string }>();
+  const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [fund, setFund] = useState<any>(null);
   const [account, setAccount] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -49,43 +48,17 @@ export default function JoinFundPage() {
   const [phoneSending, setPhoneSending] = useState(false);
 
   useEffect(() => {
-    loadFund();
-  }, [fundId]);
+    loadGroup();
+  }, [accountId]);
 
-  const loadFund = async () => {
-    if (!fundId) return;
+  const loadGroup = async () => {
+    if (!accountId) return;
     try {
       setLoading(true);
       
-      // HARDCODED EXAMPLE DATA FOR TESTING
-      // Simulate loading delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const mockFund = {
-        fund_id: fundId,
-        account_id: "a8963668-f203-4133-85aa-059f32c35279",
-        fund_name: "Emergency Fund",
-        description: "Support our community emergency fund for urgent needs",
-        default_amount: 100,
-        is_active: true,
-        is_public: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      const mockAccount = {
-        account_id: "a8963668-f203-4133-85aa-059f32c35279",
-        account_name: "Community Group",
-      };
-      
-      setFund(mockFund);
-      setAccount(mockAccount);
-      
-      // Uncomment below to use real API calls instead:
-      /*
-      const fundData = await fundApi.getById(fundId);
-      setFund(fundData);
-      */
+      // Load account info
+      const accountData = await accountApi.getPublic(accountId);
+      setAccount(accountData);
     } catch (error) {
       console.error("Error loading group:", error);
       // Don't navigate away, just show error
@@ -190,7 +163,7 @@ export default function JoinFundPage() {
       return;
     }
 
-    if (!fund?.account_id) {
+    if (!accountId || !account) {
       toast({
         title: "Error",
         description: "Group information not found",
@@ -208,7 +181,7 @@ export default function JoinFundPage() {
       // Uncomment below to use real API calls instead:
       /*
       const response = await memberApi.create({
-        account_id: fund.account_id,
+        account_id: accountId!,
         full_name: formData.fullName.trim(),
         dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
         phone: formData.phone.trim(),
@@ -228,9 +201,9 @@ export default function JoinFundPage() {
         description: `Welcome ${formData.fullName}! You've been added to the group.`,
       });
 
-      // Redirect to public fund page after a short delay
+      // Redirect to public group page after a short delay
       setTimeout(() => {
-        navigate(`/g/${fundId}`);
+        navigate(`/g/${accountId}`);
       }, 1500);
     } catch (error) {
       toast({
@@ -251,7 +224,7 @@ export default function JoinFundPage() {
     );
   }
 
-  if (!fund) {
+  if (!account) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-muted-foreground">Group not found</div>
@@ -270,7 +243,7 @@ export default function JoinFundPage() {
           </div>
           <CardTitle className="text-2xl text-center">Join Group</CardTitle>
           <CardDescription className="text-center">
-            Register as a member of {account?.account_name || fund?.fund_name || "this group"}
+            Register as a member of {account?.account_name || "this group"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -474,7 +447,7 @@ export default function JoinFundPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(`/g/${fundId}`)}
+                onClick={() => navigate(`/g/${accountId}`)}
                 disabled={saving}
                 className="flex-1"
               >

@@ -68,9 +68,16 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
 
     const members = await memberService.getMembersByAccount(accountId);
     
-    // Normalize phone: remove spaces, dashes, plus, parentheses, and leading zeros after country code
+    // Normalize phone: remove spaces, dashes, plus, parentheses
+    // For Ghana numbers: convert +233 to 0, keep leading 0 for 10-digit numbers
     const normalizePhone = (phoneNum: string): string => {
-      return phoneNum.replace(/[\s\-+()]/g, '').replace(/^0+/, '');
+      let normalized = phoneNum.replace(/[\s\-+()]/g, '');
+      // If starts with 233 (country code), replace with 0
+      if (normalized.startsWith('233') && normalized.length === 12) {
+        normalized = '0' + normalized.substring(3);
+      }
+      // Keep leading 0 for 10-digit numbers (Ghana format)
+      return normalized;
     };
     
     const normalizedPhone = normalizePhone(phone.trim());
@@ -173,9 +180,16 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
 
     const members = await memberService.getMembersByAccount(accountId);
     
-    // Normalize phone: remove spaces, dashes, plus, parentheses, and leading zeros after country code
+    // Normalize phone: remove spaces, dashes, plus, parentheses
+    // For Ghana numbers: convert +233 to 0, keep leading 0 for 10-digit numbers
     const normalizePhone = (phoneNum: string): string => {
-      return phoneNum.replace(/[\s\-+()]/g, '').replace(/^0+/, '');
+      let normalized = phoneNum.replace(/[\s\-+()]/g, '');
+      // If starts with 233 (country code), replace with 0
+      if (normalized.startsWith('233') && normalized.length === 12) {
+        normalized = '0' + normalized.substring(3);
+      }
+      // Keep leading 0 for 10-digit numbers (Ghana format)
+      return normalized;
     };
     
     const normalizedPhone = normalizePhone(phone.trim());
