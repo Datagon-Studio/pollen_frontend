@@ -128,6 +128,12 @@ export const accountRepository = {
     if (input.background_color !== undefined) {
       updateData.background_color = input.background_color;
     }
+    if (input.kyc_status !== undefined) {
+      updateData.kyc_status = input.kyc_status;
+    }
+    if (input.status !== undefined) {
+      updateData.status = input.status;
+    }
 
     const { data, error } = await supabase
       .from('accounts')

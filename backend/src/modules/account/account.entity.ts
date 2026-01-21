@@ -42,4 +42,6 @@ export interface UpdateAccountInput {
   account_logo?: string | null;
   foreground_color?: string | null;
   background_color?: string | null;
+  kyc_status?: KYCStatus;
+  status?: AccountStatus;
 }

@@ -35,24 +35,31 @@ export class AccountKYCService {
     // Check if KYC already exists
     const existing = await accountKYCRepository.findByAccountId(input.account_id);
 
+    let kyc: AccountKYC;
     if (existing) {
       // Update existing KYC
-      return await accountKYCRepository.update(input.account_id, {
+      kyc = await accountKYCRepository.update(input.account_id, {
         account_type: input.account_type,
         official_name: input.official_name,
         business_registration_url: input.business_registration_url ?? null,
         passport_photo_url: input.passport_photo_url ?? null,
         national_id_url: input.national_id_url,
       });
+    } else {
+      // Create new KYC
+      kyc = await accountKYCRepository.create(input);
     }
 
-    // Create new KYC
-    const kyc = await accountKYCRepository.create(input);
-
-    // Update account KYC status to pending
-    await accountRepository.update(input.account_id, {
-      kyc_status: 'pending',
-    });
+    // Update account KYC status to pending (for both new and updated submissions)
+    try {
+      const updatedAccount = await accountRepository.update(input.account_id, {
+        kyc_status: 'pending',
+      });
+      console.log('Account KYC status updated to pending:', updatedAccount.kyc_status);
+    } catch (error) {
+      console.error('Failed to update account KYC status:', error);
+      throw new Error(`Failed to update account KYC status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     return kyc;
   }

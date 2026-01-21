@@ -8,6 +8,16 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,6 +57,7 @@ export default function Settings() {
   const [kyc, setKyc] = useState<AccountKYC | null>(null);
   const [loadingKYC, setLoadingKYC] = useState(true);
   const [savingKYC, setSavingKYC] = useState(false);
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [accountType, setAccountType] = useState<'individual' | 'business'>('business');
   const [officialName, setOfficialName] = useState("");
   const [businessRegFile, setBusinessRegFile] = useState<File | null>(null);
@@ -55,6 +66,9 @@ export default function Settings() {
   const businessRegInputRef = useRef<HTMLInputElement>(null);
   const passportPhotoInputRef = useRef<HTMLInputElement>(null);
   const nationalIdInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if KYC has been submitted (pending, verified, or rejected)
+  const isKYCSubmitted = account?.kyc_status === 'pending' || account?.kyc_status === 'verified' || account?.kyc_status === 'rejected';
 
   // Settlement state
   const [settlementDetails, setSettlementDetails] = useState<SettlementDetails | null>(null);
@@ -78,22 +92,30 @@ export default function Settings() {
     init();
   }, []);
 
-  const loadAccount = async () => {
+  const loadAccount = async (skipLoading = false) => {
     try {
-      setLoading(true);
+      if (!skipLoading) {
+        setLoading(true);
+      }
       const accountData = await accountApi.getMyAccount();
+      console.log("Loaded account data:", accountData);
+      console.log("KYC Status:", accountData.kyc_status);
       setAccount(accountData);
       setAccountName(accountData.account_name || "");
       setLogoPreview(accountData.account_logo);
     } catch (error) {
       console.error("Error loading account:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load account details",
-        variant: "destructive",
-      });
+      if (!skipLoading) {
+        toast({
+          title: "Error",
+          description: "Failed to load account details",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -395,8 +417,23 @@ export default function Settings() {
     }
   };
 
+  const handleSubmitKYCClick = () => {
+    // Show warning dialog before submission
+    setShowWarningDialog(true);
+  };
+
   const handleSubmitKYC = async () => {
     if (!account) return;
+
+    // Prevent resubmission if already submitted
+    if (isKYCSubmitted) {
+      toast({
+        title: "Cannot Resubmit",
+        description: "This submission cannot be modified or resubmitted until a decision has been made.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!officialName.trim()) {
       toast({
@@ -461,9 +498,16 @@ export default function Settings() {
 
       const updatedKYC = await kycApi.submitKYC(input);
       setKyc(updatedKYC);
+      console.log("KYC submitted, updated KYC:", updatedKYC);
       
-      // Reload account to get updated KYC status
-      await loadAccount();
+      // Reload account to get updated KYC status (skip loading state to avoid UI flicker)
+      await loadAccount(true);
+      
+      // Double-check by fetching account directly
+      const refreshedAccount = await accountApi.getMyAccount();
+      console.log("Refreshed account after submission:", refreshedAccount);
+      console.log("Account KYC status:", refreshedAccount.kyc_status);
+      setAccount(refreshedAccount);
 
       // Clear file inputs
       setBusinessRegFile(null);
@@ -477,6 +521,9 @@ export default function Settings() {
         title: "Success",
         description: "KYC information submitted successfully. Your account is now pending verification.",
       });
+      
+      // Close the warning dialog
+      setShowWarningDialog(false);
     } catch (error) {
       console.error("Error submitting KYC:", error);
       toast({
@@ -683,7 +730,11 @@ export default function Settings() {
               {/* Account Type */}
               <div>
                 <Label htmlFor="accountType">Account Type *</Label>
-                <Select value={accountType} onValueChange={(v: 'individual' | 'business') => setAccountType(v)}>
+                <Select 
+                  value={accountType} 
+                  onValueChange={(v: 'individual' | 'business') => setAccountType(v)}
+                  disabled={isKYCSubmitted}
+                >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue />
                   </SelectTrigger>
@@ -703,6 +754,7 @@ export default function Settings() {
                   onChange={(e) => setOfficialName(e.target.value)}
                   className="mt-1.5"
                   placeholder="Enter official registered name"
+                  disabled={isKYCSubmitted}
                 />
               </div>
 
@@ -718,12 +770,14 @@ export default function Settings() {
                       accept="application/pdf"
                       onChange={(e) => handleKYCDocumentChange(e, 'business_reg')}
                       className="hidden"
+                      disabled={isKYCSubmitted}
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => businessRegInputRef.current?.click()}
                       className="flex-1"
+                      disabled={isKYCSubmitted}
                     >
                       <FileText className="h-4 w-4 mr-2" />
                       {businessRegFile ? businessRegFile.name : kyc?.business_registration_url ? "Change Document" : "Upload PDF"}
@@ -762,12 +816,14 @@ export default function Settings() {
                       accept="image/*"
                       onChange={(e) => handleKYCDocumentChange(e, 'passport')}
                       className="hidden"
+                      disabled={isKYCSubmitted}
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => passportPhotoInputRef.current?.click()}
                       className="flex-1"
+                      disabled={isKYCSubmitted}
                     >
                       <ImageIcon className="h-4 w-4 mr-2" />
                       {passportPhotoFile ? passportPhotoFile.name : kyc?.passport_photo_url ? "Change Photo" : "Upload Photo"}
@@ -796,12 +852,14 @@ export default function Settings() {
                     accept="application/pdf"
                     onChange={(e) => handleKYCDocumentChange(e, 'national_id')}
                     className="hidden"
+                    disabled={isKYCSubmitted}
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => nationalIdInputRef.current?.click()}
                     className="flex-1"
+                    disabled={isKYCSubmitted}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     {nationalIdFile ? nationalIdFile.name : kyc?.national_id_url ? "Change Document" : "Upload PDF"}
@@ -829,17 +887,50 @@ export default function Settings() {
 
               {/* Submit Button */}
               <div className="flex justify-end pt-2">
-                <Button onClick={handleSubmitKYC} disabled={savingKYC} size="sm">
+                <Button 
+                  onClick={handleSubmitKYCClick} 
+                  disabled={savingKYC || isKYCSubmitted} 
+                  size="sm"
+                >
                   {savingKYC ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Submitting...
+                    </>
+                  ) : isKYCSubmitted ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Submitted
                     </>
                   ) : (
                     "Submit KYC Information"
                   )}
                 </Button>
               </div>
+
+              {/* Warning Dialog */}
+              <AlertDialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+                <AlertDialogContent className="bg-card border-border">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm KYC Submission</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This submission cannot be modified or resubmitted until a decision has been made. 
+                      Are you sure you want to submit your KYC information?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        setShowWarningDialog(false);
+                        handleSubmitKYC();
+                      }}
+                    >
+                      Submit
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </section>
