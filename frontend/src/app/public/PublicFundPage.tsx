@@ -393,13 +393,17 @@ export default function PublicFundPage() {
       key: "date",
       header: "Date",
       className: "text-muted-foreground",
-      render: (item: Contribution) => format(new Date(item.date_received), "MMM d, yyyy"),
+      render: (item: Record<string, unknown>) => {
+        const contribution = item as unknown as Contribution;
+        return format(new Date(contribution.date_received), "MMM d, yyyy");
+      },
     },
     {
       key: "fund",
       header: "Fund",
-      render: (item: Contribution) => {
-        const fundName = publicFunds.find(f => f.fund_id === item.fund_id)?.fund_name || item.fund_id;
+      render: (item: Record<string, unknown>) => {
+        const contribution = item as unknown as Contribution;
+        const fundName = publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name || contribution.fund_id;
         return <span className="font-medium text-foreground">{fundName}</span>;
       },
     },
@@ -407,19 +411,23 @@ export default function PublicFundPage() {
       key: "amount",
       header: "Amount",
       className: "text-right font-semibold",
-      render: (item: Contribution) => (
-        <span className="text-foreground">${item.amount.toFixed(2)}</span>
-      ),
+      render: (item: Record<string, unknown>) => {
+        const contribution = item as unknown as Contribution;
+        return <span className="text-foreground">${contribution.amount.toFixed(2)}</span>;
+      },
     },
     {
       key: "status",
       header: "Status",
-      render: (item: Contribution) => (
-        <div className="flex items-center gap-1">
-          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-          <span className="text-xs text-success capitalize">{item.status}</span>
-        </div>
-      ),
+      render: (item: Record<string, unknown>) => {
+        const contribution = item as unknown as Contribution;
+        return (
+          <div className="flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+            <span className="text-xs text-success capitalize">{contribution.status}</span>
+          </div>
+        );
+      },
     },
   ], [publicFunds]);
 
@@ -429,39 +437,45 @@ export default function PublicFundPage() {
       key: "date",
       header: "Date",
       className: "text-muted-foreground",
-      render: (item: Expense) => {
-        const dateValue = item.date ? new Date(item.date) : new Date();
+      render: (item: Record<string, unknown>) => {
+        const expense = item as unknown as Expense;
+        const dateValue = expense.date ? new Date(expense.date) : new Date();
         return format(dateValue, "MMM d, yyyy");
       },
     },
     {
       key: "category",
       header: "Category",
-      render: (item: Expense) => (
-        <span
-          className={cn(
-            "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
-            categoryColors[item.expense_category] || "bg-secondary text-secondary-foreground"
-          )}
-        >
-          {item.expense_category}
-        </span>
-      ),
+      render: (item: Record<string, unknown>) => {
+        const expense = item as unknown as Expense;
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
+              categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
+            )}
+          >
+            {expense.expense_category}
+          </span>
+        );
+      },
     },
     {
       key: "description",
       header: "Description",
-      render: (item: Expense) => (
-        <span className="text-foreground">{item.expense_name}</span>
-      ),
+      render: (item: Record<string, unknown>) => {
+        const expense = item as unknown as Expense;
+        return <span className="text-foreground">{expense.expense_name}</span>;
+      },
     },
     {
       key: "amount",
       header: "Amount",
       className: "text-right font-semibold",
-      render: (item: Expense) => (
-        <span className="text-foreground">${Number(item.amount).toFixed(2)}</span>
-      ),
+      render: (item: Record<string, unknown>) => {
+        const expense = item as unknown as Expense;
+        return <span className="text-foreground">${Number(expense.amount).toFixed(2)}</span>;
+      },
     },
   ], []);
 
@@ -886,7 +900,7 @@ export default function PublicFundPage() {
                 {/* Table */}
                 <DataTable
                   columns={contributionColumns}
-                  data={filteredContributions as any}
+                  data={filteredContributions as unknown as Record<string, unknown>[]}
                   emptyMessage="No contributions found"
                 />
               </div>
@@ -939,7 +953,7 @@ export default function PublicFundPage() {
               {/* Table */}
               <DataTable
                 columns={expenseColumns}
-                data={filteredExpenses as any}
+                data={filteredExpenses as unknown as Record<string, unknown>[]}
                 emptyMessage="No expenses found"
               />
             </div>

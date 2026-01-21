@@ -39,6 +39,7 @@ memberRoutesWithAuth.get('/test-otp', async (req: Request, res: Response) => {
 // POST /api/v1/members/otp/send - Send OTP (public)
 // IMPORTANT: This route MUST be defined BEFORE authenticateToken middleware
 memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
+  console.log('[OTP Send] Route hit:', req.body);
   try {
     const { phone, accountId } = req.body;
 
@@ -66,13 +67,23 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
     }
 
     const members = await memberService.getMembersByAccount(accountId);
-    const normalizedPhone = phone.replace(/[\s\-+]/g, '');
+    
+    // Normalize phone: remove spaces, dashes, plus, parentheses, and leading zeros after country code
+    const normalizePhone = (phoneNum: string): string => {
+      return phoneNum.replace(/[\s\-+()]/g, '').replace(/^0+/, '');
+    };
+    
+    const normalizedPhone = normalizePhone(phone.trim());
     const member = members.find(m => {
-      const memberPhone = m.phone.replace(/[\s\-+]/g, '');
-      return memberPhone === normalizedPhone;
+      const memberPhone = normalizePhone(m.phone);
+      return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
     });
 
     if (!member) {
+      console.error(`[OTP Send] Member not found. Phone: ${phone}, Normalized: ${normalizedPhone}, Account: ${accountId}, Total members: ${members.length}`);
+      if (members.length > 0) {
+        console.error(`[OTP Send] Sample member phones: ${members.slice(0, 3).map(m => `${m.phone} (normalized: ${normalizePhone(m.phone)})`).join(', ')}`);
+      }
       return res.status(404).json({
         success: false,
         error: 'Member not found with this phone number',
@@ -109,6 +120,7 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
 
 // POST /api/v1/members/otp/verify - Verify OTP (public)
 memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => {
+  console.log('[OTP Verify] Route hit:', { phone: req.body.phone, accountId: req.body.accountId, codeLength: req.body.code?.length });
   try {
     const { phone, code, accountId } = req.body;
 
@@ -160,13 +172,23 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
     }
 
     const members = await memberService.getMembersByAccount(accountId);
-    const normalizedPhone = phone.replace(/[\s\-+]/g, '');
+    
+    // Normalize phone: remove spaces, dashes, plus, parentheses, and leading zeros after country code
+    const normalizePhone = (phoneNum: string): string => {
+      return phoneNum.replace(/[\s\-+()]/g, '').replace(/^0+/, '');
+    };
+    
+    const normalizedPhone = normalizePhone(phone.trim());
     const member = members.find(m => {
-      const memberPhone = m.phone.replace(/[\s\-+]/g, '');
-      return memberPhone === normalizedPhone;
+      const memberPhone = normalizePhone(m.phone);
+      return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
     });
 
     if (!member) {
+      console.error(`[OTP Verify] Member not found. Phone: ${phone}, Normalized: ${normalizedPhone}, Account: ${accountId}, Total members: ${members.length}`);
+      if (members.length > 0) {
+        console.error(`[OTP Verify] Sample member phones: ${members.slice(0, 3).map(m => `${m.phone} (normalized: ${normalizePhone(m.phone)})`).join(', ')}`);
+      }
       return res.status(404).json({
         success: false,
         error: 'Member not found',
@@ -370,11 +392,13 @@ memberRoutesWithAuth.post('/verify-phone/verify', authenticateToken, async (req:
 // IMPORTANT: Public routes above must be defined BEFORE this middleware
 
 // Create a new router for authenticated routes to avoid conflicts
+// We mount this AFTER the public routes to ensure public routes are matched first
 const authenticatedMemberRoutes = Router();
 authenticatedMemberRoutes.use(authenticateToken);
 authenticatedMemberRoutes.use('/', memberRoutes);
 
-// Mount authenticated routes
+// Mount authenticated routes AFTER public routes
+// Express matches routes in order, so public routes defined above will be matched first
 memberRoutesWithAuth.use('/', authenticatedMemberRoutes);
 
 
