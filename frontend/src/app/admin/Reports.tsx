@@ -10,12 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  BarChart3,
-  PieChart,
-  TrendingUp,
-  FileText,
   Download,
-  ArrowRight,
   Calendar,
   Loader2,
 } from "lucide-react";
@@ -42,29 +37,6 @@ const FUND_COLORS = [
   '#b45309',
   '#92400e',
   '#78350f',
-];
-
-const reportTypes = [
-  {
-    title: "Contributions by Fund",
-    description: "Breakdown of contributions across all funds",
-    icon: PieChart,
-  },
-  {
-    title: "Contributions by Period",
-    description: "Monthly and quarterly contribution trends",
-    icon: TrendingUp,
-  },
-  {
-    title: "Expenses Summary",
-    description: "Categorized expense breakdown",
-    icon: BarChart3,
-  },
-  {
-    title: "Net Position",
-    description: "Income vs expenses over time",
-    icon: FileText,
-  },
 ];
 
 export default function Reports() {
@@ -290,34 +262,6 @@ export default function Reports() {
               No fund contributions available
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Report Types */}
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Available Reports</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {reportTypes.map((report) => (
-            <button
-              key={report.title}
-              className="bg-card border border-border rounded-lg p-5 text-left hover:border-amber/50 hover:shadow-sm transition-all group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center group-hover:bg-amber/20 transition-colors">
-                  <report.icon className="h-5 w-5 text-amber" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-foreground">{report.title}</p>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-amber transition-colors" />
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {report.description}
-                  </p>
-                </div>
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     </AppLayout>
