@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -6,13 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, Copy, Check, Wallet, Receipt, Eye, EyeOff } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ExternalLink, Copy, Check, Wallet, Receipt, Eye, EyeOff, Lock, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/hooks/useAccount";
 import { accountApi } from "@/services/account.api";
 import { expenseApi, Expense } from "@/services/expense.api";
+import { contributionApi, Contribution } from "@/services/contribution.api";
+import { memberApi } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { DataTable } from "@/components/ui/data-table";
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark",
@@ -20,7 +24,7 @@ const categoryColors: Record<string, string> = {
   "Utilities": "bg-muted text-muted-foreground",
 };
 
-export default function PublicPage() {
+export default function PublicSettings() {
   const { account, loading: accountLoading } = useAccount();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -28,6 +32,17 @@ export default function PublicPage() {
   const [saving, setSaving] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  
+  // OTP verification states
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
   
   // Color states
   const [foregroundColor, setForegroundColor] = useState("#000000");
@@ -87,7 +102,7 @@ export default function PublicPage() {
       });
       toast({
         title: "Success",
-        description: "Public page settings saved",
+        description: "Public settings saved",
       });
     } catch (error) {
       toast({
@@ -114,6 +129,146 @@ export default function PublicPage() {
   const visibleExpenses = expenses.filter(e => e.member_visible);
   const hiddenExpenses = expenses.filter(e => !e.member_visible);
 
+  const loadMemberData = async (memberId: string) => {
+    try {
+      const contributionsData = await contributionApi.getByMember(memberId);
+      if (contributionsData.success && contributionsData.data) {
+        setContributions(contributionsData.data);
+      }
+    } catch (error) {
+      console.error("Failed to load contributions:", error);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!phone.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account information not available",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSendingOtp(true);
+    try {
+      const response = await memberApi.sendOTP(phone, account.account_id);
+      if (response.success) {
+        setOtpSent(true);
+        toast({
+          title: "OTP Sent",
+          description: `Verification code sent to ${phone}`,
+        });
+      } else {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account information not available",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setVerifying(true);
+    try {
+      const response = await memberApi.verifyOTP(phone, otp, account.account_id);
+      if (response.success && response.data) {
+        setMemberId(response.data.member_id);
+        setIsVerified(true);
+        setShowOtpVerification(false);
+        
+        // Load member data
+        await loadMemberData(response.data.member_id);
+        
+        // Set contributions tab as default after verification
+        setPreviewTab("contributions");
+        
+        toast({
+          title: "Verified",
+          description: "You now have access to view your contributions",
+        });
+      } else {
+        throw new Error(response.error || 'Invalid OTP');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Invalid OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleRequestAccess = () => {
+    setShowOtpVerification(true);
+  };
+
+  // Contribution table columns
+  const contributionColumns = useMemo(() => [
+    {
+      key: "date",
+      header: "Date",
+      render: (item: Contribution) => (
+        <span className="text-sm text-muted-foreground">
+          {format(new Date(item.date_received), "MMM d, yyyy")}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      className: "text-right font-semibold",
+      render: (item: Contribution) => (
+        <span style={{ color: foregroundColor }}>
+          ${Number(item.amount).toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (item: Contribution) => (
+        <span className="text-xs capitalize" style={{ color: foregroundColor }}>
+          {item.status}
+        </span>
+      ),
+    },
+  ], [foregroundColor]);
+
   if (accountLoading) {
     return (
       <AppLayout>
@@ -137,7 +292,7 @@ export default function PublicPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="Public Page"
+        title="Public Settings"
         description="Configure your public-facing contribution page"
       />
 
@@ -211,6 +366,10 @@ export default function PublicPage() {
                       <Receipt className="h-4 w-4 mr-2" />
                       Expenses
                     </TabsTrigger>
+                    <TabsTrigger value="contributions" className="flex-1">
+                      <Receipt className="h-4 w-4 mr-2" />
+                      My Contributions
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="funds" className="mt-4">
@@ -260,7 +419,126 @@ export default function PublicPage() {
                       )}
                     </div>
                   </TabsContent>
+
+                  <TabsContent value="contributions" className="mt-4">
+                    {!isVerified ? (
+                      <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
+                        <Lock className="h-12 w-12 mx-auto mb-4 opacity-70" style={{ color: foregroundColor }} />
+                        <p className="mb-4 opacity-70" style={{ color: foregroundColor }}>
+                          Verify to see your contributions
+                        </p>
+                        <Button 
+                          onClick={handleRequestAccess}
+                          style={{ backgroundColor: foregroundColor, color: backgroundColor }}
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Verify
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {contributions.length === 0 ? (
+                          <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
+                            No contributions found
+                          </p>
+                        ) : (
+                          <DataTable
+                            columns={contributionColumns as any}
+                            data={contributions as any}
+                            emptyMessage="No contributions found"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
                 </Tabs>
+
+                {/* OTP Verification Modal */}
+                {showOtpVerification && !isVerified && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ position: 'absolute' }}>
+                    <Card className="w-full max-w-md bg-card border-border">
+                      <CardHeader>
+                        <CardTitle>Verify Your Identity</CardTitle>
+                        <CardDescription>
+                          Enter your verified phone number to access your contributions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="preview-phone">Phone Number</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="preview-phone"
+                              placeholder="XXX XXX XXXX"
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value)}
+                              disabled={otpSent}
+                            />
+                            {!otpSent && (
+                              <Button
+                                type="button"
+                                onClick={handleSendOtp}
+                                disabled={sendingOtp || !phone.trim()}
+                              >
+                                {sendingOtp ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Send OTP
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {otpSent && (
+                          <div className="space-y-2">
+                            <Label htmlFor="preview-otp">Enter OTP Code</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="preview-otp"
+                                placeholder="000000"
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                                maxLength={6}
+                                className="text-center text-2xl tracking-widest font-mono"
+                              />
+                              <Button
+                                type="button"
+                                onClick={handleVerifyOtp}
+                                disabled={verifying || !otp.trim()}
+                              >
+                                {verifying ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Verify"
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2 pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setShowOtpVerification(false);
+                              setOtpSent(false);
+                              setPhone("");
+                              setOtp("");
+                            }}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
                 <p className="text-xs opacity-60" style={{ color: foregroundColor }}>
                   Powered by PollenHive

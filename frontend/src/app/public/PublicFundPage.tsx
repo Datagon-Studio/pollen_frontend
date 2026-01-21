@@ -509,7 +509,7 @@ export default function PublicFundPage() {
                 <div className="flex gap-2">
                   <Input
                     id="phone"
-                    placeholder="+233 XX XXX XXXX"
+                    placeholder="XXX XXX XXXX"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     disabled={otpSent}

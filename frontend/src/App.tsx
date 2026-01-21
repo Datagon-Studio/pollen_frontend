@@ -12,7 +12,7 @@ import Members from "./app/admin/Members";
 import Funds from "./app/admin/Funds";
 import Contributions from "./app/admin/Contributions";
 import Expenses from "./app/admin/Expenses";
-import PublicPage from "./app/public/PublicPage";
+import PublicSettings from "./app/admin/PublicSettings";
 import PublicFundLanding from "./app/public/PublicFundLanding";
 import PublicFundPage from "./app/public/PublicFundPage";
 import JoinFundPage from "./app/public/JoinFundPage";
@@ -98,7 +98,14 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/public-page" element={<PublicPage />} />
+          <Route
+            path="/public-settings"
+            element={
+              <ProtectedRoute>
+                <PublicSettings />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/g" element={<PublicFundLanding />} />
           <Route path="/g/:fundId" element={<PublicFundPage />} />
           <Route path="/g/:fundId/join" element={<JoinFundPage />} />

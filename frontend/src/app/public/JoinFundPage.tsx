@@ -336,7 +336,7 @@ export default function JoinFundPage() {
               <div className="flex gap-2">
                 <Input
                   id="phone"
-                  placeholder="+233 XX XXX XXXX"
+                  placeholder="XXX XXX XXXX"
                   value={formData.phone}
                   onChange={(e) => {
                     setFormData({ ...formData, phone: e.target.value });
