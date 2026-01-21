@@ -40,7 +40,6 @@ const navItems: NavItem[] = [
   { label: "Contributions", href: "/contributions", icon: HandCoins },
   { label: "Expenses", href: "/expenses", icon: Receipt },
   { label: "Public Page", href: "/public-page", icon: Globe },
-  { label: "Member Preview", href: "/member-preview", icon: Users },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "KYC Verification", href: "/kyc-verification", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings },
