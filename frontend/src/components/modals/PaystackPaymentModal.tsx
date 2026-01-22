@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
 import { paymentApi, InitializePaymentInput } from "@/services/payment.api";
+import { memberApi, Member } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Wallet } from "lucide-react";
 
@@ -19,6 +20,7 @@ interface PaystackPaymentModalProps {
   onOpenChange: (open: boolean) => void;
   fund: Fund | null;
   accountId: string;
+  memberId?: string | null;
   onSuccess?: () => void;
 }
 
@@ -27,22 +29,51 @@ export function PaystackPaymentModal({
   onOpenChange,
   fund,
   accountId,
+  memberId,
   onSuccess,
 }: PaystackPaymentModalProps) {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [initializing, setInitializing] = useState(false);
+  const [loadingMember, setLoadingMember] = useState(false);
 
+  // Load member details when modal opens and memberId is available
   useEffect(() => {
-    if (open && fund) {
-      // Reset form when modal opens
+    if (open && memberId) {
+      setLoadingMember(true);
+      memberApi.getById(memberId)
+        .then((response) => {
+          if (response.success && response.data) {
+            const member = response.data;
+            // Auto-fill form with member details
+            if (member.email) {
+              setEmail(member.email);
+            }
+            if (member.full_name) {
+              setName(member.full_name);
+            }
+            if (member.phone) {
+              setPhone(member.phone);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to load member details:", error);
+        })
+        .finally(() => {
+          setLoadingMember(false);
+        });
+    } else if (open && fund) {
+      // Reset form when modal opens without member
       setEmail("");
       setName("");
+      setPhone("");
       setAmount(fund.default_amount?.toString() || "");
     }
-  }, [open, fund]);
+  }, [open, fund, memberId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +108,7 @@ export function PaystackPaymentModal({
         amount: amountNum,
         email: email.trim(),
         name: name.trim() || "Anonymous Donor",
+        phone: phone.trim() || undefined,
       };
 
       const result = await paymentApi.initializePayment(paymentData);
@@ -97,6 +129,7 @@ export function PaystackPaymentModal({
     if (!isOpen) {
       setEmail("");
       setName("");
+      setPhone("");
       setAmount(fund?.default_amount?.toString() || "");
     }
     onOpenChange(isOpen);
@@ -117,6 +150,13 @@ export function PaystackPaymentModal({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {loadingMember && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading your details...</span>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="email">Email Address *</Label>
             <Input
@@ -126,7 +166,7 @@ export function PaystackPaymentModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={initializing}
+              disabled={initializing || loadingMember}
             />
           </div>
 
@@ -138,7 +178,19 @@ export function PaystackPaymentModal({
               placeholder="Your name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={initializing}
+              disabled={initializing || loadingMember}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number (Optional)</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="XXX XXX XXXX"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={initializing || loadingMember}
             />
           </div>
 
