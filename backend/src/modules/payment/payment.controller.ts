@@ -8,7 +8,7 @@ export const paymentRoutes = Router();
 // POST /api/v1/payments/initialize
 paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
   try {
-    const { account_id, fund_id, amount, email, name } = req.body;
+    const { account_id, fund_id, amount, email, name, phone } = req.body;
 
     if (!account_id || !fund_id || !amount || !email) {
       return sendBadRequest(res, 'Missing required fields: account_id, fund_id, amount, email');
@@ -24,6 +24,7 @@ paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
       amount,
       email,
       name: name || 'Anonymous Donor',
+      phone: phone || undefined,
     });
 
     if (!result.success) {
@@ -82,5 +83,28 @@ paymentRoutes.post('/webhook', async (req: Request, res: Response) => {
     console.error('Webhook error:', error);
     const message = error instanceof Error ? error.message : 'Webhook processing failed';
     sendError(res, message, 500);
+  }
+});
+
+// Link anonymous contributions to member
+// POST /api/v1/payments/link-contributions
+paymentRoutes.post('/link-contributions', async (req: Request, res: Response) => {
+  try {
+    const { account_id, member_id } = req.body;
+
+    if (!account_id || !member_id) {
+      return sendBadRequest(res, 'Missing required fields: account_id, member_id');
+    }
+
+    const result = await paymentService.linkAnonymousContributions(account_id, member_id);
+
+    if (!result.success) {
+      return sendBadRequest(res, result.error || 'Failed to link contributions');
+    }
+
+    sendSuccess(res, { linked: result.linked || 0 }, `Linked ${result.linked || 0} contributions`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to link contributions';
+    sendBadRequest(res, message);
   }
 });
