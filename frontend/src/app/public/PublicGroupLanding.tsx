@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search } from "lucide-react";
 
-export default function PublicFundLanding() {
+export default function PublicGroupLanding() {
   const [groupId, setGroupId] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();

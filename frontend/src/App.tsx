@@ -13,9 +13,9 @@ import Funds from "./app/admin/Funds";
 import Contributions from "./app/admin/Contributions";
 import Expenses from "./app/admin/Expenses";
 import PublicSettings from "./app/admin/PublicSettings";
-import PublicFundLanding from "./app/public/PublicFundLanding";
-import PublicFundPage from "./app/public/PublicFundPage";
-import JoinFundPage from "./app/public/JoinFundPage";
+import PublicGroupLanding from "./app/public/PublicGroupLanding";
+import PublicGroupPage from "./app/public/PublicGroupPage";
+import JoinGroupPage from "./app/public/JoinGroupPage";
 import Reports from "./app/admin/Reports";
 import Settings from "./app/admin/Settings";
 import KYCVerification from "./app/admin/KYCVerification";
@@ -106,9 +106,9 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/g" element={<PublicFundLanding />} />
-          <Route path="/g/:accountId" element={<PublicFundPage />} />
-          <Route path="/g/:accountId/join" element={<JoinFundPage />} />
+          <Route path="/g" element={<PublicGroupLanding />} />
+          <Route path="/g/:accountId" element={<PublicGroupPage />} />
+          <Route path="/g/:accountId/join" element={<JoinGroupPage />} />
           <Route
             path="/reports"
             element={

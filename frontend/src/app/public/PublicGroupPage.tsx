@@ -26,7 +26,7 @@ const categoryColors: Record<string, string> = {
   "Maintenance": "bg-charcoal/10 text-charcoal",
 };
 
-export default function PublicFundPage() {
+export default function PublicGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -97,7 +97,7 @@ export default function PublicFundPage() {
         console.error("Failed to load expenses:", error);
       }
     } catch (error) {
-      console.error('[PublicFundPage] Error loading group:', error);
+      console.error('[PublicGroupPage] Error loading group:', error);
       const errorMessage = error instanceof Error ? error.message : 'Group not found';
       toast({
         title: "Error",

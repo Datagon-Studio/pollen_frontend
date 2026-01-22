@@ -19,7 +19,7 @@ import { memberApi } from "@/services";
 import { accountApi } from "@/services/account.api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function JoinFundPage() {
+export default function JoinGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
