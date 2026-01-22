@@ -8,6 +8,7 @@ import { expenseCategoryRoutes } from './modules/expense-category/expense-catego
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
 import { settlementRoutes } from './modules/settlement/settlement.controller.js';
+import { paymentRoutes } from './modules/payment/payment.controller.js';
 
 export const routes = Router();
 
@@ -20,4 +21,5 @@ routes.use('/expense-categories', expenseCategoryRoutes);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
+routes.use('/payments', paymentRoutes);
 
