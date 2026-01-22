@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +41,12 @@ const cache = {
 interface ContributionRow {
   contribution_id: string;
   dateReceived: string;
+  dateValue: Date;
   memberName: string;
   fundName: string;
   fundId: string;
   amount: string;
+  amountValue: number;
   channel: "offline" | "online";
   paymentMethod: string | null;
   status: "pending" | "confirmed" | "failed" | "reversed";
@@ -66,6 +68,8 @@ export default function Contributions() {
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [editingContribution, setEditingContribution] = useState<ContributionWithDetails | null>(null);
   const [deletingContribution, setDeletingContribution] = useState<ContributionWithDetails | null>(null);
+  const [sortColumn, setSortColumn] = useState<string | null>("dateReceived");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load contributions with caching
@@ -257,16 +261,23 @@ export default function Contributions() {
     }
   }, [contributions]);
 
+  const handleSort = (column: string, direction: SortDirection) => {
+    setSortColumn(direction ? column : null);
+    setSortDirection(direction);
+  };
+
   // Define columns inside component to access handlers
   const columns = useMemo(() => [
     {
       key: "dateReceived",
       header: "Date Received",
       className: "text-muted-foreground",
+      sortable: true,
     },
     {
       key: "memberName",
       header: "Member",
+      sortable: true,
       render: (item: ContributionRow) => (
         <span className="font-medium text-foreground">{item.memberName}</span>
       ),
@@ -274,15 +285,18 @@ export default function Contributions() {
     {
       key: "fundName",
       header: "Fund",
+      sortable: true,
     },
     {
       key: "amount",
       header: "Amount",
       className: "text-right font-semibold",
+      sortable: true,
     },
     {
       key: "comment",
       header: "Comment",
+      sortable: false,
       render: (item: ContributionRow) => (
         <span className="text-sm text-muted-foreground">{item.comment || "—"}</span>
       ),
@@ -290,6 +304,7 @@ export default function Contributions() {
     {
       key: "channel",
       header: "Payment Method",
+      sortable: false,
       render: (item: ContributionRow) => (
         <div className="flex items-center gap-1.5">
           {item.paymentMethod ? (
@@ -311,6 +326,7 @@ export default function Contributions() {
     {
       key: "status",
       header: "Status",
+      sortable: true,
       render: (item: ContributionRow) => <StatusBadge status={item.status as "pending" | "confirmed"} />,
     },
     {
@@ -363,32 +379,77 @@ export default function Contributions() {
   ], [handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete]);
 
   const contributionRows: ContributionRow[] = useMemo(() => {
-    return contributions.map((c) => ({
-      contribution_id: c.contribution_id,
-      dateReceived: format(new Date(c.date_received), "MMM d, yyyy"),
-      memberName: c.member_name || "Anonymous",
-      fundName: c.fund_name,
-      fundId: c.fund_id,
-      amount: `$${c.amount.toFixed(2)}`,
-      channel: c.channel,
-      paymentMethod: c.payment_method,
-      status: c.status,
-      comment: c.comment || "",
-      paymentReference: c.payment_reference,
-    }));
+    if (!contributions || contributions.length === 0) return [];
+    
+    return contributions.map((c) => {
+      const dateValue = c.date_received ? new Date(c.date_received) : new Date();
+      return {
+        contribution_id: c.contribution_id,
+        dateReceived: format(dateValue, "MMM d, yyyy"),
+        dateValue: dateValue,
+        memberName: c.member_name || "Anonymous",
+        fundName: c.fund_name || "",
+        fundId: c.fund_id,
+        amount: `$${c.amount.toFixed(2)}`,
+        amountValue: c.amount || 0,
+        channel: c.channel,
+        paymentMethod: c.payment_method,
+        status: c.status,
+        comment: c.comment || "",
+        paymentReference: c.payment_reference,
+      };
+    });
   }, [contributions]);
 
-  const filteredContributions = contributionRows.filter((c) => {
-    const matchesSearch =
-      c.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.fundName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "pending" && c.status === "pending") ||
-      (activeTab === "confirmed" && c.status === "confirmed");
-    const matchesFund = fundFilter === "all" || c.fundId === fundFilter;
-    return matchesSearch && matchesTab && matchesFund;
-  });
+  const filteredContributions = useMemo(() => {
+    if (!contributionRows || contributionRows.length === 0) return [];
+    
+    const filtered = contributionRows.filter((c) => {
+      const matchesSearch =
+        c.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.fundName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "pending" && c.status === "pending") ||
+        (activeTab === "confirmed" && c.status === "confirmed");
+      const matchesFund = fundFilter === "all" || c.fundId === fundFilter;
+      return matchesSearch && matchesTab && matchesFund;
+    });
+
+    // Apply sorting
+    if (sortColumn && sortDirection && filtered.length > 0) {
+      return [...filtered].sort((a, b) => {
+        let comparison = 0;
+        try {
+          switch (sortColumn) {
+            case "dateReceived":
+              comparison = a.dateValue.getTime() - b.dateValue.getTime();
+              break;
+            case "memberName":
+              comparison = (a.memberName || "").localeCompare(b.memberName || "");
+              break;
+            case "fundName":
+              comparison = (a.fundName || "").localeCompare(b.fundName || "");
+              break;
+            case "amount":
+              comparison = (a.amountValue || 0) - (b.amountValue || 0);
+              break;
+            case "status":
+              comparison = (a.status || "").localeCompare(b.status || "");
+              break;
+            default:
+              return 0;
+          }
+        } catch (error) {
+          console.error("Error sorting contributions:", error);
+          return 0;
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return filtered;
+  }, [contributionRows, searchQuery, activeTab, fundFilter, sortColumn, sortDirection]);
 
   const pendingCount = contributions.filter((c) => c.status === "pending").length;
   const confirmedCount = contributions.filter((c) => c.status === "confirmed").length;
@@ -503,6 +564,9 @@ export default function Contributions() {
           rowClassName={(item: any) =>
             item.status === "pending" ? "border-l-2 border-l-amber" : ""
           }
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
         />
       )}
 
