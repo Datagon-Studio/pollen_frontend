@@ -61,21 +61,29 @@ export const memberRepository = {
   },
 
   /**
-   * Find member by email
+   * Find member by email (case-insensitive)
    */
   async findByEmail(email: string, accountId: string): Promise<Member | null> {
+    // Normalize email: lowercase and trim
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Get all members for the account and filter by email (case-insensitive)
     const { data, error } = await supabase
       .from('members')
       .select('*')
-      .eq('email', email)
-      .eq('account_id', accountId)
-      .single();
+      .eq('account_id', accountId);
 
     if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
       throw new Error(`Failed to find member by email: ${error.message}`);
     }
-    return data;
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    // Find member with matching email (case-insensitive)
+    const member = data.find(m => m.email && m.email.trim().toLowerCase() === normalizedEmail);
+    return member || null;
   },
 
   /**
