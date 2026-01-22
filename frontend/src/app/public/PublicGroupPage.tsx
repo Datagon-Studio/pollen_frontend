@@ -18,6 +18,8 @@ import { expenseApi, Expense } from "@/services/expense.api";
 import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
 import { memberApi } from "@/services/member.api";
+import { ContributeConfirmationModal } from "@/components/modals/ContributeConfirmationModal";
+import { PaystackPaymentModal } from "@/components/modals/PaystackPaymentModal";
 
 const categoryColors: Record<string, string> = {
   "Operations": "bg-amber/10 text-amber-dark",
@@ -58,6 +60,11 @@ export default function PublicGroupPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [memberId, setMemberId] = useState<string | null>(null);
+
+  // Contribution/Payment states
+  const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     if (accountId) {
@@ -619,11 +626,8 @@ export default function PublicGroupPage() {
                             <Button
                               size="sm"
                               onClick={() => {
-                                // TODO: Open contribution modal
-                                toast({
-                                  title: "Contribute",
-                                  description: "Contribution feature coming soon",
-                                });
+                                setSelectedFund(f);
+                                setShowConfirmationDialog(true);
                               }}
                             >
                               Contribute →
@@ -855,6 +859,37 @@ export default function PublicGroupPage() {
           Powered by PollenHive
         </p>
       </div>
+
+      {/* Contribution Confirmation Dialog */}
+      <ContributeConfirmationModal
+        open={showConfirmationDialog}
+        onOpenChange={setShowConfirmationDialog}
+        fund={selectedFund}
+        onConfirm={() => {
+          setShowConfirmationDialog(false);
+          setShowPaymentModal(true);
+        }}
+      />
+
+      {/* Paystack Payment Modal */}
+      {account && (
+        <PaystackPaymentModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          fund={selectedFund}
+          accountId={account.account_id}
+          onSuccess={() => {
+            setShowPaymentModal(false);
+            setSelectedFund(null);
+            // Reload data to show updated contributions
+            loadData();
+            toast({
+              title: "Success",
+              description: "Your contribution has been processed successfully",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
