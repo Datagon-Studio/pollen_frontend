@@ -42,11 +42,6 @@ export function ContributeConfirmationModal({
                 {fund.description}
               </div>
             )}
-            {fund.default_amount && (
-              <div className="mt-2 text-sm font-medium">
-                Suggested amount: ${fund.default_amount.toFixed(2)}
-              </div>
-            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

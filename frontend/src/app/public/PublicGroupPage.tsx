@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DataTable } from "@/components/ui/data-table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, CalendarIcon } from "lucide-react";
+import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, CalendarIcon, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fundApi, Fund } from "@/services/fund.api";
@@ -27,6 +27,9 @@ const categoryColors: Record<string, string> = {
   "Utilities": "bg-muted text-muted-foreground",
   "Maintenance": "bg-charcoal/10 text-charcoal",
 };
+
+const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const SESSION_STORAGE_KEY = 'public_group_session';
 
 export default function PublicGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -67,11 +70,84 @@ export default function PublicGroupPage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  // Session management
+  const saveSession = (memberId: string, memberName: string, phone: string) => {
+    const sessionData = {
+      memberId,
+      memberName,
+      phone,
+      accountId: accountId || '',
+      expiresAt: Date.now() + SESSION_DURATION,
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+  };
+
+  const loadSession = () => {
+    try {
+      const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!sessionData) return null;
+      
+      const session = JSON.parse(sessionData);
+      
+      // Check if session is expired
+      if (Date.now() > session.expiresAt) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        return null;
+      }
+      
+      // Check if session is for the current account
+      if (session.accountId !== accountId) {
+        return null;
+      }
+      
+      return session;
+    } catch (error) {
+      console.error('Error loading session:', error);
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+  };
+
+  const clearSession = () => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    setIsVerified(false);
+    setMemberId(null);
+    setMemberName(null);
+    setContributions([]);
+    setPhone("");
+    setOtp("");
+    setOtpSent(false);
+  };
+
   useEffect(() => {
     if (accountId) {
       loadData();
+      
+      // Restore session on mount
+      const session = loadSession();
+      if (session) {
+        setMemberId(session.memberId);
+        setMemberName(session.memberName);
+        setIsVerified(true);
+        loadMemberData(session.memberId);
+      }
+      
+      // Check session timeout every 30 seconds
+      const timeoutInterval = setInterval(() => {
+        const currentSession = loadSession();
+        if (!currentSession && isVerified) {
+          clearSession();
+          toast({
+            title: "Session Expired",
+            description: "Your session has expired. Please verify again to continue.",
+            variant: "destructive",
+          });
+        }
+      }, 30000);
+      
+      return () => clearInterval(timeoutInterval);
     }
-  }, [accountId]);
+  }, [accountId, isVerified, toast]);
 
   const loadData = async () => {
     if (!accountId) return;
@@ -208,6 +284,9 @@ export default function PublicGroupPage() {
         setIsVerified(true);
         setShowOtpVerification(false);
         
+        // Save session to localStorage
+        saveSession(memberId, memberName, phone);
+        
         // Load member data (contributions)
         await loadMemberData(memberId);
         
@@ -230,6 +309,14 @@ export default function PublicGroupPage() {
     } finally {
       setVerifying(false);
     }
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out successfully",
+    });
   };
 
   const handleRequestAccess = () => {
@@ -551,8 +638,8 @@ export default function PublicGroupPage() {
             </p>
 
             {/* Action Buttons */}
-            {!isVerified && (
-              <div className="flex flex-col sm:flex-row items-start gap-3">
+            <div className="flex flex-col sm:flex-row items-start gap-3">
+              {!isVerified ? (
                 <Button 
                   onClick={handleRequestAccess} 
                   size="lg"
@@ -561,8 +648,18 @@ export default function PublicGroupPage() {
                   <Lock className="h-4 w-4 mr-2" />
                   View My Contributions
                 </Button>
-              </div>
-            )}
+              ) : (
+                <Button 
+                  onClick={handleLogout} 
+                  size="lg"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log Out
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -664,7 +761,7 @@ export default function PublicGroupPage() {
                           />
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                          ${mockCollected.toLocaleString()} of ${mockTarget.toLocaleString()} collected
+                          {progress.toFixed(1)}% of goal reached
                         </p>
                       </CardContent>
                     </Card>
