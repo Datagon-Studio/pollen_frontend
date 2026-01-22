@@ -60,6 +60,7 @@ export default function PublicGroupPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [memberId, setMemberId] = useState<string | null>(null);
+  const [memberName, setMemberName] = useState<string | null>(null);
 
   // Contribution/Payment states
   const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
@@ -118,12 +119,19 @@ export default function PublicGroupPage() {
 
   const loadMemberData = async (memberId: string) => {
     try {
+      console.log('[PublicGroupPage] Loading contributions for member:', memberId);
       const contributionsData = await contributionApi.getByMember(memberId);
+      console.log('[PublicGroupPage] Contributions response:', contributionsData);
       if (contributionsData.success && contributionsData.data) {
+        console.log('[PublicGroupPage] Setting contributions:', contributionsData.data.length, 'contributions');
         setContributions(contributionsData.data);
+      } else {
+        console.log('[PublicGroupPage] No contributions found or error:', contributionsData.error);
+        setContributions([]);
       }
     } catch (error) {
-      console.error("Failed to load contributions:", error);
+      console.error("[PublicGroupPage] Failed to load contributions:", error);
+      setContributions([]);
     }
   };
 
@@ -192,18 +200,22 @@ export default function PublicGroupPage() {
     try {
       const response = await memberApi.verifyOTP(phone, otp, account.account_id);
       if (response.success && response.data) {
-        setMemberId(response.data.member_id);
+        const memberId = response.data.member_id;
+        const memberName = response.data.full_name;
+        
+        setMemberId(memberId);
+        setMemberName(memberName);
         setIsVerified(true);
         setShowOtpVerification(false);
         
-        // Load member data
-        await loadMemberData(response.data.member_id);
+        // Load member data (contributions)
+        await loadMemberData(memberId);
         
         // Set contributions tab as default after verification
         setActiveTab("contributions");
         
         toast({
-          title: "Verified",
+          title: `Welcome, ${memberName}!`,
           description: "You now have access to view your contributions",
         });
       } else {
@@ -532,7 +544,10 @@ export default function PublicGroupPage() {
               className="opacity-80 mb-4"
               style={{ color: foregroundColor }}
             >
-              Support our community by contributing to our active groups
+              {isVerified && memberName 
+                ? `Welcome back, ${memberName}! Support our community by contributing to our active groups.`
+                : "Support our community by contributing to our active groups"
+              }
             </p>
 
             {/* Action Buttons */}
@@ -878,6 +893,7 @@ export default function PublicGroupPage() {
           onOpenChange={setShowPaymentModal}
           fund={selectedFund}
           accountId={account.account_id}
+          memberId={memberId}
           onSuccess={() => {
             setShowPaymentModal(false);
             setSelectedFund(null);
