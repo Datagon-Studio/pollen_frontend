@@ -209,6 +209,15 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       });
     }
 
+    // Auto-link anonymous Paystack contributions to this member
+    try {
+      const { paymentService } = await import('../../modules/payment/payment.service.js');
+      await paymentService.linkAnonymousContributions(accountId, member.member_id);
+    } catch (error) {
+      console.error('Error auto-linking contributions:', error);
+      // Don't fail OTP verification if linking fails
+    }
+
     res.status(200).json({
       success: true,
       data: {
