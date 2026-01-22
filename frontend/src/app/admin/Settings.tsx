@@ -28,7 +28,6 @@ import {
   Building2,
   Shield,
   Bell,
-  Eye,
   Save,
   Upload,
   CheckCircle2,
@@ -1165,57 +1164,6 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Birthday Messages</p>
                 <p className="text-sm text-muted-foreground">
                   Send birthday greetings to members
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </div>
-        </section>
-
-        {/* Expense Transparency */}
-        <section className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center">
-              <Eye className="h-5 w-5 text-amber" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-foreground">Expense Transparency</h2>
-              <p className="text-sm text-muted-foreground">
-                Control what members can see
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Expense Visibility Level</Label>
-              <Select defaultValue="summary">
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="none">None - Hide all expenses</SelectItem>
-                  <SelectItem value="summary">Summary - Show totals by category</SelectItem>
-                  <SelectItem value="detailed">Detailed - Show individual expenses</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">Show Fund Balances</p>
-                <p className="text-sm text-muted-foreground">
-                  Display current balance for each fund
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">Show Contribution Rankings</p>
-                <p className="text-sm text-muted-foreground">
-                  Display top contributors (anonymized)
                 </p>
               </div>
               <Switch />
