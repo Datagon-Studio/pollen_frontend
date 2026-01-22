@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -74,15 +74,18 @@ const formatExpenseForDisplay = (expense: Expense) => {
 
 type DisplayExpense = ReturnType<typeof formatExpenseForDisplay>;
 
-const columns = [
+// Base columns definition - will be enhanced with sorting in component
+const baseColumns: Column<DisplayExpense>[] = [
   {
     key: "date",
     header: "Date",
     className: "text-muted-foreground",
+    sortable: true,
   },
   {
     key: "expenseName",
     header: "Expense Name",
+    sortable: true,
     render: (item: DisplayExpense) => (
       <span className="text-foreground font-medium">{item.expenseName}</span>
     ),
@@ -90,6 +93,7 @@ const columns = [
   {
     key: "expenseCategory",
     header: "Category",
+    sortable: true,
     render: (item: DisplayExpense) => (
       <span
         className={cn(
@@ -104,6 +108,7 @@ const columns = [
   {
     key: "notes",
     header: "Notes",
+    sortable: false,
     render: (item: DisplayExpense) => (
       <span className="text-sm text-muted-foreground">{item.notes || "—"}</span>
     ),
@@ -111,6 +116,7 @@ const columns = [
   {
     key: "memberVisible",
     header: "Visible",
+    sortable: false,
     render: (item: DisplayExpense) => (
       <div className="flex items-center gap-1">
         {item.memberVisible ? (
@@ -125,13 +131,13 @@ const columns = [
     key: "amount",
     header: "Amount",
     className: "text-right font-semibold",
+    sortable: true,
   },
 ];
 
 export default function Expenses() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "amount-high" | "amount-low">("newest");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [showRecordExpense, setShowRecordExpense] = useState(false);
@@ -140,6 +146,8 @@ export default function Expenses() {
   const [showEditExpense, setShowEditExpense] = useState(false);
   const [showDeleteExpense, setShowDeleteExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [sortColumn, setSortColumn] = useState<string | null>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -197,14 +205,20 @@ export default function Expenses() {
     return ["All", ...Array.from(cats)];
   }, [expenses]);
 
+  const handleSort = (column: string, direction: SortDirection) => {
+    setSortColumn(direction ? column : null);
+    setSortDirection(direction);
+  };
+
   // Create columns with handlers
   const columnsWithHandlers = useMemo(() => {
     return [
-      ...columns,
+      ...baseColumns,
       {
         key: "actions",
         header: "",
         className: "text-right",
+        sortable: false,
         render: (item: DisplayExpense) => {
           const expense = expenses.find(e => e.expense_id === item.expense_id);
           return (
@@ -258,24 +272,36 @@ export default function Expenses() {
           return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
         })
     .sort((a, b) => {
-      switch (sortOrder) {
-        case "newest":
-          return b.dateValue.getTime() - a.dateValue.getTime();
-        case "oldest":
-          return a.dateValue.getTime() - b.dateValue.getTime();
-        case "amount-high":
-          return b.amountValue - a.amountValue;
-        case "amount-low":
-          return a.amountValue - b.amountValue;
+      if (!sortColumn || !sortDirection) {
+        // Default: newest first
+        return b.dateValue.getTime() - a.dateValue.getTime();
+      }
+
+      let comparison = 0;
+      switch (sortColumn) {
+        case "date":
+          comparison = a.dateValue.getTime() - b.dateValue.getTime();
+          break;
+        case "expenseName":
+          comparison = a.expenseName.localeCompare(b.expenseName);
+          break;
+        case "expenseCategory":
+          comparison = a.expenseCategory.localeCompare(b.expenseCategory);
+          break;
+        case "amount":
+          comparison = a.amountValue - b.amountValue;
+          break;
         default:
           return 0;
       }
+
+      return sortDirection === "asc" ? comparison : -comparison;
     });
     } catch (error) {
       console.error("Error filtering expenses:", error);
       return [];
     }
-  }, [expenses, searchQuery, categoryFilter, dateFrom, dateTo, sortOrder]);
+  }, [expenses, searchQuery, categoryFilter, dateFrom, dateTo, sortColumn, sortDirection]);
 
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + e.amountValue, 0);
@@ -326,20 +352,6 @@ export default function Expenses() {
                     {cat}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sort */}
-            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as typeof sortOrder)}>
-              <SelectTrigger className="w-[150px]">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="amount-high">Amount: High to Low</SelectItem>
-                <SelectItem value="amount-low">Amount: Low to High</SelectItem>
               </SelectContent>
             </Select>
 
@@ -409,7 +421,13 @@ export default function Expenses() {
           No expenses found. Add your first expense to get started.
         </div>
       ) : (
-        <DataTable columns={columnsWithHandlers as any} data={filteredExpenses as any} />
+        <DataTable 
+          columns={columnsWithHandlers as any} 
+          data={filteredExpenses as any}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+        />
       )}
 
       <RecordExpenseModal 
