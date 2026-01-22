@@ -460,14 +460,12 @@ export default function Expenses() {
         open={showRecordExpense} 
         onOpenChange={setShowRecordExpense}
         onSuccess={handleExpenseCreated}
-        existingCategories={stats?.categories || []}
       />
-      <EditExpenseModal 
-        open={showEditExpense} 
-        onOpenChange={setShowEditExpense} 
+      <EditExpenseModal
+        open={showEditExpense}
+        onOpenChange={setShowEditExpense}
         expense={selectedExpense}
         onSuccess={handleExpenseUpdated}
-        existingCategories={stats?.categories || []}
       />
       <DeleteExpenseModal 
         open={showDeleteExpense} 
