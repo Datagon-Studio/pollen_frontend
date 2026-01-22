@@ -31,28 +31,31 @@ export function StatCard({
         className
       )}
     >
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-2xl font-semibold text-foreground">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          )}
-          {trend && (
-            <p
-              className={cn(
-                "text-xs font-medium",
-                trend.positive ? "text-success" : "text-destructive"
-              )}
-            >
-              {trend.positive ? "+" : ""}
-              {trend.value}
-            </p>
-          )}
+          <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center shrink-0">
+            <Icon className="h-5 w-5 text-amber" />
+          </div>
         </div>
-        <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center">
-          <Icon className="h-5 w-5 text-amber" />
-        </div>
+        <p className={cn(
+          "font-semibold text-foreground",
+          value.length >= 15 ? "text-lg" : value.length >= 12 ? "text-xl" : "text-2xl"
+        )}>{value}</p>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        )}
+        {trend && (
+          <p
+            className={cn(
+              "text-xs font-medium",
+              trend.positive ? "text-success" : "text-destructive"
+            )}
+          >
+            {trend.positive ? "+" : ""}
+            {trend.value}
+          </p>
+        )}
       </div>
     </div>
   );
