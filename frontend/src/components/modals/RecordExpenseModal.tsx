@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,25 +24,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Plus } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { expenseApi } from "@/services";
+import { expenseCategoryApi, ExpenseCategory } from "@/services/expense-category.api";
 
 interface RecordExpenseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
-  existingCategories?: string[];
 }
 
-const defaultCategories = ["Operations", "Events", "Maintenance", "Administration", "Utilities"];
-
-export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCategories = [] }: RecordExpenseModalProps) {
+export function RecordExpenseModal({ open, onOpenChange, onSuccess }: RecordExpenseModalProps) {
   const { toast } = useToast();
-  const [categories, setCategories] = useState<string[]>([]);
-  const [showCustomCategory, setShowCustomCategory] = useState(false);
-  const [customCategory, setCustomCategory] = useState("");
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     expenseName: "",
@@ -54,40 +51,29 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCate
   });
 
   useEffect(() => {
-    // Merge existing categories with defaults, removing duplicates
-    const allCategories = [...new Set([...defaultCategories, ...existingCategories])];
-    setCategories(allCategories);
-  }, [existingCategories]);
+    if (open) {
+      loadCategories();
+    }
+  }, [open]);
 
-  const handleAddCategory = () => {
-    if (!customCategory.trim()) {
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const data = await expenseCategoryApi.getAll();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to load expense categories:", error);
       toast({
         title: "Error",
-        description: "Please enter a category name.",
+        description: "Failed to load expense categories",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setLoadingCategories(false);
     }
-    
-    if (categories.includes(customCategory.trim())) {
-      toast({
-        title: "Error",
-        description: "This category already exists.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newCategory = customCategory.trim();
-    setCategories([...categories, newCategory]);
-    setFormData({ ...formData, expenseCategory: newCategory });
-    setCustomCategory("");
-    setShowCustomCategory(false);
-    toast({
-      title: "Category Added",
-      description: `"${newCategory}" has been added to categories.`,
-    });
   };
+
+  // Categories are already sorted alphabetically from the API
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,8 +114,6 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCate
       });
 
       setFormData({ expenseName: "", expenseCategory: "", date: new Date(), amount: "", notes: "", memberVisible: true });
-      setShowCustomCategory(false);
-      setCustomCategory("");
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
@@ -145,8 +129,7 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCate
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
-      setShowCustomCategory(false);
-      setCustomCategory("");
+      setFormData({ expenseName: "", expenseCategory: "", date: new Date(), amount: "", notes: "", memberVisible: true });
     }
     onOpenChange(isOpen);
   };
@@ -192,58 +175,22 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess, existingCate
               </Popover>
             </div>
 
-            {/* Category with Custom Option */}
+            {/* Category */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="category">Expense Category *</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-amber hover:text-amber-dark"
-                  onClick={() => setShowCustomCategory(!showCustomCategory)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Custom
-                </Button>
-              </div>
-              
-              {showCustomCategory ? (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter custom category..."
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleAddCategory}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowCustomCategory(false);
-                      setCustomCategory("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
+              <Label htmlFor="category">Expense Category *</Label>
+              {loadingCategories ? (
+                <div className="flex items-center justify-center py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <Select value={formData.expenseCategory} onValueChange={(v) => setFormData({ ...formData, expenseCategory: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
+                  <SelectContent className="bg-card border-border max-h-[300px]">
                     {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                      <SelectItem key={cat.category_id} value={cat.category_name}>
+                        {cat.category_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
