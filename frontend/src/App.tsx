@@ -20,6 +20,7 @@ import PaymentCallback from "./app/public/PaymentCallback";
 import Reports from "./app/admin/Reports";
 import Settings from "./app/admin/Settings";
 import KYCVerification from "./app/admin/KYCVerification";
+import UserProfile from "./app/admin/UserProfile";
 import NotFound from "./app/NotFound";
 import { useAuth } from "./hooks/useAuth";
 
@@ -132,6 +133,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <KYCVerification />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-profile"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
               </ProtectedRoute>
             }
           />

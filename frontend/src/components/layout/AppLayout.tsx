@@ -14,6 +14,7 @@ import {
   X,
   ChevronRight,
   LogOut,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "KYC Verification", href: "/kyc-verification", icon: Shield },
   { label: "Settings", href: "/settings", icon: Settings },
+  { label: "User Profile", href: "/user-profile", icon: User },
 ];
 
 interface AppLayoutProps {
