@@ -203,7 +203,7 @@ export default function JoinGroupPage() {
 
       // Redirect to public group page after a short delay
       setTimeout(() => {
-        navigate(`/g/${accountId}`);
+        navigate(`/group/${accountId}`);
       }, 1500);
     } catch (error) {
       toast({
@@ -447,7 +447,7 @@ export default function JoinGroupPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(`/g/${accountId}`)}
+                onClick={() => navigate(`/group/${accountId}`)}
                 disabled={saving}
                 className="flex-1"
               >

@@ -41,11 +41,11 @@ export default function PaymentCallback() {
           setTimeout(() => {
             // Extract accountId from the current URL or navigate to a default page
             const currentPath = window.location.pathname;
-            const accountIdMatch = currentPath.match(/\/g\/([^\/]+)/);
+            const accountIdMatch = currentPath.match(/\/group\/([^\/]+)/);
             if (accountIdMatch) {
-              navigate(`/g/${accountIdMatch[1]}`);
+              navigate(`/group/${accountIdMatch[1]}`);
             } else {
-              navigate("/g");
+              navigate("/group");
             }
           }, 3000);
         } else {
@@ -93,7 +93,7 @@ export default function PaymentCallback() {
               <>
                 <XCircle className="h-12 w-12 text-destructive" />
                 <p className="text-center font-medium text-destructive">{message}</p>
-                <Button onClick={() => navigate("/g")} className="mt-4">
+                <Button onClick={() => navigate("/group")} className="mt-4">
                   Go Back
                 </Button>
               </>

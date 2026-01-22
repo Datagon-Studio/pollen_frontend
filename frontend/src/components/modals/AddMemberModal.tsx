@@ -189,7 +189,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     const slug = account.account_name
       ? account.account_name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
       : account.account_id.substring(0, 8);
-    return `https://pollenhive.app/g/${slug}/join`;
+    return `https://pollenhive.app/group/${slug}/join`;
   };
 
   const inviteLink = generateInviteLink();

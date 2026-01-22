@@ -21,7 +21,7 @@ export default function PublicGroupLanding() {
     }
 
     // Navigate to the public group page using account ID
-    navigate(`/g/${groupId.trim()}`);
+    navigate(`/group/${groupId.trim()}`);
   };
 
   return (

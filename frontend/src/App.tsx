@@ -108,9 +108,9 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/g" element={<PublicGroupLanding />} />
-          <Route path="/g/:accountId" element={<PublicGroupPage />} />
-          <Route path="/g/:accountId/join" element={<JoinGroupPage />} />
+          <Route path="/group" element={<PublicGroupLanding />} />
+          <Route path="/group/:accountId" element={<PublicGroupPage />} />
+          <Route path="/group/:accountId/join" element={<JoinGroupPage />} />
           <Route path="/payment/callback" element={<PaymentCallback />} />
           <Route
             path="/reports"

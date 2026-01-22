@@ -489,7 +489,7 @@ export default function PublicGroupPage() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <p className="text-center text-muted-foreground">Group not found</p>
-            <Button onClick={() => navigate("/g")} className="w-full mt-4">
+            <Button onClick={() => navigate("/group")} className="w-full mt-4">
               Go Back
             </Button>
           </CardContent>
