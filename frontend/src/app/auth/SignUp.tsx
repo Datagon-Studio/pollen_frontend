@@ -91,19 +91,19 @@ export default function SignUp() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="grid lg:grid-cols-2 min-h-screen">
+    <div className="h-screen bg-background overflow-hidden">
+      <div className="grid lg:grid-cols-2 h-full">
         {/* Image Section - Hidden on mobile, visible on desktop */}
-        <div className="hidden lg:block relative">
+        <div className="hidden lg:block relative overflow-hidden">
           <img
-            src="/images/sign-up-image.webp"
+            src="/images/sign-up-image.jpg"
             alt="Sign up"
             className="w-full h-full object-cover"
           />
         </div>
         
         {/* Form Section */}
-        <div className="flex items-center justify-center p-4">
+        <div className="flex items-center justify-center p-4 h-full overflow-y-auto">
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1">
               <div className="flex items-center justify-center mb-4">
