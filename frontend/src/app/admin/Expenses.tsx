@@ -136,7 +136,6 @@ export default function Expenses() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [showRecordExpense, setShowRecordExpense] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [stats, setStats] = useState<ExpenseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditExpense, setShowEditExpense] = useState(false);
   const [showDeleteExpense, setShowDeleteExpense] = useState(false);
@@ -145,7 +144,6 @@ export default function Expenses() {
 
   useEffect(() => {
     loadExpenses();
-    loadStats();
   }, []);
 
   const loadExpenses = async () => {
@@ -166,34 +164,21 @@ export default function Expenses() {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const data = await expenseApi.getStats();
-      setStats(data);
-    } catch (error) {
-      console.error("Failed to load expense stats:", error);
-      setStats(null);
-    }
-  };
-
   const handleExpenseCreated = () => {
     setShowRecordExpense(false);
     loadExpenses();
-    loadStats();
   };
 
   const handleExpenseUpdated = () => {
     setShowEditExpense(false);
     setSelectedExpense(null);
     loadExpenses();
-    loadStats();
   };
 
   const handleExpenseDeleted = () => {
     setShowDeleteExpense(false);
     setSelectedExpense(null);
     loadExpenses();
-    loadStats();
   };
 
   const handleEdit = useCallback((expense: Expense) => {
@@ -208,9 +193,9 @@ export default function Expenses() {
 
 
   const categories = useMemo(() => {
-    const cats = stats?.categories || [];
-    return ["All", ...cats];
-  }, [stats]);
+    const cats = new Set(expenses.map(e => e.expense_category));
+    return ["All", ...Array.from(cats)];
+  }, [expenses]);
 
   // Create columns with handlers
   const columnsWithHandlers = useMemo(() => {
@@ -245,10 +230,6 @@ export default function Expenses() {
       },
     ];
   }, [expenses, handleEdit, handleDelete]);
-
-  const expensesByCategory = useMemo(() => {
-    return stats?.byCategory || {};
-  }, [stats]);
 
   const filteredExpenses = useMemo(() => {
     if (!expenses || expenses.length === 0) {
@@ -323,31 +304,6 @@ export default function Expenses() {
           </div>
         }
       />
-
-      {/* Category Summary */}
-      {!loading && Object.keys(expensesByCategory).length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-          {Object.entries(expensesByCategory).map(([category, data]) => (
-            <div
-              key={category}
-              className="bg-card border border-border rounded-lg p-4"
-            >
-              <span
-                className={cn(
-                  "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border mb-2",
-                  categoryColors[category] || "bg-secondary text-secondary-foreground"
-                )}
-              >
-                {category}
-              </span>
-              <p className="text-lg font-semibold text-foreground">
-                ${data.total.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">{data.count} expenses</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Summary Bar */}
       <div className="bg-card border border-border rounded-lg p-4 mb-6">
