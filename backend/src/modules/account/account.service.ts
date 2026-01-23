@@ -39,7 +39,7 @@ export class AccountService {
       throw new Error('Unauthorized: You do not have access to this account');
     }
 
-    // Business Rule: Only allow updating account_name, account_logo, foreground_color, and background_color
+    // Business Rule: Only allow updating account_name, account_logo, foreground_color, background_color, and expenses_tab_visible
     // Status and kyc_status cannot be changed by user
     const updateData: UpdateAccountInput = {};
     
@@ -61,6 +61,11 @@ export class AccountService {
     // Handle background_color: use provided value (including null), or keep existing if not provided
     if (input.background_color !== undefined) {
       updateData.background_color = input.background_color;
+    }
+
+    // Handle expenses_tab_visible: use provided value (including null), or keep existing if not provided
+    if (input.expenses_tab_visible !== undefined) {
+      updateData.expenses_tab_visible = input.expenses_tab_visible;
     }
 
     // Business Rule: Account name validation if provided

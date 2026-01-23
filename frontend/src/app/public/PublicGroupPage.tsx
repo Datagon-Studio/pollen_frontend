@@ -39,6 +39,7 @@ export default function PublicGroupPage() {
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<Account | null>(null);
   const [publicFunds, setPublicFunds] = useState<Fund[]>([]);
+  const [fundStats, setFundStats] = useState<Record<string, { totalCollected: number; contributorCount: number }>>({});
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [activeTab, setActiveTab] = useState("funds");
@@ -152,6 +153,16 @@ export default function PublicGroupPage() {
     }
   }, [accountId, isVerified, toast]);
 
+  // Switch to funds tab if expenses tab is hidden and user is on expenses tab
+  useEffect(() => {
+    if (account && activeTab === "expenses") {
+      const expensesTabVisible = account.expenses_tab_visible !== null ? account.expenses_tab_visible : true;
+      if (!expensesTabVisible) {
+        setActiveTab("funds");
+      }
+    }
+  }, [account, activeTab]);
+
   const loadData = async () => {
     if (!accountId) return;
     try {
@@ -180,7 +191,30 @@ export default function PublicGroupPage() {
       
       // Handle funds data
       if (fundsResult.status === 'fulfilled') {
-        setPublicFunds(fundsResult.value);
+        const funds = fundsResult.value;
+        setPublicFunds(funds);
+        
+        // Fetch stats for each fund
+        const statsMap: Record<string, { totalCollected: number; contributorCount: number }> = {};
+        await Promise.all(
+          funds.map(async (fund) => {
+            try {
+              const statsResponse = await contributionApi.getFundStats(fund.fund_id);
+              if (statsResponse.success && statsResponse.data) {
+                statsMap[fund.fund_id] = {
+                  totalCollected: statsResponse.data.totalCollected || 0,
+                  contributorCount: statsResponse.data.contributorCount || 0,
+                };
+              } else {
+                statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+              }
+            } catch (error) {
+              console.error(`Failed to load stats for fund ${fund.fund_id}:`, error);
+              statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+            }
+          })
+        );
+        setFundStats(statsMap);
       } else {
         console.error("Failed to load funds:", fundsResult.reason);
       }
@@ -407,7 +441,7 @@ export default function PublicGroupPage() {
     },
     {
       key: "fund",
-      header: "Group",
+      header: "Fund",
       render: (item: Record<string, unknown>) => {
         const contribution = item as unknown as Contribution;
         const fundName = publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name || contribution.fund_id;
@@ -646,7 +680,7 @@ export default function PublicGroupPage() {
             >
               {isVerified && memberName 
                 ? `Welcome back, ${memberName}! Support our community by contributing to our active groups.`
-                : "Support our community by contributing to our active groups"
+                : "Support our community by contributing to our active funds"
               }
             </p>
 
@@ -689,10 +723,12 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                <TabsTrigger value="expenses" className="flex-1">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  Expenses
-                </TabsTrigger>
+                {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+                  <TabsTrigger value="expenses" className="flex-1">
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Expenses
+                  </TabsTrigger>
+                )}
               </>
             ) : (
               <>
@@ -704,15 +740,17 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                <TabsTrigger value="expenses" className="flex-1">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  Expenses
-                </TabsTrigger>
+                {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+                  <TabsTrigger value="expenses" className="flex-1">
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Expenses
+                  </TabsTrigger>
+                )}
               </>
             )}
           </TabsList>
 
-          {/* Groups Tab */}
+          {/* Funds Tab */}
           <TabsContent value="funds" className="mt-4">
             {!isVerified ? (
               <Card>
@@ -730,15 +768,13 @@ export default function PublicGroupPage() {
               {publicFunds.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6">
-                    <p className="text-center text-muted-foreground">No groups available</p>
+                    <p className="text-center text-muted-foreground">No Funds available</p>
                   </CardContent>
                 </Card>
               ) : (
                 publicFunds.map((f) => {
-                  // HARDCODED EXAMPLE DATA - Progress calculation
-                  const mockCollected = 15420;
-                  const mockTarget = 20000;
-                  const progress = (mockCollected / mockTarget) * 100;
+                  const stats = fundStats[f.fund_id] || { totalCollected: 0, contributorCount: 0 };
+                  
                   return (
                     <Card key={f.fund_id} className="hover:border-amber/50 transition-colors">
                       <CardContent className="pt-6">
@@ -767,15 +803,6 @@ export default function PublicGroupPage() {
                             Suggested: ${f.default_amount.toFixed(2)}
                           </p>
                         )}
-                        <div className="w-full bg-secondary rounded-full h-2 mb-2">
-                          <div
-                            className="bg-amber h-2 rounded-full transition-all"
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {progress.toFixed(1)}% of goal reached
-                        </p>
                       </CardContent>
                     </Card>
                   );
@@ -822,7 +849,7 @@ export default function PublicGroupPage() {
                         <SelectValue placeholder="Filter by group" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
-                        <SelectItem value="all">All Groups</SelectItem>
+                        <SelectItem value="all">All Funds</SelectItem>
                         {uniqueFunds.map((fund) => (
                           <SelectItem key={fund} value={fund}>
                             {fund}
@@ -927,7 +954,8 @@ export default function PublicGroupPage() {
           </TabsContent>
 
           {/* Expenses Tab */}
-          <TabsContent value="expenses" className="mt-4">
+          {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+            <TabsContent value="expenses" className="mt-4">
             {!isVerified ? (
               <Card>
                 <CardContent className="pt-6 text-center">
@@ -978,6 +1006,7 @@ export default function PublicGroupPage() {
             </div>
             )}
           </TabsContent>
+          )}
         </Tabs>
 
         <p className="text-center text-xs opacity-60 mt-8" style={{ color: foregroundColor }}>

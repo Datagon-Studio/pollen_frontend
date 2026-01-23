@@ -47,15 +47,24 @@ export default function PublicSettings() {
   // Color states
   const [foregroundColor, setForegroundColor] = useState("#000000");
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [expensesTabVisible, setExpensesTabVisible] = useState(true);
 
   // Load account data and expenses
   useEffect(() => {
     if (account) {
       setForegroundColor(account.foreground_color || "#000000");
       setBackgroundColor(account.background_color || "#ffffff");
+      setExpensesTabVisible(account.expenses_tab_visible !== null ? account.expenses_tab_visible : true);
       loadExpenses();
     }
   }, [account]);
+
+  // Switch to funds tab if expenses tab is hidden and user is on expenses tab
+  useEffect(() => {
+    if (!expensesTabVisible && previewTab === "expenses") {
+      setPreviewTab("funds");
+    }
+  }, [expensesTabVisible, previewTab]);
 
   const loadExpenses = async () => {
     if (!account) return;
@@ -99,6 +108,7 @@ export default function PublicSettings() {
       await accountApi.updateMyAccount({
         foreground_color: foregroundColor,
         background_color: backgroundColor,
+        expenses_tab_visible: expensesTabVisible,
       });
       toast({
         title: "Success",
@@ -364,10 +374,12 @@ export default function PublicSettings() {
                       <Wallet className="h-4 w-4 mr-2" />
                       Funds
                     </TabsTrigger>
-                    <TabsTrigger value="expenses" className="flex-1">
-                      <Receipt className="h-4 w-4 mr-2" />
-                      Expenses
-                    </TabsTrigger>
+                    {expensesTabVisible && (
+                      <TabsTrigger value="expenses" className="flex-1">
+                        <Receipt className="h-4 w-4 mr-2" />
+                        Expenses
+                      </TabsTrigger>
+                    )}
                     <TabsTrigger value="contributions" className="flex-1">
                       <Receipt className="h-4 w-4 mr-2" />
                       My Contributions
@@ -382,45 +394,48 @@ export default function PublicSettings() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="expenses" className="mt-4">
-                    <div className="space-y-2 text-left">
-                      {visibleExpenses.length === 0 ? (
-                        <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
-                          No expenses visible
-                        </p>
-                      ) : (
-                        visibleExpenses.map((expense) => {
-                          const dateValue = expense.date ? new Date(expense.date) : new Date();
-                          return (
-                            <div
-                              key={expense.expense_id}
-                              className="bg-card/50 border border-border/50 rounded-lg p-3"
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
-                                    categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
-                                  )}
-                                >
-                                  {expense.expense_category}
-                                </span>
-                                <span className="font-semibold" style={{ color: foregroundColor }}>
-                                  ${Number(expense.amount).toFixed(2)}
-                                </span>
+
+                  {expensesTabVisible && (
+                    <TabsContent value="expenses" className="mt-4">
+                      <div className="space-y-2 text-left">
+                        {visibleExpenses.length === 0 ? (
+                          <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
+                            No expenses visible
+                          </p>
+                        ) : (
+                          visibleExpenses.map((expense) => {
+                            const dateValue = expense.date ? new Date(expense.date) : new Date();
+                            return (
+                              <div
+                                key={expense.expense_id}
+                                className="bg-card/50 border border-border/50 rounded-lg p-3"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
+                                      categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
+                                    )}
+                                  >
+                                    {expense.expense_category}
+                                  </span>
+                                  <span className="font-semibold" style={{ color: foregroundColor }}>
+                                    ${Number(expense.amount).toFixed(2)}
+                                  </span>
+                                </div>
+                                <p className="text-sm" style={{ color: foregroundColor }}>
+                                  {expense.expense_name}
+                                </p>
+                                <p className="text-xs opacity-70 mt-1" style={{ color: foregroundColor }}>
+                                  {format(dateValue, "MMM d, yyyy")}
+                                </p>
                               </div>
-                              <p className="text-sm" style={{ color: foregroundColor }}>
-                                {expense.expense_name}
-                              </p>
-                              <p className="text-xs opacity-70 mt-1" style={{ color: foregroundColor }}>
-                                {format(dateValue, "MMM d, yyyy")}
-                              </p>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </TabsContent>
+                            );
+                          })
+                        )}
+                      </div>
+                    </TabsContent>
+                  )}
 
                   <TabsContent value="contributions" className="mt-4">
                     {!isVerified ? (
@@ -620,7 +635,19 @@ export default function PublicSettings() {
 
           {/* Expense Visibility */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <h3 className="font-medium text-foreground mb-4">Expense Visibility</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium text-foreground">Expense Visibility</h3>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="expenses-tab-toggle" className="text-sm text-muted-foreground">
+                  Show Expenses Tab
+                </Label>
+                <Switch
+                  id="expenses-tab-toggle"
+                  checked={expensesTabVisible}
+                  onCheckedChange={setExpensesTabVisible}
+                />
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground mb-4">
               Control which expenses are visible on your public page
             </p>

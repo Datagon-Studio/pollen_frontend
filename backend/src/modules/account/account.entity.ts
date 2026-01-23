@@ -24,6 +24,7 @@ export interface Account {
   account_logo: string | null;
   foreground_color: string | null;
   background_color: string | null;
+  expenses_tab_visible: boolean | null;
   kyc_status: KYCStatus;
   status: AccountStatus;
   created_at: string;
@@ -42,6 +43,7 @@ export interface UpdateAccountInput {
   account_logo?: string | null;
   foreground_color?: string | null;
   background_color?: string | null;
+  expenses_tab_visible?: boolean | null;
   kyc_status?: KYCStatus;
   status?: AccountStatus;
 }

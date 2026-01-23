@@ -6,6 +6,7 @@ export interface Account {
   account_logo: string | null;
   foreground_color: string | null;
   background_color: string | null;
+  expenses_tab_visible: boolean | null;
   kyc_status: 'unverified' | 'pending' | 'verified' | 'rejected';
   status: 'active' | 'inactive' | 'suspended';
   created_at: string;
@@ -17,6 +18,7 @@ export interface UpdateAccountInput {
   account_logo?: string | null;
   foreground_color?: string | null;
   background_color?: string | null;
+  expenses_tab_visible?: boolean | null;
 }
 
 export const accountApi = {

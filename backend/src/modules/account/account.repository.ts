@@ -20,6 +20,7 @@ export const accountRepository = {
         account_logo: input.account_logo ?? null,
         foreground_color: input.foreground_color ?? null,
         background_color: input.background_color ?? null,
+        expenses_tab_visible: true,
         kyc_status: 'unverified',
         status: 'active',
       })
@@ -134,6 +135,9 @@ export const accountRepository = {
     }
     if (input.background_color !== undefined) {
       updateData.background_color = input.background_color;
+    }
+    if (input.expenses_tab_visible !== undefined) {
+      updateData.expenses_tab_visible = input.expenses_tab_visible;
     }
     if (input.kyc_status !== undefined) {
       updateData.kyc_status = input.kyc_status;
