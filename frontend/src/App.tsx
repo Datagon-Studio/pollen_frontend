@@ -42,7 +42,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  const { user, loading } = useAuth();
+  // Don't call useAuth here - it's called inside ProtectedRoute and other components
+  // This prevents the hook from running before Router context is available
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -57,15 +58,9 @@ const App = () => {
             <Route
               path="/"
               element={
-                loading ? (
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div className="text-muted-foreground">Loading...</div>
-                  </div>
-                ) : user ? (
+                <ProtectedRoute>
                   <Index />
-                ) : (
-                  <Navigate to="/signin" replace />
-                )
+                </ProtectedRoute>
               }
             />
           <Route

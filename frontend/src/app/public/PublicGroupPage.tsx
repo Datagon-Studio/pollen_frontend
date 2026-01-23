@@ -132,16 +132,19 @@ export default function PublicGroupPage() {
         loadMemberData(session.memberId);
       }
       
-      // Check session timeout every 30 seconds
+      // Check session timeout every 30 seconds (only for public page, not admin)
       const timeoutInterval = setInterval(() => {
-        const currentSession = loadSession();
-        if (!currentSession && isVerified) {
-          clearSession();
-          toast({
-            title: "Session Expired",
-            description: "Your session has expired. Please verify again to continue.",
-            variant: "destructive",
-          });
+        // Only check if we're still on the public page
+        if (window.location.pathname.startsWith('/group')) {
+          const currentSession = loadSession();
+          if (!currentSession && isVerified) {
+            clearSession();
+            toast({
+              title: "Session Expired",
+              description: "Your session has expired. Please verify again to continue.",
+              variant: "destructive",
+            });
+          }
         }
       }, 30000);
       

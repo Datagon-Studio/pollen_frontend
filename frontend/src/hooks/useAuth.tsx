@@ -4,6 +4,13 @@ import { supabase } from "@/lib/supabase";
 
 const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes in milliseconds
 
+// Helper function to check if current route is public
+const isPublicRoute = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const pathname = window.location.pathname;
+  return pathname.startsWith('/group') || pathname.startsWith('/payment/callback');
+};
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +28,11 @@ export function useAuth() {
   }, []);
 
   const resetInactivityTimer = useCallback(() => {
+    // Don't set inactivity timer on public routes
+    if (isPublicRoute()) {
+      return;
+    }
+
     lastActivityRef.current = Date.now();
 
     // Clear existing timer
@@ -39,22 +51,57 @@ export function useAuth() {
   }, [handleLogout]);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        resetInactivityTimer();
+    let mounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    // Set a timeout to ensure loading state resolves even if session check hangs
+    timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn('Session check timeout - resolving loading state');
+        setLoading(false);
       }
-    });
+    }, 5000); // 5 second timeout
+
+    // Get initial session
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        
+        setUser(session?.user ?? null);
+        setLoading(false);
+        if (session?.user && !isPublicRoute()) {
+          resetInactivityTimer();
+        }
+      })
+      .catch((error) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        console.error('Failed to get session:', error);
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
+      });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user) {
+      if (session?.user && !isPublicRoute()) {
         resetInactivityTimer();
       } else {
         // Clear timer if logged out
@@ -65,9 +112,14 @@ export function useAuth() {
       }
     });
 
-    // Track user activity
+    // Track user activity (only on admin routes)
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     const handleActivity = () => {
+      // Only track activity on admin routes
+      if (isPublicRoute()) {
+        return;
+      }
+      
       // Use ref to check user state to avoid dependency issues
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
@@ -76,15 +128,24 @@ export function useAuth() {
       });
     };
 
-    activityEvents.forEach(event => {
-      document.addEventListener(event, handleActivity);
-    });
+    // Only add activity listeners on admin routes
+    if (!isPublicRoute()) {
+      activityEvents.forEach(event => {
+        document.addEventListener(event, handleActivity);
+      });
+    }
 
     return () => {
+      mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       subscription.unsubscribe();
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, handleActivity);
-      });
+      if (!isPublicRoute()) {
+        activityEvents.forEach(event => {
+          document.removeEventListener(event, handleActivity);
+        });
+      }
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
