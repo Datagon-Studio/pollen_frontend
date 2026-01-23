@@ -655,6 +655,8 @@ export default function Settings() {
                       src={logoPreview}
                       alt="Account Logo"
                       className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <span className="text-xl font-bold text-foreground">

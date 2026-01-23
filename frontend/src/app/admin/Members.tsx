@@ -113,8 +113,15 @@ export default function Members() {
   };
 
   useEffect(() => {
-    fetchMembers();
-    fetchContributions();
+    if (account?.account_id) {
+      // Parallelize data loading for better performance
+      Promise.all([
+        fetchMembers(),
+        fetchContributions(),
+      ]).catch(error => {
+        console.error("Failed to load members data:", error);
+      });
+    }
   }, [account?.account_id]);
 
   // Calculate total contributed for each member based on date range

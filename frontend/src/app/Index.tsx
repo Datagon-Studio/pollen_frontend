@@ -92,9 +92,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (account?.account_id) {
-      loadFunds();
-      loadContributions();
-      loadStats();
+      // Parallelize data loading for better performance
+      Promise.all([
+        loadFunds(),
+        loadContributions(),
+        loadStats(),
+      ]).catch(error => {
+        console.error("Failed to load dashboard data:", error);
+      });
     }
   }, [account?.account_id]);
 
@@ -186,6 +191,8 @@ export default function Dashboard() {
                 src={account.account_logo} 
                 alt="Account Logo" 
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : account?.account_logo ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />

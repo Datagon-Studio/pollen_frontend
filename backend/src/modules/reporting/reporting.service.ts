@@ -39,44 +39,45 @@ export const reportingService = {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
-    // Get all contributions
-    const { data: contributions } = await supabase
-      .from('contributions')
-      .select('amount, status, created_at, date_received')
-      .eq('account_id', accountId);
+    // Parallelize all database queries for better performance
+    const [contributionsResult, expensesResult, fundsResult, membersResult] = await Promise.all([
+      supabase
+        .from('contributions')
+        .select('amount, status, created_at, date_received')
+        .eq('account_id', accountId),
+      supabase
+        .from('expenses')
+        .select('amount')
+        .eq('account_id', accountId),
+      supabase
+        .from('funds')
+        .select('is_active')
+        .eq('account_id', accountId),
+      supabase
+        .from('members')
+        .select('created_at')
+        .eq('account_id', accountId),
+    ]);
 
-    // Get all expenses
-    const { data: expenses } = await supabase
-      .from('expenses')
-      .select('amount')
-      .eq('account_id', accountId);
-
-    // Get funds
-    const { data: funds } = await supabase
-      .from('funds')
-      .select('is_active')
-      .eq('account_id', accountId);
-
-    // Get members
-    const { data: members } = await supabase
-      .from('members')
-      .select('created_at')
-      .eq('account_id', accountId);
+    const contributions = contributionsResult.data || [];
+    const expenses = expensesResult.data || [];
+    const funds = fundsResult.data || [];
+    const members = membersResult.data || [];
 
     // Calculate stats
-    const confirmedContributions = (contributions || []).filter(c => c.status === 'confirmed');
-    const pendingContributions = (contributions || []).filter(c => c.status === 'pending');
+    const confirmedContributions = contributions.filter(c => c.status === 'confirmed');
+    const pendingContributions = contributions.filter(c => c.status === 'pending');
     // Use date_received for contributions instead of created_at for monthly calculation
     const monthContributions = confirmedContributions.filter(c => {
       const dateReceived = c.date_received || c.created_at;
       return dateReceived >= startOfMonth && dateReceived <= endOfMonth;
     });
-    const newMembers = (members || []).filter(m => 
+    const newMembers = members.filter(m => 
       m.created_at >= startOfMonth && m.created_at <= endOfMonth
     );
 
     const totalContributions = confirmedContributions.reduce((sum, c) => sum + c.amount, 0);
-    const totalExpenses = (expenses || []).reduce((sum, e) => sum + e.amount, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
     return {
       totalBalance: totalContributions - totalExpenses,
@@ -84,9 +85,9 @@ export const reportingService = {
       monthContributions: monthContributions.length,
       pending: pendingContributions.reduce((sum, c) => sum + c.amount, 0),
       pendingCount: pendingContributions.length,
-      activeFunds: (funds || []).filter(f => f.is_active).length,
-      totalFunds: (funds || []).length,
-      members: (members || []).length,
+      activeFunds: funds.filter(f => f.is_active).length,
+      totalFunds: funds.length,
+      members: members.length,
       newMembersThisMonth: newMembers.length,
     };
   },
@@ -142,7 +143,7 @@ export const reportingService = {
   },
 
   async getFundBreakdown(accountId: string): Promise<FundBreakdown[]> {
-    // Get funds with contribution totals
+    // Get funds with contribution totals using a single optimized query
     const { data: funds } = await supabase
       .from('funds')
       .select('fund_id, fund_name')
@@ -151,26 +152,33 @@ export const reportingService = {
 
     if (!funds || funds.length === 0) return [];
 
-    // Get contribution totals for each fund
-    const fundBreakdown = await Promise.all(
-      funds.map(async (fund, index) => {
-        const { data: contributions } = await supabase
-          .from('contributions')
-          .select('amount')
-          .eq('fund_id', fund.fund_id)
-          .eq('status', 'confirmed');
+    // Get all confirmed contributions for all funds in a single query
+    const fundIds = funds.map(f => f.fund_id);
+    const { data: contributions } = await supabase
+      .from('contributions')
+      .select('fund_id, amount')
+      .in('fund_id', fundIds)
+      .eq('status', 'confirmed');
 
-        const total = (contributions || []).reduce((sum, c) => sum + c.amount, 0);
+    // Calculate totals per fund
+    const contributionTotals = (contributions || []).reduce((acc, c) => {
+      if (!acc[c.fund_id]) {
+        acc[c.fund_id] = 0;
+      }
+      acc[c.fund_id] += c.amount;
+      return acc;
+    }, {} as Record<string, number>);
 
-        return {
-          name: fund.fund_name,
-          value: total,
-          color: FUND_COLORS[index % FUND_COLORS.length],
-        };
-      })
-    );
+    // Map funds to breakdown with totals
+    const fundBreakdown = funds
+      .map((fund, index) => ({
+        name: fund.fund_name,
+        value: contributionTotals[fund.fund_id] || 0,
+        color: FUND_COLORS[index % FUND_COLORS.length],
+      }))
+      .filter(f => f.value > 0);
 
-    return fundBreakdown.filter(f => f.value > 0);
+    return fundBreakdown;
   },
 
   async getContributionsByPeriod(

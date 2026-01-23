@@ -126,6 +126,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                 src={account.account_logo} 
                 alt="Account Logo" 
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : account?.account_logo ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
@@ -168,6 +170,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                   src={account.account_logo} 
                   alt="Account Logo" 
                   className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : account?.account_logo ? (
                 <div className="h-full w-full bg-amber/20 animate-pulse" />

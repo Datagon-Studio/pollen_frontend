@@ -155,12 +155,18 @@ export default function PublicGroupPage() {
       setLoading(true);
       console.log('[PublicGroupPage] Loading group:', accountId);
       
-      // Load account info for branding (includes logo and name)
-      try {
-        const accountData = await accountApi.getPublic(accountId);
-        setAccount(accountData);
-      } catch (error) {
-        console.error("Failed to load account:", error);
+      // Parallelize data loading for better performance
+      const [accountResult, fundsResult, expensesResult] = await Promise.allSettled([
+        accountApi.getPublic(accountId),
+        fundApi.getPublicByAccount(accountId),
+        expenseApi.getPublicByAccount(accountId),
+      ]);
+      
+      // Handle account data
+      if (accountResult.status === 'fulfilled') {
+        setAccount(accountResult.value);
+      } else {
+        console.error("Failed to load account:", accountResult.reason);
         toast({
           title: "Error",
           description: "Group not found",
@@ -169,16 +175,18 @@ export default function PublicGroupPage() {
         return;
       }
       
-      // Load public funds for the account
-      const publicFundsData = await fundApi.getPublicByAccount(accountId);
-      setPublicFunds(publicFundsData);
+      // Handle funds data
+      if (fundsResult.status === 'fulfilled') {
+        setPublicFunds(fundsResult.value);
+      } else {
+        console.error("Failed to load funds:", fundsResult.reason);
+      }
       
-      // Load expenses (public ones)
-      try {
-        const expensesData = await expenseApi.getPublicByAccount(accountId);
-        setExpenses(expensesData.filter(e => e.member_visible));
-      } catch (error) {
-        console.error("Failed to load expenses:", error);
+      // Handle expenses data
+      if (expensesResult.status === 'fulfilled') {
+        setExpenses(expensesResult.value.filter(e => e.member_visible));
+      } else {
+        console.error("Failed to load expenses:", expensesResult.reason);
       }
     } catch (error) {
       console.error('[PublicGroupPage] Error loading group:', error);
@@ -602,6 +610,8 @@ export default function PublicGroupPage() {
                 alt={account.account_name || "Logo"} 
                 className="h-20 w-20 rounded-xl object-cover shadow-lg border-2"
                 style={{ borderColor: foregroundColor + "20" }}
+                loading="lazy"
+                decoding="async"
               />
             ) : (
               <div 

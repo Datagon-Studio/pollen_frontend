@@ -338,6 +338,8 @@ export default function PublicSettings() {
                       src={account.account_logo} 
                       alt={account.account_name || "Logo"} 
                       className="h-16 w-16 rounded-xl mx-auto object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 )}
