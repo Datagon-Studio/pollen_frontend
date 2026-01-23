@@ -11,8 +11,14 @@ export const contributionService = {
     return contributionRepository.findByAccountId(accountId);
   },
 
-  async getContributionsByMember(memberId: string): Promise<Contribution[]> {
-    return contributionRepository.findByMemberId(memberId);
+  async getContributionsByMember(memberId: string): Promise<ContributionWithDetails[]> {
+    const contributions = await contributionRepository.findByMemberId(memberId);
+    // Map to ContributionWithDetails format (fund_name is already included from repository)
+    return contributions.map(c => ({
+      ...c,
+      member_name: '', // Not needed for member's own contributions
+      fund_name: (c as any).fund_name || '',
+    })) as ContributionWithDetails[];
   },
 
   async getContributionsByFund(fundId: string): Promise<Contribution[]> {

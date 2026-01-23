@@ -13,7 +13,7 @@ import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, Cal
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fundApi, Fund } from "@/services/fund.api";
-import { contributionApi, Contribution } from "@/services/contribution.api";
+import { contributionApi, Contribution, ContributionWithDetails } from "@/services/contribution.api";
 import { expenseApi, Expense } from "@/services/expense.api";
 import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
@@ -41,7 +41,7 @@ export default function PublicGroupPage() {
   const [publicFunds, setPublicFunds] = useState<Fund[]>([]);
   const [fundStats, setFundStats] = useState<Record<string, { totalCollected: number; contributorCount: number }>>({});
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [contributions, setContributions] = useState<(Contribution | ContributionWithDetails)[]>([]);
   const [activeTab, setActiveTab] = useState("funds");
   
   // Filter states for contributions
@@ -389,7 +389,9 @@ export default function PublicGroupPage() {
   // Filter contributions
   const filteredContributions = useMemo(() => {
     return contributions.filter((contribution) => {
-      const fundName = publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name || contribution.fund_id;
+      const fundName = (contribution as ContributionWithDetails).fund_name 
+        || publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name 
+        || contribution.fund_id;
       const matchesSearch = 
         fundName.toLowerCase().includes(contributionSearch.toLowerCase()) ||
         contribution.amount.toString().includes(contributionSearch.toLowerCase());
@@ -443,8 +445,11 @@ export default function PublicGroupPage() {
       key: "fund",
       header: "Fund",
       render: (item: Record<string, unknown>) => {
-        const contribution = item as unknown as Contribution;
-        const fundName = publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name || contribution.fund_id;
+        const contribution = item as unknown as Contribution | ContributionWithDetails;
+        // Use fund_name from API if available, otherwise lookup in publicFunds, fallback to fund_id
+        const fundName = (contribution as ContributionWithDetails).fund_name 
+          || publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name 
+          || contribution.fund_id;
         return <span className="font-medium text-foreground">{fundName}</span>;
       },
     },
@@ -462,10 +467,37 @@ export default function PublicGroupPage() {
       header: "Status",
       render: (item: Record<string, unknown>) => {
         const contribution = item as unknown as Contribution;
+        const status = contribution.status as string;
+        const isPending = status === "pending";
+        const isConfirmed = status === "confirmed";
+        const isFailed = status === "failed";
+        const isReversed = status === "reversed";
+        const isPledge = status === "pledge";
+        
+        let iconColor = "text-success";
+        let textColor = "text-success";
+        
+        if (isPending) {
+          iconColor = "text-amber";
+          textColor = "text-amber";
+        } else if (isPledge) {
+          iconColor = "text-blue-500";
+          textColor = "text-blue-500";
+        } else if (isFailed || isReversed) {
+          iconColor = "text-destructive";
+          textColor = "text-destructive";
+        }
+        
         return (
           <div className="flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs text-success capitalize">{contribution.status}</span>
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 text-amber animate-spin" />
+            ) : isConfirmed ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+            ) : (
+              <CheckCircle2 className={`h-3.5 w-3.5 ${iconColor}`} />
+            )}
+            <span className={`text-xs ${textColor} capitalize`}>{contribution.status}</span>
           </div>
         );
       },
@@ -866,6 +898,7 @@ export default function PublicGroupPage() {
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="pledge">Pledge</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -878,13 +911,15 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "flex-1 justify-start text-left font-normal",
+                            "flex-1 relative font-normal",
                             !contributionStartDate && "text-muted-foreground"
                           )}
                           style={{ backgroundColor: backgroundColor, color: foregroundColor }}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {contributionStartDate ? format(contributionStartDate, "MMM d, yyyy") : "Start date"}
+                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <span className="text-center w-full">
+                            {contributionStartDate ? format(contributionStartDate, "MMM d, yyyy") : "Start date"}
+                          </span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
@@ -904,13 +939,15 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "flex-1 justify-start text-left font-normal",
+                            "flex-1 relative font-normal",
                             !contributionEndDate && "text-muted-foreground"
                           )}
                           style={{ backgroundColor: backgroundColor, color: foregroundColor }}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {contributionEndDate ? format(contributionEndDate, "MMM d, yyyy") : "End date"}
+                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <span className="text-center w-full">
+                            {contributionEndDate ? format(contributionEndDate, "MMM d, yyyy") : "End date"}
+                          </span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 bg-card border-border" align="start">

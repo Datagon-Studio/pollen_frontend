@@ -63,7 +63,10 @@ export const contributionRepository = {
   async findByMemberId(memberId: string): Promise<Contribution[]> {
     const { data, error } = await supabase
       .from('contributions')
-      .select('*')
+      .select(`
+        *,
+        funds(fund_name)
+      `)
       .eq('member_id', memberId)
       .order('date_received', { ascending: false });
 
@@ -71,7 +74,15 @@ export const contributionRepository = {
       console.error('Error fetching member contributions:', error);
       return [];
     }
-    return data || [];
+
+    // Map the data to include fund_name from the joined funds table and remove nested funds object
+    return (data || []).map((c: any) => {
+      const { funds, ...contribution } = c;
+      return {
+        ...contribution,
+        fund_name: funds?.fund_name || null,
+      };
+    });
   },
 
   async findByFundId(fundId: string): Promise<Contribution[]> {

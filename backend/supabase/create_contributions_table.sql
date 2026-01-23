@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS contributions (
   payment_reference TEXT NULL, -- For online payments (transaction ID, reference number, etc.)
   
   -- Status
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'failed', 'reversed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'failed', 'reversed', 'pledge')),
   
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

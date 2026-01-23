@@ -12,7 +12,7 @@ export interface Contribution {
   received_by_user_id: string | null;
   comment: string | null;
   payment_reference: string | null;
-  status: 'pending' | 'confirmed' | 'failed' | 'reversed';
+  status: 'pending' | 'confirmed' | 'failed' | 'reversed' | 'pledge';
   created_at: string;
   updated_at: string;
 }
@@ -45,7 +45,7 @@ export const contributionApi = {
   },
 
   async getByMember(memberId: string) {
-    return apiClient.get<Contribution[]>(`/contributions/member/${memberId}`);
+    return apiClient.get<ContributionWithDetails[]>(`/contributions/member/${memberId}`);
   },
 
   async getByFund(fundId: string) {
