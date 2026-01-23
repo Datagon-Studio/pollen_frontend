@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -19,7 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccount } from "@/hooks/useAccount";
-import { useLogoPreload } from "@/hooks/useLogoPreload";
 import { userApi, UserProfile } from "@/services/user.api";
 import {
   DropdownMenu,
@@ -60,31 +59,53 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const logoLoaded = useLogoPreload(account?.account_logo);
+
+  // Cache user profile to avoid refetching on navigation
+  const userProfileRef = useRef<UserProfile | null>(null);
+  const userProfileLoadingRef = useRef(false);
 
   useEffect(() => {
     if (user) {
+      // If we already have a cached profile for this user, use it
+      if (userProfileRef.current && userProfileRef.current.user_id === user.id) {
+        setUserProfile(userProfileRef.current);
+        setProfileLoading(false);
+        return;
+      }
+
+      // If already loading, don't start another fetch
+      if (userProfileLoadingRef.current) {
+        return;
+      }
+
       // Fetch user profile when user is logged in
       setProfileLoading(true);
+      userProfileLoadingRef.current = true;
       userApi.getProfile()
         .then((profile) => {
+          userProfileRef.current = profile;
           setUserProfile(profile);
           setProfileLoading(false);
+          userProfileLoadingRef.current = false;
         })
         .catch((error) => {
           console.error('Failed to fetch user profile:', error);
           setProfileLoading(false);
+          userProfileLoadingRef.current = false;
           // Set default profile if fetch fails
-          setUserProfile({
+          const defaultProfile: UserProfile = {
             user_id: user.id,
             email: user.email || '',
             role: 'admin',
             full_name: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          });
+          };
+          userProfileRef.current = defaultProfile;
+          setUserProfile(defaultProfile);
         });
     } else {
+      userProfileRef.current = null;
       setUserProfile(null);
       setProfileLoading(false);
     }
@@ -127,16 +148,15 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="h-8 w-8 rounded-md bg-amber flex items-center justify-center overflow-hidden relative">
             {accountLoading ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
-            ) : account?.account_logo && logoLoaded ? (
+            ) : account?.account_logo ? (
               <img 
                 src={account.account_logo} 
                 alt="Account Logo" 
                 className="h-full w-full object-cover"
-                loading="lazy"
+                loading="eager"
                 decoding="async"
+                key={`mobile-${account.account_logo}`}
               />
-            ) : account?.account_logo ? (
-              <div className="h-full w-full bg-amber/20 animate-pulse" />
             ) : (
               <span className="text-sm font-bold text-primary-foreground">
                 {account ? getAccountInitials(account.account_name) : "PH"}
@@ -171,16 +191,15 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="h-10 w-10 rounded-md bg-amber flex items-center justify-center shrink-0 overflow-hidden relative">
               {accountLoading ? (
                 <div className="h-full w-full bg-amber/20 animate-pulse" />
-              ) : account?.account_logo && logoLoaded ? (
+              ) : account?.account_logo ? (
                 <img 
                   src={account.account_logo} 
                   alt="Account Logo" 
                   className="h-full w-full object-cover"
-                  loading="lazy"
+                  loading="eager"
                   decoding="async"
+                  key={`sidebar-${account.account_logo}`}
                 />
-              ) : account?.account_logo ? (
-                <div className="h-full w-full bg-amber/20 animate-pulse" />
               ) : (
                 <span className="text-lg font-bold text-charcoal">
                   {account ? getAccountInitials(account.account_name) : "PH"}

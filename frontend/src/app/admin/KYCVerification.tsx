@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -266,9 +266,8 @@ export default function KYCVerification() {
               {filteredKYC.map((kyc) => {
                 const isExpanded = expandedRows.has(kyc.kyc_id);
                 return (
-                  <>
+                  <Fragment key={kyc.kyc_id}>
                     <TableRow
-                      key={kyc.kyc_id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => toggleRow(kyc.kyc_id)}
                     >
@@ -452,7 +451,7 @@ export default function KYCVerification() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>

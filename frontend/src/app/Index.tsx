@@ -26,7 +26,6 @@ import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { useAccount } from "@/hooks/useAccount";
-import { useLogoPreload } from "@/hooks/useLogoPreload";
 import { fundApi, Fund } from "@/services";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { reportingApi, DashboardStats } from "@/services/reporting.api";
@@ -65,7 +64,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { account, getInitials, loading: accountLoading } = useAccount();
-  const logoLoaded = useLogoPreload(account?.account_logo);
 
   const loadFunds = async () => {
     try {
@@ -186,16 +184,15 @@ export default function Dashboard() {
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
             {accountLoading ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
-            ) : account?.account_logo && logoLoaded ? (
+            ) : account?.account_logo ? (
               <img 
                 src={account.account_logo} 
                 alt="Account Logo" 
                 className="h-full w-full object-cover"
-                loading="lazy"
+                loading="eager"
                 decoding="async"
+                key={`dashboard-${account.account_logo}`}
               />
-            ) : account?.account_logo ? (
-              <div className="h-full w-full bg-amber/20 animate-pulse" />
             ) : (
               <span className="text-lg font-bold text-white">
                 {account ? getInitials(account.account_name) : "CG"}

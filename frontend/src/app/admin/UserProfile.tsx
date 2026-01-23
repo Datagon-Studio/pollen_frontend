@@ -108,7 +108,7 @@ export default function UserProfile() {
       const { data, error: uploadError } = await supabase.storage
         .from("user-profiles")
         .upload(fileName, imageFile, {
-          cacheControl: "3600",
+          cacheControl: "31536000", // 1 year cache
           upsert: false,
         });
 

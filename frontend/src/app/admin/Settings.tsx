@@ -310,7 +310,7 @@ export default function Settings() {
       const { data, error: uploadError } = await supabase.storage
         .from("account-logos")
         .upload(fileName, logoFile, {
-          cacheControl: "3600",
+          cacheControl: "31536000", // 1 year cache
           upsert: false,
         });
 
