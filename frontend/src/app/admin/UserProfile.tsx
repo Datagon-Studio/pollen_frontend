@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Trash2, LogOut, KeyRound, Loader2 } from "lucide-react";
+import { Camera, Trash2, LogOut, KeyRound, Loader2, CheckCircle2, XCircle, Mail, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 
@@ -27,11 +27,23 @@ export default function UserProfile() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Form state
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneVerifying, setPhoneVerifying] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [phoneSending, setPhoneSending] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadProfile();
       loadProfileImage();
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
     }
   }, [user]);
 
@@ -40,6 +52,9 @@ export default function UserProfile() {
       setLoading(true);
       const userProfile = await userApi.getProfile();
       setProfile(userProfile);
+      setName(userProfile.full_name || "");
+      setEmail(user?.email || "");
+      setPhone(user?.phone || "");
     } catch (error) {
       console.error("Failed to load profile:", error);
       toast({
@@ -235,6 +250,178 @@ export default function UserProfile() {
     navigate("/signin", { replace: true });
   };
 
+  const handleSaveName = async () => {
+    if (!name.trim()) {
+      toast({
+        title: "Error",
+        description: "Name cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      const updatedProfile = await userApi.updateProfile({ full_name: name.trim() });
+      setProfile(updatedProfile);
+      toast({
+        title: "Success",
+        description: "Name updated successfully",
+      });
+    } catch (error) {
+      console.error("Failed to update name:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update name",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Error",
+        description: "Email cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setEmailSending(true);
+      
+      // If user already has an email and it's different, update it
+      if (user?.email && user.email !== email.trim()) {
+        const { error } = await supabase.auth.updateUser({ email: email.trim() });
+        
+        if (error) {
+          throw error;
+        }
+
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your new email and click the confirmation link to verify",
+        });
+      } else if (user?.email && !user.email_verified) {
+        // Resend verification email for existing unverified email
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: user.email,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your email and click the confirmation link to verify",
+        });
+      } else {
+        // For users without email, we can't add it via updateUser
+        // This would typically be done during signup
+        toast({
+          title: "Info",
+          description: "Email is typically set during account creation. Please contact support if you need to add an email.",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update email:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update email",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const handleUpdatePhone = async () => {
+    if (!phone.trim()) {
+      toast({
+        title: "Error",
+        description: "Phone number cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setPhoneSending(true);
+      const { error } = await supabase.auth.updateUser({ phone: phone.trim() });
+      
+      if (error) {
+        throw error;
+      }
+
+      setPhoneOtpSent(true);
+      toast({
+        title: "Verification SMS Sent",
+        description: "Please check your phone for the verification code",
+      });
+    } catch (error) {
+      console.error("Failed to update phone:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update phone",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneSending(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtp.trim() || phoneOtp.length < 6) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setPhoneVerifying(true);
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phone.trim(),
+        token: phoneOtp.trim(),
+        type: 'phone_change',
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        setPhoneOtpSent(false);
+        setPhoneOtp("");
+        toast({
+          title: "Phone Verified",
+          description: "Your phone number has been updated and verified",
+        });
+        // Reload user to get updated phone
+        const { data: { user: updatedUser } } = await supabase.auth.getUser();
+        if (updatedUser) {
+          setPhone(updatedUser.phone || "");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to verify phone OTP:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to verify phone",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneVerifying(false);
+    }
+  };
+
   const getInitials = () => {
     if (profile?.full_name) {
       return profile.full_name
@@ -342,30 +529,158 @@ export default function UserProfile() {
             <CardTitle>Profile Information</CardTitle>
             <CardDescription>Your account details</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {/* Name Field */}
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input
-                value={profile?.full_name || "Not set"}
-                disabled
-                className="bg-muted"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  disabled={updating}
+                />
+                <Button
+                  onClick={handleSaveName}
+                  disabled={updating || name.trim() === (profile?.full_name || "")}
+                  size="sm"
+                >
+                  {updating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </div>
             </div>
+
+            <Separator />
+
+            {/* Email Field */}
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                value={user?.email || "Not set"}
-                disabled
-                className="bg-muted"
-              />
+              <div className="flex items-center gap-2">
+                <Label>Email</Label>
+                {user?.email_verified && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+                {user?.email && !user?.email_verified && (
+                  <XCircle className="h-4 w-4 text-yellow-500" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  disabled={emailSending}
+                  type="email"
+                />
+                <Button
+                  onClick={handleUpdateEmail}
+                  disabled={emailSending || !email.trim() || (user?.email && email === user.email && user.email_verified)}
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                >
+                  {emailSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      {!user?.email ? "Add Email" : user.email_verified && email === user.email ? "Email Verified" : email !== user.email ? "Update Email" : "Resend Verification"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            <Separator />
+
+            {/* Phone Field */}
             <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <Input
-                value={user?.phone || "Not set"}
-                disabled
-                className="bg-muted"
-              />
+              <div className="flex items-center gap-2">
+                <Label>Phone Number</Label>
+                {user?.phone_verified && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+                {user?.phone && !user?.phone_verified && (
+                  <XCircle className="h-4 w-4 text-yellow-500" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Enter your phone number"
+                  disabled={phoneSending || phoneVerifying || phoneOtpSent}
+                  type="tel"
+                />
+                {!phoneOtpSent ? (
+                  <Button
+                    onClick={handleUpdatePhone}
+                    disabled={phoneSending || !phone.trim() || phone === (user?.phone || "")}
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                  >
+                    {phoneSending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="h-4 w-4 mr-2" />
+                        {user?.phone ? "Update Phone" : "Add Phone"}
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      value={phoneOtp}
+                      onChange={(e) => setPhoneOtp(e.target.value)}
+                      placeholder="Enter verification code"
+                      disabled={phoneVerifying}
+                      maxLength={6}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleVerifyPhoneOtp}
+                        disabled={phoneVerifying || !phoneOtp.trim()}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        {phoneVerifying ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          "Verify"
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setPhoneOtpSent(false);
+                          setPhoneOtp("");
+                        }}
+                        variant="outline"
+                        size="sm"
+                        disabled={phoneVerifying}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

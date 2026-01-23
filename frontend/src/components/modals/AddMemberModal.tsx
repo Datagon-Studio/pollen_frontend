@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Loader2, Send, Copy, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -167,6 +168,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     dob: undefined as Date | undefined,
     phone: "",
     email: "",
+    isCollector: false,
   });
   
   // OTP states
@@ -368,6 +370,24 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       return;
     }
 
+    if (formData.isCollector && !formData.email.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Email address is required to set a member as a collector.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.isCollector && !emailVerified) {
+      toast({
+        title: "Email Verification Required",
+        description: "Please verify the email address before setting a member as a collector.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!account?.account_id) {
       toast({
         title: "Error",
@@ -416,7 +436,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   };
 
   const resetForm = () => {
-    setFormData({ fullName: "", membershipNumber: "", dob: undefined, phone: "", email: "" });
+    setFormData({ fullName: "", membershipNumber: "", dob: undefined, phone: "", email: "", isCollector: false });
     setEmailOtpSent(false);
     setEmailOtp("");
     setEmailVerified(false);
@@ -601,7 +621,9 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email (Optional)</Label>
+              <Label htmlFor="email">
+                Email {formData.isCollector ? "*" : "(Optional)"}
+              </Label>
               <div className="flex gap-2">
                 <Input
                   id="email"
@@ -685,6 +707,28 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                   </Button>
                 </div>
               )}
+            </div>
+
+            {/* Collector Option */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isCollector"
+                  checked={formData.isCollector}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, isCollector: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="isCollector"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Set as Collector
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
+              </p>
             </div>
 
             <DialogFooter>

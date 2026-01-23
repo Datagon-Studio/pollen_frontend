@@ -26,6 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/lib/supabase";
 
 interface NavItem {
   label: string;
@@ -59,6 +61,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Cache user profile to avoid refetching on navigation
   const userProfileRef = useRef<UserProfile | null>(null);
@@ -66,6 +69,12 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (user) {
+      // Load profile image from user metadata
+      const profileImageUrl = user.user_metadata?.profile_image_url;
+      if (profileImageUrl) {
+        setProfileImage(profileImageUrl);
+      }
+
       // If we already have a cached profile for this user, use it
       if (userProfileRef.current && userProfileRef.current.user_id === user.id) {
         setUserProfile(userProfileRef.current);
@@ -107,9 +116,26 @@ export function AppLayout({ children }: AppLayoutProps) {
     } else {
       userProfileRef.current = null;
       setUserProfile(null);
+      setProfileImage(null);
       setProfileLoading(false);
     }
   }, [user]);
+
+  // Listen for auth state changes to update profile image
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const profileImageUrl = session.user.user_metadata?.profile_image_url;
+        if (profileImageUrl) {
+          setProfileImage(profileImageUrl);
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
 
   const handleLogout = async () => {
@@ -124,7 +150,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   // Get display name and initials
-  const displayName = userProfile?.full_name || "User Profile";
+  const displayName = userProfile?.full_name || user?.email?.split("@")[0] || "User";
   const initials = userProfile?.full_name
     ? userProfile.full_name
         .split(" ")
@@ -132,7 +158,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         .join("")
         .toUpperCase()
         .slice(0, 2)
-    : "UP";
+    : user?.email
+    ? user.email[0].toUpperCase()
+    : "U";
 
   return (
     <div className="min-h-screen bg-background">
@@ -255,11 +283,12 @@ export function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-secondary transition-colors">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                    <span className="text-sm font-medium text-foreground">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={profileImage || undefined} alt={displayName} />
+                    <AvatarFallback className="text-sm font-medium">
                       {profileLoading ? "..." : initials}
-                    </span>
-                  </div>
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-medium text-foreground truncate">
                       {profileLoading ? "Loading..." : displayName}
@@ -282,14 +311,19 @@ export function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-full flex items-center justify-center p-2 rounded-md hover:bg-secondary transition-colors">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                    <span className="text-sm font-medium text-foreground">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={profileImage || undefined} alt={displayName} />
+                    <AvatarFallback className="text-sm font-medium">
                       {profileLoading ? "..." : initials}
-                    </span>
-                  </div>
+                    </AvatarFallback>
+                  </Avatar>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium text-foreground">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">Admin</p>
+                </div>
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
