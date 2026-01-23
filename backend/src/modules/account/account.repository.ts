@@ -57,36 +57,43 @@ export const accountRepository = {
    * Get user's account(s) - returns first account linked to user
    */
   async findByUserId(userId: string): Promise<Account | null> {
-    // First get the account_id from user_accounts
-    const { data: userAccountLink, error: linkError } = await supabase
-      .from('user_accounts')
-      .select('account_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
+    try {
+      // First get the account_id from user_accounts
+      const { data: userAccountLink, error: linkError } = await supabase
+        .from('user_accounts')
+        .select('account_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
 
-    if (linkError || !userAccountLink) {
-      if (linkError?.code === 'PGRST116') {
-        return null;
+      if (linkError || !userAccountLink) {
+        if (linkError?.code === 'PGRST116') {
+          return null;
+        }
+        console.error('Error fetching user account link:', linkError);
+        throw new Error(`Failed to fetch user account link: ${linkError?.message || 'Unknown error'}`);
       }
-      throw new Error(`Failed to fetch user account link: ${linkError?.message}`);
-    }
 
-    // Then get the account details
-    const { data, error } = await supabase
-      .from('accounts')
-      .select('*')
-      .eq('account_id', userAccountLink.account_id)
-      .single();
+      // Then get the account details
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('account_id', userAccountLink.account_id)
+        .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        console.error('Error fetching account:', error);
+        throw new Error(`Failed to fetch account: ${error.message}`);
       }
-      throw new Error(`Failed to fetch account: ${error.message}`);
-    }
 
-    return data;
+      return data;
+    } catch (err) {
+      console.error('Error in findByUserId:', err);
+      throw err;
+    }
   },
 
   /**

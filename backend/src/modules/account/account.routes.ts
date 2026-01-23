@@ -53,7 +53,17 @@ accountRoutes.use(authenticateToken);
 
 // GET /api/v1/accounts/me - Get current user's account
 accountRoutes.get('/me', async (req, res) => {
-  await accountController.getMyAccount(req, res);
+  try {
+    await accountController.getMyAccount(req, res);
+  } catch (error) {
+    console.error('Error in getMyAccount route:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch account',
+      });
+    }
+  }
 });
 
 // PUT /api/v1/accounts/me - Update current user's account

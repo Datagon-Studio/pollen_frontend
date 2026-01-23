@@ -14,13 +14,29 @@ export const userRoutes = Router();
 userRoutes.use(authenticateToken);
 
 // GET /api/v1/users/profile
-userRoutes.get('/profile', (req, res) => {
-  userController.getProfile(req, res);
+userRoutes.get('/profile', async (req, res) => {
+  try {
+    await userController.getProfile(req, res);
+  } catch (error) {
+    console.error('Error in getProfile route:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch user profile',
+    });
+  }
 });
 
 // PUT /api/v1/users/profile
-userRoutes.put('/profile', (req, res) => {
-  userController.updateProfile(req, res);
+userRoutes.put('/profile', async (req, res) => {
+  try {
+    await userController.updateProfile(req, res);
+  } catch (error) {
+    console.error('Error in updateProfile route:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update user profile',
+    });
+  }
 });
 
 

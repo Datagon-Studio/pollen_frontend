@@ -92,8 +92,14 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/signin", { replace: true });
+    try {
+      await logout();
+      navigate("/signin", { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Force navigation even if logout fails
+      navigate("/signin", { replace: true });
+    }
   };
 
   // Get display name and initials

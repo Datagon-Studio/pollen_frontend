@@ -18,12 +18,28 @@ export function useAuth() {
   const lastActivityRef = useRef<number>(Date.now());
 
   const handleLogout = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    // Clear timer on logout
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-      inactivityTimerRef.current = null;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        // Still clear user state even if signOut fails
+      }
+      setUser(null);
+      // Clear timer on logout
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      // Clear any cached data
+      localStorage.removeItem('public_group_session');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+      // Force clear user state even on error
+      setUser(null);
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
     }
   }, []);
 

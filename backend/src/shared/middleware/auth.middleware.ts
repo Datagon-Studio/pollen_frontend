@@ -62,11 +62,20 @@ export async function authenticateToken(
 
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(401).json({
-      success: false,
-      error: 'Authentication failed',
-    });
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ Auth middleware error:', error);
+    if (error instanceof Error) {
+      console.error('💬 Message:', error.message);
+      console.error('📚 Stack:', error.stack);
+    }
+    console.error('═══════════════════════════════════════════════════════');
+    
+    if (!res.headersSent) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication failed',
+      });
+    }
   }
 }
 

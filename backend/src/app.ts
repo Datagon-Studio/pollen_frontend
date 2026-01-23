@@ -46,9 +46,27 @@ app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
-// Error handler
+// Error handler - must be last middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(500).json({ success: false, error: 'Internal server error' });
+  console.error('═══════════════════════════════════════════════════════');
+  console.error('❌ Unhandled Error:', err);
+  console.error('📚 Stack:', err.stack);
+  console.error('═══════════════════════════════════════════════════════');
+  
+  // Make sure we haven't already sent a response
+  if (!res.headersSent) {
+    res.status(500).json({ 
+      success: false, 
+      error: err.message || 'Internal server error' 
+    });
+  }
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  console.error('═══════════════════════════════════════════════════════');
+  console.error('❌ Unhandled Promise Rejection:', reason);
+  console.error('📚 Promise:', promise);
+  console.error('═══════════════════════════════════════════════════════');
 });
 

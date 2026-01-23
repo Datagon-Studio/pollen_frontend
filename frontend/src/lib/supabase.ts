@@ -8,7 +8,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Anon client for frontend operations (respects RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
 
 
 
