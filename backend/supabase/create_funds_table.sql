@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS funds (
   fund_name TEXT NOT NULL,
   description TEXT,
   default_amount NUMERIC(10, 2) NULL,
+  fund_goal NUMERIC(10, 2) NULL,
   
   -- Status
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -56,6 +57,7 @@ COMMENT ON COLUMN funds.account_id IS 'Foreign key to accounts table';
 COMMENT ON COLUMN funds.fund_name IS 'Name of the fund';
 COMMENT ON COLUMN funds.description IS 'Description of the fund';
 COMMENT ON COLUMN funds.default_amount IS 'Default contribution amount (nullable)';
+COMMENT ON COLUMN funds.fund_goal IS 'Target goal amount for the fund (nullable)';
 COMMENT ON COLUMN funds.is_active IS 'Whether the fund is currently active';
 
 -- =====================================================
