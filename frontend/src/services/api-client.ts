@@ -99,8 +99,11 @@ export async function request<T>(
         console.warn('Token expired or invalid, clearing session');
         await supabase.auth.signOut();
         
-        // Only redirect if we're in the browser and not already on signin
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/signin')) {
+        // Only redirect if we're in the browser, not already on signin, and not on a public route
+        if (typeof window !== 'undefined' && 
+            !window.location.pathname.includes('/signin') &&
+            !window.location.pathname.startsWith('/group') &&
+            !window.location.pathname.startsWith('/payment/callback')) {
           window.location.href = '/signin';
         }
       }
