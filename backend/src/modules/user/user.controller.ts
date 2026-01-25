@@ -71,6 +71,7 @@ export class UserController {
 
       const input: UpdateUserProfileInput = {
         full_name: req.body.full_name,
+        phone_number: req.body.phone_number,
         profile_image_url: req.body.profile_image_url,
       };
 
