@@ -39,13 +39,21 @@ export default function PaymentCallback() {
 
           // Redirect after 3 seconds
           setTimeout(() => {
-            // Extract accountId from the current URL or navigate to a default page
-            const currentPath = window.location.pathname;
-            const accountIdMatch = currentPath.match(/\/group\/([^\/]+)/);
-            if (accountIdMatch) {
-              navigate(`/group/${accountIdMatch[1]}`);
+            // Get accountId from localStorage (stored before redirecting to Paystack)
+            const accountId = localStorage.getItem('payment_callback_accountId');
+            if (accountId) {
+              localStorage.removeItem('payment_callback_accountId');
+              // Redirect to group page with contributions tab active
+              navigate(`/group/${accountId}?tab=contributions`);
             } else {
-              navigate("/group");
+              // Fallback: try to extract from URL or navigate to landing
+              const currentPath = window.location.pathname;
+              const accountIdMatch = currentPath.match(/\/group\/([^\/]+)/);
+              if (accountIdMatch) {
+                navigate(`/group/${accountIdMatch[1]}?tab=contributions`);
+              } else {
+                navigate("/group");
+              }
             }
           }, 3000);
         } else {

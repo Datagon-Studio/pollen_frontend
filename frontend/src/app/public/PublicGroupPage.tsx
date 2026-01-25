@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ const SESSION_STORAGE_KEY = 'public_group_session';
 export default function PublicGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -153,6 +154,18 @@ export default function PublicGroupPage() {
       return () => clearInterval(timeoutInterval);
     }
   }, [accountId, isVerified, toast]);
+
+  // Read tab query parameter and set active tab
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['funds', 'contributions', 'expenses'].includes(tabParam)) {
+      setActiveTab(tabParam);
+      // Remove tab from URL after setting it
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('tab');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Switch to funds tab if expenses tab is hidden and user is on expenses tab
   useEffect(() => {

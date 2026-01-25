@@ -121,6 +121,9 @@ export function PaystackPaymentModal({
 
       const result = await paymentApi.initializePayment(paymentData);
 
+      // Store accountId in localStorage for callback redirect
+      localStorage.setItem('payment_callback_accountId', accountId);
+
       // Redirect to Paystack payment page
       window.location.href = result.authorization_url;
     } catch (error) {
