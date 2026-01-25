@@ -116,30 +116,85 @@ export default function JoinGroupPage() {
       });
       return;
     }
+
+    if (!accountId || !account) {
+      toast({
+        title: "Error",
+        description: "Group information not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setPhoneSending(true);
-    // TODO: Call actual API to send OTP
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setPhoneSending(false);
-    setPhoneOtpSent(true);
-    toast({
-      title: "OTP Sent",
-      description: `Verification code sent to ${formData.phone}`,
-    });
+    try {
+      const response = await memberApi.sendRegistrationOTP(formData.phone.trim(), accountId);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
+
+      setPhoneOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${formData.phone}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneSending(false);
+    }
   };
 
   const handleVerifyPhoneOtp = async () => {
-    if (!phoneOtp.trim()) return;
+    if (!phoneOtp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!accountId || !account) {
+      toast({
+        title: "Error",
+        description: "Group information not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setPhoneVerifying(true);
-    // TODO: Call actual API to verify OTP
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setPhoneVerifying(false);
-    setPhoneVerified(true);
-    toast({
-      title: "Phone Verified",
-      description: "Phone number has been verified successfully.",
-    });
+    try {
+      const response = await memberApi.verifyRegistrationOTP(
+        formData.phone.trim(),
+        phoneOtp.trim(),
+        accountId
+      );
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to verify OTP');
+      }
+
+      setPhoneVerified(true);
+      toast({
+        title: "Phone Verified",
+        description: "Phone number has been verified successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setPhoneVerifying(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,6 +218,15 @@ export default function JoinGroupPage() {
       return;
     }
 
+    if (!phoneVerified) {
+      toast({
+        title: "Verification Required",
+        description: "Please verify your phone number before joining the group.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!accountId || !account) {
       toast({
         title: "Error",
@@ -175,11 +239,6 @@ export default function JoinGroupPage() {
     try {
       setSaving(true);
       
-      // HARDCODED - Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Uncomment below to use real API calls instead:
-      /*
       const response = await memberApi.create({
         account_id: accountId!,
         full_name: formData.fullName.trim(),
@@ -194,7 +253,6 @@ export default function JoinGroupPage() {
       if (!response.success) {
         throw new Error(response.error || 'Failed to create member');
       }
-      */
 
       toast({
         title: "Success",

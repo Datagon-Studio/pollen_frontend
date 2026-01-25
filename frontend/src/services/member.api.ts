@@ -99,6 +99,20 @@ export const memberApi = {
     return apiClient.post('/members/verify-phone/verify', { phone, code, accountId });
   },
 
+  /**
+   * Send OTP for new member registration (public - for join page)
+   */
+  async sendRegistrationOTP(phone: string, accountId: string) {
+    return apiClient.post('/members/register-otp/send', { phone, accountId });
+  },
+
+  /**
+   * Verify OTP for new member registration (public - for join page)
+   */
+  async verifyRegistrationOTP(phone: string, code: string, accountId: string) {
+    return apiClient.post('/members/register-otp/verify', { phone, code, accountId });
+  },
+
   async verifyEmail(id: string) {
     return apiClient.post<Member>(`/members/${id}/verify-email`);
   },

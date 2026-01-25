@@ -234,6 +234,137 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
   }
 });
 
+// POST /api/v1/members/register-otp/send - Send OTP for new member registration (public)
+memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Response) => {
+  console.log('[Register OTP Send] Route hit:', req.body);
+  try {
+    const { phone, accountId } = req.body;
+
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required',
+      });
+    }
+
+    if (!accountId || typeof accountId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID is required',
+      });
+    }
+
+    // Validate UUID format for accountId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid account ID format',
+      });
+    }
+
+    // Check if member with this phone already exists in this account
+    const members = await memberService.getMembersByAccount(accountId);
+    const normalizedPhone = phone.replace(/[\s\-+]/g, '');
+    const existingMember = members.find(m => {
+      const memberPhone = m.phone.replace(/[\s\-+]/g, '');
+      return memberPhone === normalizedPhone;
+    });
+    
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        error: 'A member with this phone number already exists',
+      });
+    }
+
+    const result = await arkeselService.sendOTP(
+      phone,
+      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      5,
+      6
+    );
+
+    if (!result.success) {
+      console.error('Failed to send registration OTP:', result.error);
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to send OTP. Please try again later.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully',
+    });
+  } catch (error) {
+    console.error('Exception sending registration OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send OTP',
+    });
+  }
+});
+
+// POST /api/v1/members/register-otp/verify - Verify OTP for new member registration (public)
+memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Response) => {
+  console.log('[Register OTP Verify] Route hit:', req.body);
+  try {
+    const { phone, code, accountId } = req.body;
+
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required',
+      });
+    }
+
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP code is required',
+      });
+    }
+
+    if (!accountId || typeof accountId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID is required',
+      });
+    }
+
+    // Validate UUID format for accountId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid account ID format',
+      });
+    }
+
+    // Verify OTP with Arkesel
+    const result = await arkeselService.verifyOTP(phone, code);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error || 'Invalid or expired OTP code',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully',
+    });
+  } catch (error) {
+    console.error('Exception verifying registration OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to verify OTP',
+    });
+  }
+});
+
 // Admin-only routes for member creation (before member exists)
 // These require authentication but don't need an existing member
 // NOTE: These routes are defined BEFORE the auth middleware below, so we apply auth inline
