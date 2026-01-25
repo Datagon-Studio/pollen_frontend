@@ -34,7 +34,7 @@ const mapFundToModalFormat = (fund: FundWithStats) => ({
   status: fund.is_active ? "active" as const : "inactive" as const,
   suggestedAmount: fund.default_amount ? `$${fund.default_amount}` : null,
   collected: fund.totalCollected || 0,
-  target: null,
+  target: fund.fund_goal || null,
   contributors: fund.contributorCount || 0,
   description: fund.description || "",
   recurring: true,
@@ -104,6 +104,21 @@ function FundCard({
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
           {fund.description}
         </p>
+      )}
+
+      {fund.fund_goal && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Goal</span>
+            <span className="font-medium text-foreground">
+              ${fund.totalCollected?.toLocaleString() || "0"} / ${fund.fund_goal.toLocaleString()}
+            </span>
+          </div>
+          <Progress 
+            value={fund.totalCollected ? (fund.totalCollected / fund.fund_goal) * 100 : 0} 
+            className="h-2"
+          />
+        </div>
       )}
 
       <div className="flex items-center justify-between">
