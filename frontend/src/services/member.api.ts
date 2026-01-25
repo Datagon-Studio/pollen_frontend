@@ -113,6 +113,20 @@ export const memberApi = {
     return apiClient.post('/members/register-otp/verify', { phone, code, accountId });
   },
 
+  /**
+   * Register new member (public - for join page)
+   */
+  async register(data: {
+    accountId: string;
+    full_name: string;
+    phone: string;
+    dob?: string | null;
+    email?: string | null;
+    membership_number?: string | null;
+  }) {
+    return apiClient.post<Member>('/members/register', data);
+  },
+
   async verifyEmail(id: string) {
     return apiClient.post<Member>(`/members/${id}/verify-email`);
   },

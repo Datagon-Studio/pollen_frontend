@@ -13,6 +13,37 @@ import { accountService } from '../account/account.service.js';
 
 export const memberRoutesWithAuth = Router();
 
+// Temporary store for verified phone numbers (expires after 10 minutes)
+// Format: `${accountId}:${normalizedPhone}` -> timestamp
+const verifiedPhones = new Map<string, number>();
+const VERIFICATION_EXPIRY = 10 * 60 * 1000; // 10 minutes
+
+// Helper to normalize phone number
+const normalizePhone = (phone: string): string => {
+  return phone.replace(/[\s\-+]/g, '');
+};
+
+// Helper to check if phone is verified
+const isPhoneVerified = (accountId: string, phone: string): boolean => {
+  const key = `${accountId}:${normalizePhone(phone)}`;
+  const timestamp = verifiedPhones.get(key);
+  if (!timestamp) return false;
+  
+  // Check if verification has expired
+  if (Date.now() - timestamp > VERIFICATION_EXPIRY) {
+    verifiedPhones.delete(key);
+    return false;
+  }
+  
+  return true;
+};
+
+// Helper to mark phone as verified
+const markPhoneVerified = (accountId: string, phone: string): void => {
+  const key = `${accountId}:${normalizePhone(phone)}`;
+  verifiedPhones.set(key, Date.now());
+};
+
 // Public routes (no auth required) - MUST be before auth middleware
 
 // GET /api/v1/members/test-otp - Test Arkesel configuration (public)
@@ -352,6 +383,11 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
       });
     }
 
+    // Mark phone as verified for this account (valid for 10 minutes)
+    markPhoneVerified(accountId, phone);
+    const normalizedPhoneValue = normalizePhone(phone);
+    console.log(`[Register OTP Verify] Phone verified and stored: ${accountId}:${normalizedPhoneValue}`);
+
     res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
@@ -361,6 +397,100 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to verify OTP',
+    });
+  }
+});
+
+// POST /api/v1/members/register - Create new member (public - for join page)
+memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
+  console.log('[Register Member] Route hit:', req.body);
+  try {
+    const { accountId, full_name, phone, dob, email, membership_number } = req.body;
+
+    if (!accountId || typeof accountId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID is required',
+      });
+    }
+
+    // Validate UUID format for accountId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid account ID format',
+      });
+    }
+
+    if (!full_name || typeof full_name !== 'string' || !full_name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Full name is required',
+      });
+    }
+
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required',
+      });
+    }
+
+    // Check if phone was verified recently (within last 10 minutes)
+    const normalizedPhoneForCheck = normalizePhone(phone);
+    const verificationKey = `${accountId}:${normalizedPhoneForCheck}`;
+    const isVerified = isPhoneVerified(accountId, phone);
+    
+    console.log(`[Register Member] Checking verification for key: ${verificationKey}`);
+    console.log(`[Register Member] Is verified: ${isVerified}`);
+    console.log(`[Register Member] Verified phones map size: ${verifiedPhones.size}`);
+    console.log(`[Register Member] All verified keys:`, Array.from(verifiedPhones.keys()));
+    
+    if (!isVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number must be verified before registration. Please verify your phone number first.',
+      });
+    }
+
+    // Check if member with this phone already exists in this account
+    const members = await memberService.getMembersByAccount(accountId);
+    const normalizedPhoneForMember = normalizePhone(phone);
+    const existingMember = members.find(m => {
+      const memberPhone = normalizePhone(m.phone);
+      return memberPhone === normalizedPhoneForMember;
+    });
+    
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        error: 'A member with this phone number already exists',
+      });
+    }
+
+    // Create the member
+    const member = await memberService.createMember({
+      account_id: accountId,
+      full_name: full_name.trim(),
+      dob: dob || null,
+      phone: phone.trim(),
+      phone_verified: true, // Verified via OTP
+      email: email?.trim() || null,
+      email_verified: false, // Email verification not required for public registration
+      membership_number: membership_number?.trim() || null,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: member,
+      message: 'Member registered successfully',
+    });
+  } catch (error) {
+    console.error('Exception registering member:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to register member',
     });
   }
 });

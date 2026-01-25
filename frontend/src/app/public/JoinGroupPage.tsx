@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Loader2, Send } from "lucide-react";
+import { Check, Loader2, Send, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -14,10 +14,135 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, getYear, getMonth, setMonth as setMonthDate, setYear as setYearDate } from "date-fns";
+import type { CaptionProps } from "react-day-picker";
 import { memberApi } from "@/services";
 import { accountApi } from "@/services/account.api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+// DatePicker component with custom caption
+interface DatePickerWithInputsProps {
+  selected?: Date;
+  onSelect?: (date: Date | undefined) => void;
+  fromYear?: number;
+  toYear?: number;
+}
+
+function DatePickerWithInputs({ selected, onSelect, fromYear = 1920, toYear = new Date().getFullYear() }: DatePickerWithInputsProps) {
+  const [month, setMonthState] = useState<Date>(selected || new Date());
+  
+  // Custom Caption component with typeable month/year inputs
+  function CustomCaption(props: CaptionProps) {
+    const { displayMonth } = props;
+    const currentYear = getYear(displayMonth);
+    const currentMonth = getMonth(displayMonth);
+    
+    const [yearInput, setYearInput] = useState(String(currentYear));
+
+    const handleYearChange = (value: string) => {
+      setYearInput(value);
+      const yearNum = parseInt(value);
+      if (!isNaN(yearNum) && yearNum >= fromYear && yearNum <= toYear) {
+        const newDate = setYearDate(displayMonth, yearNum);
+        setMonthState(newDate);
+      }
+    };
+
+    const handleYearBlur = () => {
+      const yearNum = parseInt(yearInput);
+      if (isNaN(yearNum) || yearNum < fromYear || yearNum > toYear) {
+        setYearInput(String(currentYear));
+      }
+    };
+
+    const handlePreviousMonth = () => {
+      const newDate = new Date(displayMonth);
+      newDate.setMonth(newDate.getMonth() - 1);
+      setMonthState(newDate);
+    };
+
+    const handleNextMonth = () => {
+      const newDate = new Date(displayMonth);
+      newDate.setMonth(newDate.getMonth() + 1);
+      setMonthState(newDate);
+    };
+
+    // Update inputs when displayMonth changes externally
+    useEffect(() => {
+      setYearInput(String(getYear(displayMonth)));
+    }, [displayMonth]);
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthName = monthNames[currentMonth];
+
+    return (
+      <div className="flex items-center gap-3 px-1 py-2">
+        {/* Navigation arrows on the left */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePreviousMonth}
+            className="h-7 w-7 p-0"
+            type="button"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextMonth}
+            className="h-7 w-7 p-0"
+            type="button"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Month name */}
+        <div className="text-sm font-medium text-foreground min-w-[80px]">
+          {monthName}
+        </div>
+        
+        {/* Year input */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Label htmlFor="year-input" className="text-xs text-muted-foreground">Year:</Label>
+          <Input
+            id="year-input"
+            type="number"
+            min={fromYear}
+            max={toYear}
+            value={yearInput}
+            onChange={(e) => handleYearChange(e.target.value)}
+            onBlur={handleYearBlur}
+            className="h-7 w-20 text-center text-sm px-1"
+            placeholder="YYYY"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Calendar
+      mode="single"
+      selected={selected}
+      onSelect={onSelect}
+      month={month}
+      onMonthChange={(date) => setMonthState(date)}
+      initialFocus
+      className="p-3 pointer-events-auto"
+      fromYear={fromYear}
+      toYear={toYear}
+      components={{
+        Caption: CustomCaption,
+      }}
+    />
+  );
+}
 
 export default function JoinGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -35,12 +160,6 @@ export default function JoinGroupPage() {
   });
   
   // OTP states
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtp, setEmailOtp] = useState("");
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [emailVerifying, setEmailVerifying] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
-  
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -70,41 +189,6 @@ export default function JoinGroupPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSendEmailOtp = async () => {
-    if (!formData.email.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter an email address first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setEmailSending(true);
-    // TODO: Call actual API to send OTP
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setEmailSending(false);
-    setEmailOtpSent(true);
-    toast({
-      title: "OTP Sent",
-      description: `Verification code sent to ${formData.email}`,
-    });
-  };
-
-  const handleVerifyEmailOtp = async () => {
-    if (!emailOtp.trim()) return;
-    
-    setEmailVerifying(true);
-    // TODO: Call actual API to verify OTP
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setEmailVerifying(false);
-    setEmailVerified(true);
-    toast({
-      title: "Email Verified",
-      description: "Email address has been verified successfully.",
-    });
   };
 
   const handleSendPhoneOtp = async () => {
@@ -239,19 +323,18 @@ export default function JoinGroupPage() {
     try {
       setSaving(true);
       
-      const response = await memberApi.create({
-        account_id: accountId!,
+      // Use public registration endpoint that doesn't require authentication
+      const response = await memberApi.register({
+        accountId: accountId!,
         full_name: formData.fullName.trim(),
-        dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
         phone: formData.phone.trim(),
-        phone_verified: phoneVerified,
+        dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
         email: formData.email.trim() || null,
-        email_verified: emailVerified,
         membership_number: formData.membershipNumber.trim() || null,
       });
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to create member');
+        throw new Error(response.error || 'Failed to register member');
       }
 
       toast({
@@ -346,14 +429,10 @@ export default function JoinGroupPage() {
                     {formData.dob ? format(formData.dob, "PPP") : "Select date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
-                  <Calendar
-                    mode="single"
+                <PopoverContent className="w-auto p-0 bg-card border-border shadow-lg" align="start">
+                  <DatePickerWithInputs
                     selected={formData.dob}
                     onSelect={(date) => setFormData({ ...formData, dob: date })}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                    captionLayout="dropdown-buttons"
                     fromYear={1920}
                     toYear={new Date().getFullYear()}
                   />
@@ -434,71 +513,16 @@ export default function JoinGroupPage() {
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email (Optional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="member@example.com"
-                  value={formData.email}
-                  onChange={(e) => {
-                    setFormData({ ...formData, email: e.target.value });
-                    setEmailOtpSent(false);
-                    setEmailVerified(false);
-                    setEmailOtp("");
-                  }}
-                  disabled={emailVerified}
-                  className={cn(emailVerified && "bg-success/10 border-success")}
-                />
-                {!emailVerified && formData.email.trim() && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendEmailOtp}
-                    disabled={emailSending || !formData.email.trim()}
-                    className="shrink-0"
-                  >
-                    {emailSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-1" />
-                        Send OTP
-                      </>
-                    )}
-                  </Button>
-                )}
-                {emailVerified && (
-                  <div className="flex items-center gap-1 text-success shrink-0 px-2">
-                    <Check className="h-4 w-4" />
-                    <span className="text-sm">Verified</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Email OTP Input */}
-              {emailOtpSent && !emailVerified && (
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Enter OTP code"
-                    value={emailOtp}
-                    onChange={(e) => setEmailOtp(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleVerifyEmailOtp}
-                    disabled={emailVerifying || !emailOtp.trim()}
-                  >
-                    {emailVerifying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Verify"
-                    )}
-                  </Button>
-                </div>
-              )}
+              <Input
+                id="email"
+                type="email"
+                placeholder="member@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Email verification will be sent via magic link after registration
+              </p>
             </div>
 
             <div className="flex gap-4 pt-4">
