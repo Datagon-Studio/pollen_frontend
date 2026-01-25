@@ -165,7 +165,28 @@ export default function PublicGroupPage() {
       newSearchParams.delete('tab');
       setSearchParams(newSearchParams, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams]);
+
+  // Reload contributions when switching to contributions tab and user is verified
+  useEffect(() => {
+    if (activeTab === 'contributions' && isVerified && memberId) {
+      // Check if we just completed a payment and need to force reload
+      const paymentCompleted = localStorage.getItem('payment_completed_reload');
+      if (paymentCompleted) {
+        localStorage.removeItem('payment_completed_reload');
+        // Wait a bit longer for webhook to process, then reload
+        setTimeout(() => {
+          console.log('[PublicGroupPage] Reloading contributions after payment, memberId:', memberId);
+          loadMemberData(memberId);
+        }, 2000);
+      } else {
+        console.log('[PublicGroupPage] Reloading contributions for tab switch, memberId:', memberId);
+        loadMemberData(memberId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isVerified, memberId]);
 
   // Switch to funds tab if expenses tab is hidden and user is on expenses tab
   useEffect(() => {
@@ -256,7 +277,12 @@ export default function PublicGroupPage() {
     try {
       console.log('[PublicGroupPage] Loading contributions for member:', memberId);
       const contributionsData = await contributionApi.getByMember(memberId);
-      console.log('[PublicGroupPage] Contributions response:', contributionsData);
+      console.log('[PublicGroupPage] Contributions API response:', {
+        success: contributionsData.success,
+        dataLength: contributionsData.data?.length || 0,
+        error: contributionsData.error,
+        sampleData: contributionsData.data?.[0] || null,
+      });
       if (contributionsData.success && contributionsData.data) {
         console.log('[PublicGroupPage] Setting contributions:', contributionsData.data.length, 'contributions');
         setContributions(contributionsData.data);

@@ -8,7 +8,7 @@ export const paymentRoutes = Router();
 // POST /api/v1/payments/initialize
 paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
   try {
-    const { account_id, fund_id, amount, email, name, phone } = req.body;
+    const { account_id, fund_id, amount, email, name, phone, member_id } = req.body;
 
     if (!account_id || !fund_id || !amount || !email) {
       return sendBadRequest(res, 'Missing required fields: account_id, fund_id, amount, email');
@@ -25,6 +25,7 @@ paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
       email,
       name: name || 'Anonymous Donor',
       phone: phone || undefined,
+      member_id: member_id || undefined,
     });
 
     if (!result.success) {

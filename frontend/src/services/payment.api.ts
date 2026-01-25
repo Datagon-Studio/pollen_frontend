@@ -7,6 +7,7 @@ export interface InitializePaymentInput {
   email: string;
   name?: string;
   phone?: string;
+  member_id?: string;
 }
 
 export interface PaymentInitializationResult {

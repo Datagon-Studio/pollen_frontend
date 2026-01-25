@@ -14,6 +14,7 @@ interface InitializePaymentInput {
   email: string;
   name: string;
   phone?: string;
+  member_id?: string;
 }
 
 interface PaymentInitializationResult {
@@ -53,7 +54,8 @@ export const paymentService = {
             fund_id: input.fund_id,
             name: input.name,
             email: input.email, // Store email in metadata for member lookup
-            phone: input.phone || null, // Store phone in metadata for member lookup
+            ...(input.phone && { phone: input.phone }), // Only include phone if provided
+            ...(input.member_id && { member_id: input.member_id }), // Only include member_id if provided (for verified users)
           },
           callback_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback`,
         },
@@ -139,7 +141,17 @@ export const paymentService = {
           transactionEmail: transaction.email,
           metadataEmail: metadata.email,
           customerPhone: customerPhone,
+          metadataMemberId: metadata.member_id,
+          fullMetadata: JSON.stringify(metadata),
         });
+
+        // Try to find member - first check if member_id is in metadata (for verified users)
+        let memberId: string | null = null;
+        if (metadata.member_id && metadata.member_id !== 'null' && metadata.member_id !== '') {
+          memberId = String(metadata.member_id);
+          console.log(`[Payment] Found member_id in metadata: ${memberId}`);
+        }
+        const accountId = metadata.account_id;
 
         // Check if contribution already exists with this reference (to extract email from comment if needed)
         let existingContribution = null;
@@ -161,11 +173,8 @@ export const paymentService = {
           console.error('Error checking for existing contribution:', error);
         }
 
-        // Try to find member by email or phone
-        let memberId: string | null = null;
-        const accountId = metadata.account_id;
-
-        if (accountId) {
+        // If member_id not already found from metadata, try to find by email or phone
+        if (!memberId && accountId) {
           try {
             // First try to find by email (normalize email)
             if (emailForLookup) {
@@ -198,16 +207,21 @@ export const paymentService = {
               };
 
               const normalizedPhone = normalizePhone(customerPhone);
+              console.log(`[Payment] Looking up member by phone: "${normalizedPhone}" for account: ${accountId}`);
               const memberByPhone = await memberRepository.findByPhone(normalizedPhone, accountId);
               if (memberByPhone) {
                 memberId = memberByPhone.member_id;
-                console.log(`[Payment] Found member by phone: ${memberByPhone.full_name} (${memberByPhone.member_id})`);
+                console.log(`[Payment] ✓ Found member by phone: ${memberByPhone.full_name} (${memberByPhone.member_id})`);
+              } else {
+                console.log(`[Payment] ✗ No member found for phone: ${normalizedPhone}`);
               }
             }
           } catch (error) {
             console.error('Error looking up member:', error);
             // Continue with anonymous if lookup fails
           }
+        } else if (memberId) {
+          console.log(`[Payment] ✓ Using member_id from metadata: ${memberId}`);
         }
 
 
@@ -247,6 +261,7 @@ export const paymentService = {
             }
           } else if (!existingContribution) {
             // Create new contribution
+            console.log(`[Payment] Creating new contribution with member_id: ${memberId || 'null (anonymous)'}`);
             const contribution = await contributionService.createContribution({
               account_id: metadata.account_id,
               fund_id: metadata.fund_id,
@@ -262,6 +277,11 @@ export const paymentService = {
             });
 
             contributionId = contribution?.contribution_id || null;
+            if (contribution) {
+              console.log(`[Payment] ✓ Contribution created: ${contribution.contribution_id}, member_id: ${contribution.member_id || 'null'}`);
+            } else {
+              console.log(`[Payment] ✗ Failed to create contribution`);
+            }
           } else {
             contributionId = existingContribution.contribution_id;
           }
@@ -349,14 +369,22 @@ export const paymentService = {
           dataEmail: data.email,
           metadataEmail: metadata.email,
           customerPhone: customerPhone,
+          metadataMemberId: metadata.member_id,
+          fullMetadata: JSON.stringify(metadata),
         });
         const reference = data.reference;
 
-        // Try to find member by email or phone
+        // Try to find member - first check if member_id is in metadata (for verified users)
+        // Paystack stores metadata values, check if member_id exists and is not null/empty
         let memberId: string | null = null;
+        if (metadata.member_id && metadata.member_id !== 'null' && metadata.member_id !== '') {
+          memberId = String(metadata.member_id); // Ensure it's a string
+          console.log(`[Webhook] Found member_id in metadata: ${memberId}`);
+        }
         const accountId = metadata.account_id;
 
-        if (accountId) {
+        // If member_id not in metadata, try to find by email or phone
+        if (!memberId && accountId) {
           try {
             // First try to find by email (normalize email)
             if (customerEmail) {
@@ -396,6 +424,10 @@ export const paymentService = {
             console.error('Error looking up member in webhook:', error);
             // Continue with anonymous if lookup fails
           }
+        } else if (memberId) {
+          console.log(`[Webhook] ✓ Using member_id from metadata: ${memberId}`);
+        } else {
+          console.log(`[Webhook] ⚠ No member_id in metadata, will try email/phone lookup`);
         }
 
         // Check if contribution already exists with this reference

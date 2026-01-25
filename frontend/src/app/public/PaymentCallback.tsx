@@ -37,12 +37,14 @@ export default function PaymentCallback() {
             description: `Your contribution of $${result.amount.toFixed(2)} has been confirmed.`,
           });
 
-          // Redirect after 3 seconds
+          // Redirect after 3 seconds (give webhook time to process)
           setTimeout(() => {
             // Get accountId from localStorage (stored before redirecting to Paystack)
             const accountId = localStorage.getItem('payment_callback_accountId');
             if (accountId) {
               localStorage.removeItem('payment_callback_accountId');
+              // Store flag to force reload contributions when page loads
+              localStorage.setItem('payment_completed_reload', 'true');
               // Redirect to group page with contributions tab active
               navigate(`/group/${accountId}?tab=contributions`);
             } else {
@@ -50,6 +52,7 @@ export default function PaymentCallback() {
               const currentPath = window.location.pathname;
               const accountIdMatch = currentPath.match(/\/group\/([^\/]+)/);
               if (accountIdMatch) {
+                localStorage.setItem('payment_completed_reload', 'true');
                 navigate(`/group/${accountIdMatch[1]}?tab=contributions`);
               } else {
                 navigate("/group");

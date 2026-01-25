@@ -117,6 +117,7 @@ export function PaystackPaymentModal({
         email: email.trim(),
         name: name.trim() || "Anonymous Donor",
         phone: phone.trim() || undefined,
+        member_id: memberId || undefined,
       };
 
       const result = await paymentApi.initializePayment(paymentData);
