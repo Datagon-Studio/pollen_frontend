@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   
   -- Profile Information (optional)
   full_name TEXT NULL,
+  phone_number TEXT NULL,
+  profile_image_url TEXT NULL,
   
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -70,33 +72,45 @@ COMMENT ON COLUMN users.user_id IS 'Primary key, references auth.users(id)';
 COMMENT ON COLUMN users.email IS 'User email address (synced from auth.users)';
 COMMENT ON COLUMN users.role IS 'User role: admin (default) or user';
 COMMENT ON COLUMN users.full_name IS 'Optional full name of the user';
+COMMENT ON COLUMN users.phone_number IS 'User phone number';
+COMMENT ON COLUMN users.profile_image_url IS 'URL to user profile image/logo';
 
 -- =====================================================
 -- Security: Row Level Security (RLS) Setup
 -- =====================================================
--- Note: RLS is disabled for now as per requirements
--- When ready to enable, uncomment the following:
 
--- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- -- Policy: Users can read their own profile
--- CREATE POLICY "Users can view own profile"
---   ON users
---   FOR SELECT
---   USING (auth.uid() = user_id);
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS "Users can view own profile" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Service role full access" ON users;
 
--- -- Policy: Users can update their own profile
--- CREATE POLICY "Users can update own profile"
---   ON users
---   FOR UPDATE
---   USING (auth.uid() = user_id);
+-- Policy: Users can read their own profile
+CREATE POLICY "Users can view own profile"
+  ON users
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
 
--- -- Policy: Service role can do everything (backend access)
--- CREATE POLICY "Service role full access"
---   ON users
---   FOR ALL
---   USING (true)
---   WITH CHECK (true);
+-- Policy: Users can update their own profile
+-- Allow updating full_name and profile_image_url
+CREATE POLICY "Users can update own profile"
+  ON users
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Service role can do everything (backend access)
+-- Note: Service role should bypass RLS, but this policy ensures compatibility
+CREATE POLICY "Service role full access"
+  ON users
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- =====================================================
 -- Verification Query
