@@ -106,7 +106,7 @@ function FundCard({
         </p>
       )}
 
-      {fund.fund_goal && (
+      {fund.fund_goal && fund.fund_goal > 0 && (
         <div className="mb-4">
           <Progress 
             value={fund.totalCollected ? (fund.totalCollected / fund.fund_goal) * 100 : 0} 

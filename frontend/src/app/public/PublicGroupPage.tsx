@@ -847,7 +847,7 @@ export default function PublicGroupPage() {
               ) : (
                 publicFunds.map((f) => {
                   const stats = fundStats[f.fund_id] || { totalCollected: 0, contributorCount: 0 };
-                  const progress = f.fund_goal && stats.totalCollected 
+                  const progress = f.fund_goal && f.fund_goal > 0
                     ? Math.min((stats.totalCollected / f.fund_goal) * 100, 100) 
                     : null;
                   
@@ -879,7 +879,7 @@ export default function PublicGroupPage() {
                             Suggested: ${f.default_amount.toFixed(2)}
                           </p>
                         )}
-                        {f.fund_goal && progress !== null && (
+                        {f.fund_goal && f.fund_goal > 0 && progress !== null && (
                           <div className="mt-3">
                             <Progress 
                               value={progress} 
