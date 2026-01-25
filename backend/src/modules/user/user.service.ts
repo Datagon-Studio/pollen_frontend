@@ -39,6 +39,21 @@ export class UserService {
       throw new Error('Full name must be less than 255 characters');
     }
 
+    // Business Rule: phone_number validation (optional, but if provided should be non-empty)
+    if (input.phone_number !== undefined && input.phone_number !== null && input.phone_number.trim() === '') {
+      // Allow empty string to clear phone number
+      input.phone_number = null;
+    }
+
+    // Business Rule: profile_image_url must be a valid URL if provided
+    if (input.profile_image_url !== undefined && input.profile_image_url !== null && input.profile_image_url.trim() !== '') {
+      try {
+        new URL(input.profile_image_url);
+      } catch {
+        throw new Error('Profile image URL must be a valid URL');
+      }
+    }
+
     return userRepository.update(userId, input);
   }
 }
