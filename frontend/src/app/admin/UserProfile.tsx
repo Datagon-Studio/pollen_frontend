@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { userApi, UserProfile } from "@/services/user.api";
+import { userApi } from "@/services/user.api";
+import type { UserProfile } from "@/services/user.api";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,22 +31,32 @@ export default function UserProfile() {
   
   // Form state
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneOtp, setPhoneOtp] = useState("");
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
-  const [phoneVerifying, setPhoneVerifying] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadProfile();
-      loadProfileImage();
-      setEmail(user.email || "");
       setPhone(user.phone || "");
     }
   }, [user]);
+
+  // Load profile image after profile is loaded
+  useEffect(() => {
+    if (profile && user) {
+      // First try to load from database (profile)
+      if (profile.profile_image_url) {
+        setProfileImage(profile.profile_image_url);
+        return;
+      }
+      
+      // Fallback to user metadata (for backward compatibility)
+      const profileImageUrl = user.user_metadata?.profile_image_url;
+      if (profileImageUrl) {
+        setProfileImage(profileImageUrl);
+      }
+    }
+  }, [profile, user]);
 
   const loadProfile = async () => {
     try {
@@ -53,8 +64,7 @@ export default function UserProfile() {
       const userProfile = await userApi.getProfile();
       setProfile(userProfile);
       setName(userProfile.full_name || "");
-      setEmail(user?.email || "");
-      setPhone(user?.phone || "");
+      setPhone(userProfile.phone_number || "");
     } catch (error) {
       console.error("Failed to load profile:", error);
       toast({
@@ -71,7 +81,13 @@ export default function UserProfile() {
     if (!user) return;
     
     try {
-      // Check if profile image exists in user metadata
+      // First try to load from database (profile)
+      if (profile?.profile_image_url) {
+        setProfileImage(profile.profile_image_url);
+        return;
+      }
+      
+      // Fallback to user metadata (for backward compatibility)
       const profileImageUrl = user.user_metadata?.profile_image_url;
       if (profileImageUrl) {
         setProfileImage(profileImageUrl);
@@ -161,17 +177,25 @@ export default function UserProfile() {
         return;
       }
 
-      // Update user metadata with profile image URL
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          profile_image_url: imageUrl,
-        },
+      // Update profile image URL in database
+      const updatedProfile = await userApi.updateProfile({
+        profile_image_url: imageUrl,
       });
 
-      if (updateError) {
-        throw updateError;
+      // Also update user metadata for backward compatibility
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            profile_image_url: imageUrl,
+          },
+        });
+      } catch (metadataError) {
+        // Log but don't fail if metadata update fails
+        console.warn("Failed to update user metadata:", metadataError);
       }
 
+      // Update local state
+      setProfile(updatedProfile);
       setProfileImage(imageUrl);
       setImageFile(null);
       setImagePreview(null);
@@ -183,17 +207,11 @@ export default function UserProfile() {
         title: "Success",
         description: imageUrl ? "Profile image updated" : "Profile image removed",
       });
-
-      // Reload user to get updated metadata
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      if (updatedUser) {
-        window.location.reload(); // Simple way to refresh user data
-      }
     } catch (error) {
       console.error("Error saving profile image:", error);
       toast({
         title: "Error",
-        description: "Failed to update profile image",
+        description: error instanceof Error ? error.message : "Failed to update profile image",
         variant: "destructive",
       });
     } finally {
@@ -280,88 +298,20 @@ export default function UserProfile() {
     }
   };
 
-  const handleUpdateEmail = async () => {
-    if (!email.trim()) {
-      toast({
-        title: "Error",
-        description: "Email cannot be empty",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setEmailSending(true);
-      
-      // If user already has an email and it's different, update it
-      if (user?.email && user.email !== email.trim()) {
-        const { error } = await supabase.auth.updateUser({ email: email.trim() });
-        
-        if (error) {
-          throw error;
-        }
-
-        toast({
-          title: "Verification Email Sent",
-          description: "Please check your new email and click the confirmation link to verify",
-        });
-      } else if (user?.email && !user.email_verified) {
-        // Resend verification email for existing unverified email
-        const { error } = await supabase.auth.resend({
-          type: 'signup',
-          email: user.email,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        toast({
-          title: "Verification Email Sent",
-          description: "Please check your email and click the confirmation link to verify",
-        });
-      } else {
-        // For users without email, we can't add it via updateUser
-        // This would typically be done during signup
-        toast({
-          title: "Info",
-          description: "Email is typically set during account creation. Please contact support if you need to add an email.",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to update email:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update email",
-        variant: "destructive",
-      });
-    } finally {
-      setEmailSending(false);
-    }
-  };
 
   const handleUpdatePhone = async () => {
-    if (!phone.trim()) {
-      toast({
-        title: "Error",
-        description: "Phone number cannot be empty",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setPhoneSending(true);
-      const { error } = await supabase.auth.updateUser({ phone: phone.trim() });
+      await userApi.updateProfile({
+        phone_number: phone.trim() || null,
+      });
       
-      if (error) {
-        throw error;
-      }
-
-      setPhoneOtpSent(true);
+      // Reload profile to get updated phone
+      await loadProfile();
+      
       toast({
-        title: "Verification SMS Sent",
-        description: "Please check your phone for the verification code",
+        title: "Success",
+        description: "Phone number updated successfully",
       });
     } catch (error) {
       console.error("Failed to update phone:", error);
@@ -372,53 +322,6 @@ export default function UserProfile() {
       });
     } finally {
       setPhoneSending(false);
-    }
-  };
-
-  const handleVerifyPhoneOtp = async () => {
-    if (!phoneOtp.trim() || phoneOtp.length < 6) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid OTP code",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setPhoneVerifying(true);
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phone.trim(),
-        token: phoneOtp.trim(),
-        type: 'phone_change',
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data.user) {
-        setPhoneOtpSent(false);
-        setPhoneOtp("");
-        toast({
-          title: "Phone Verified",
-          description: "Your phone number has been updated and verified",
-        });
-        // Reload user to get updated phone
-        const { data: { user: updatedUser } } = await supabase.auth.getUser();
-        if (updatedUser) {
-          setPhone(updatedUser.phone || "");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to verify phone OTP:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to verify phone",
-        variant: "destructive",
-      });
-    } finally {
-      setPhoneVerifying(false);
     }
   };
 
@@ -559,44 +462,25 @@ export default function UserProfile() {
 
             <Separator />
 
-            {/* Email Field */}
+            {/* Email Field - Read Only */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label>Email</Label>
-                {user?.email_verified && (
+                {user?.email && (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
-                {user?.email && !user?.email_verified && (
-                  <XCircle className="h-4 w-4 text-yellow-500" />
-                )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  disabled={emailSending}
+                  value={user?.email || profile?.email || ""}
+                  disabled
                   type="email"
+                  className="bg-muted cursor-not-allowed"
                 />
-                <Button
-                  onClick={handleUpdateEmail}
-                  disabled={emailSending || !email.trim() || (user?.email && email === user.email && user.email_verified)}
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  {emailSending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      {!user?.email ? "Add Email" : user.email_verified && email === user.email ? "Email Verified" : email !== user.email ? "Update Email" : "Resend Verification"}
-                    </>
-                  )}
-                </Button>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  Email cannot be changed. It is set during account creation.
+                </p>
               </div>
             </div>
 
@@ -606,80 +490,36 @@ export default function UserProfile() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label>Phone Number</Label>
-                {user?.phone_verified && (
+                {profile?.phone_number && (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
-                {user?.phone && !user?.phone_verified && (
-                  <XCircle className="h-4 w-4 text-yellow-500" />
-                )}
               </div>
-              <div className="space-y-2">
+              <div className="flex gap-2">
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Enter your phone number"
-                  disabled={phoneSending || phoneVerifying || phoneOtpSent}
+                  disabled={phoneSending}
                   type="tel"
                 />
-                {!phoneOtpSent ? (
-                  <Button
-                    onClick={handleUpdatePhone}
-                    disabled={phoneSending || !phone.trim() || phone === (user?.phone || "")}
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                  >
-                    {phoneSending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Phone className="h-4 w-4 mr-2" />
-                        {user?.phone ? "Update Phone" : "Add Phone"}
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <Input
-                      value={phoneOtp}
-                      onChange={(e) => setPhoneOtp(e.target.value)}
-                      placeholder="Enter verification code"
-                      disabled={phoneVerifying}
-                      maxLength={6}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleVerifyPhoneOtp}
-                        disabled={phoneVerifying || !phoneOtp.trim()}
-                        size="sm"
-                        className="flex-1"
-                      >
-                        {phoneVerifying ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Verifying...
-                          </>
-                        ) : (
-                          "Verify"
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setPhoneOtpSent(false);
-                          setPhoneOtp("");
-                        }}
-                        variant="outline"
-                        size="sm"
-                        disabled={phoneVerifying}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <Button
+                  onClick={handleUpdatePhone}
+                  disabled={phoneSending || phone.trim() === (profile?.phone_number || "")}
+                  variant="outline"
+                  size="sm"
+                >
+                  {phoneSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="h-4 w-4 mr-2" />
+                      {profile?.phone_number ? "Update" : "Save"}
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </CardContent>
