@@ -129,6 +129,7 @@ export default function PublicGroupPage() {
       if (session) {
         setMemberId(session.memberId);
         setMemberName(session.memberName);
+        setPhone(session.phone || "");
         setIsVerified(true);
         loadMemberData(session.memberId);
       }
@@ -1070,6 +1071,8 @@ export default function PublicGroupPage() {
           fund={selectedFund}
           accountId={account.account_id}
           memberId={memberId}
+          memberName={memberName}
+          memberPhone={phone}
           onSuccess={() => {
             setShowPaymentModal(false);
             setSelectedFund(null);

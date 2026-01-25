@@ -21,6 +21,8 @@ interface PaystackPaymentModalProps {
   fund: Fund | null;
   accountId: string;
   memberId?: string | null;
+  memberName?: string | null;
+  memberPhone?: string | null;
   onSuccess?: () => void;
 }
 
@@ -30,6 +32,8 @@ export function PaystackPaymentModal({
   fund,
   accountId,
   memberId,
+  memberName,
+  memberPhone,
   onSuccess,
 }: PaystackPaymentModalProps) {
   const { toast } = useToast();
@@ -40,40 +44,44 @@ export function PaystackPaymentModal({
   const [initializing, setInitializing] = useState(false);
   const [loadingMember, setLoadingMember] = useState(false);
 
-  // Load member details when modal opens and memberId is available
+  // Load member details when modal opens
   useEffect(() => {
-    if (open && memberId) {
-      setLoadingMember(true);
-      memberApi.getById(memberId)
-        .then((response) => {
-          if (response.success && response.data) {
-            const member = response.data;
-            // Auto-fill form with member details
-            if (member.email) {
-              setEmail(member.email);
-            }
-            if (member.full_name) {
-              setName(member.full_name);
-            }
-            if (member.phone) {
-              setPhone(member.phone);
-            }
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to load member details:", error);
-        })
-        .finally(() => {
-          setLoadingMember(false);
-        });
-    } else if (open && fund) {
-      // Reset form when modal opens without member
-      setEmail("");
-      setName("");
-      setPhone("");
+    if (open && fund) {
+      // Auto-fill form with member details if available
+      if (memberName) {
+        setName(memberName);
+      }
+      if (memberPhone) {
+        setPhone(memberPhone);
+      }
+      // Set default amount
       setAmount(fund.default_amount?.toString() || "");
+      
+      // Try to fetch email if memberId is available (for authenticated users)
+      if (memberId) {
+        setLoadingMember(true);
+        memberApi.getById(memberId)
+          .then((response) => {
+            if (response.success && response.data && response.data.email) {
+              setEmail(response.data.email);
+            }
+          })
+          .catch((error) => {
+            // Silently fail - email will remain empty and user can fill it manually
+            console.log("Could not fetch member email (may require authentication):", error);
+          })
+          .finally(() => {
+            setLoadingMember(false);
+          });
+      } else {
+        // Reset form when modal opens without member
+        setEmail("");
+        setName("");
+        setPhone("");
+        setAmount(fund.default_amount?.toString() || "");
+      }
     }
-  }, [open, fund, memberId]);
+  }, [open, fund, memberId, memberName, memberPhone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +166,7 @@ export function PaystackPaymentModal({
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address *</Label>
+            <Label htmlFor="email">Email Address(for payment receipt) *</Label>
             <Input
               id="email"
               type="email"
