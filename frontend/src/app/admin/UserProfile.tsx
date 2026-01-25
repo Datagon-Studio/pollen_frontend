@@ -33,13 +33,43 @@ export default function UserProfile() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneSending, setPhoneSending] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailChanging, setEmailChanging] = useState(false);
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const emailVerificationSentRef = useRef(false);
 
   useEffect(() => {
     if (user) {
       loadProfile();
-      setPhone(user.phone || "");
     }
   }, [user]);
+
+  // Listen for email change events
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "USER_UPDATED" || event === "SIGNED_IN") {
+        // Reload profile when email is verified
+        if (session?.user) {
+          await loadProfile();
+          // Check if email was just verified
+          if (emailVerificationSentRef.current && session.user.email_confirmed_at) {
+            setEmailVerificationSent(false);
+            emailVerificationSentRef.current = false;
+            toast({
+              title: "Email Verified",
+              description: "Your email has been successfully updated",
+            });
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [toast]);
 
   // Load profile image after profile is loaded
   useEffect(() => {
@@ -65,6 +95,7 @@ export default function UserProfile() {
       setProfile(userProfile);
       setName(userProfile.full_name || "");
       setPhone(userProfile.phone_number || "");
+      setEmail(userProfile.email || user?.email || "");
     } catch (error) {
       console.error("Failed to load profile:", error);
       toast({
@@ -325,6 +356,66 @@ export default function UserProfile() {
     }
   };
 
+  const handleUpdateEmail = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Error",
+        description: "Email cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if email is different from current
+    if (email.trim() === (user?.email || profile?.email || "")) {
+      toast({
+        title: "Info",
+        description: "Email is the same as current email",
+      });
+      return;
+    }
+
+    try {
+      setEmailChanging(true);
+      
+      // Update email - Supabase will send verification email to new address
+      const { error: updateError } = await supabase.auth.updateUser({
+        email: email.trim(),
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setEmailVerificationSent(true);
+      emailVerificationSentRef.current = true;
+      toast({
+        title: "Verification Email Sent",
+        description: "Please check your new email address and click the verification link to complete the change",
+      });
+    } catch (error) {
+      console.error("Failed to update email:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update email",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailChanging(false);
+    }
+  };
+
   const getInitials = () => {
     if (profile?.full_name) {
       return profile.full_name
@@ -462,25 +553,78 @@ export default function UserProfile() {
 
             <Separator />
 
-            {/* Email Field - Read Only */}
+            {/* Email Field */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label>Email</Label>
-                {user?.email && (
+                {user?.email && user.email_confirmed_at && (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
               </div>
-              <div className="space-y-1">
-                <Input
-                  value={user?.email || profile?.email || ""}
-                  disabled
-                  type="email"
-                  className="bg-muted cursor-not-allowed"
-                />
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  Email cannot be changed. It is set during account creation.
-                </p>
+              <div className="space-y-2">
+                {emailVerificationSent ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={email}
+                      disabled
+                      type="email"
+                      className="bg-muted"
+                    />
+                    <div className="p-3 text-sm bg-blue-50 text-blue-900 rounded-md border border-blue-200">
+                      <p className="font-medium">Verification Email Sent</p>
+                      <p className="text-xs mt-1">
+                        Please check your new email address ({email}) and click the verification link to complete the change.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEmailVerificationSent(false);
+                        emailVerificationSentRef.current = false;
+                        setEmail(user?.email || profile?.email || "");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      disabled={emailChanging}
+                      type="email"
+                    />
+                    <Button
+                      onClick={handleUpdateEmail}
+                      disabled={emailChanging || email.trim() === (user?.email || profile?.email || "")}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {emailChanging ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          {user?.email && email.trim() !== user.email ? "Change" : "Update"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {!emailVerificationSent && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {user?.email && email.trim() !== user.email
+                      ? "A verification email will be sent to your new address"
+                      : "You can change your email address"}
+                  </p>
+                )}
               </div>
             </div>
 
