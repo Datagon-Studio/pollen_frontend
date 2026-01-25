@@ -14,7 +14,7 @@ import { contributionApi, ContributionWithDetails } from "@/services/contributio
 import { format } from "date-fns";
 
 interface Fund {
-  id: number;
+  id: string | number;
   name: string;
   status: "active" | "inactive";
   suggestedAmount: string;
