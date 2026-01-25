@@ -10,12 +10,16 @@ export interface UserProfile {
   email: string;
   role: 'admin' | 'user';
   full_name: string | null;
+  phone_number: string | null;
+  profile_image_url: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface UpdateUserProfileInput {
   full_name?: string;
+  phone_number?: string | null;
+  profile_image_url?: string | null;
 }
 
 
