@@ -27,6 +27,7 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
     fundName: "",
     description: "",
     defaultAmount: "",
+    fundGoal: "",
     isActive: true,
     isPublic: true,
   });
@@ -38,6 +39,7 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
         fundName: fund.fund_name || "",
         description: fund.description || "",
         defaultAmount: fund.default_amount?.toString() || "",
+        fundGoal: fund.fund_goal?.toString() || "",
         isActive: fund.is_active,
         isPublic: fund.is_public,
       });
@@ -64,6 +66,7 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
         fund_name: formData.fundName.trim(),
         description: formData.description.trim() || null,
         default_amount: formData.defaultAmount ? parseFloat(formData.defaultAmount) : null,
+        fund_goal: formData.fundGoal ? parseFloat(formData.fundGoal) : null,
         is_active: formData.isActive,
         is_public: formData.isPublic,
       });
@@ -132,6 +135,24 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
               </div>
               <p className="text-xs text-muted-foreground">
                 Suggested contribution amount for this fund
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fund-goal">Fund Goal</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="fund-goal"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="pl-7"
+                  value={formData.fundGoal}
+                  onChange={(e) => setFormData({ ...formData, fundGoal: e.target.value })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Target goal amount for this fund (optional)
               </p>
             </div>
             <div className="flex items-center justify-between">
