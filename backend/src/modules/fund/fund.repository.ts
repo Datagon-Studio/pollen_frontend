@@ -88,6 +88,7 @@ export const fundRepository = {
         fund_name: input.fund_name,
         description: input.description ?? null,
         default_amount: input.default_amount ?? null,
+        fund_goal: input.fund_goal ?? null,
         is_active: input.is_active ?? true,
         is_public: input.is_public ?? true,
       })
@@ -115,6 +116,9 @@ export const fundRepository = {
     }
     if (input.default_amount !== undefined) {
       updateData.default_amount = input.default_amount;
+    }
+    if (input.fund_goal !== undefined) {
+      updateData.fund_goal = input.fund_goal;
     }
     if (input.is_active !== undefined) {
       updateData.is_active = input.is_active;
