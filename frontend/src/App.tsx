@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/react";
 import SignIn from "./app/auth/SignIn";
 import SignUp from "./app/auth/SignUp";
 import VerifyOTP from "./app/auth/VerifyOTP";
+import ResetPassword from "./app/auth/ResetPassword";
 import Index from "./app/Index";
 import Members from "./app/admin/Members";
 import Funds from "./app/admin/Funds";
@@ -55,6 +56,7 @@ const App = () => {
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/verify-otp" element={<VerifyOTP />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/"
               element={
