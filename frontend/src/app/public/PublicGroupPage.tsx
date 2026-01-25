@@ -251,6 +251,30 @@ export default function PublicGroupPage() {
           })
         );
         setFundStats(statsMap);
+        
+        // Debug: Log fund_goal values
+        console.log("Public funds loaded with fund_goal values:", funds.map(f => {
+          const goalValue = f.fund_goal;
+          let numericValue = null;
+          if (goalValue != null) {
+            if (typeof goalValue === 'number') {
+              numericValue = goalValue;
+            } else if (typeof goalValue === 'string') {
+              numericValue = parseFloat(goalValue);
+          } else if (typeof goalValue === 'object' && goalValue !== null) {
+            // Handle Decimal/object types - try to extract numeric value
+            const obj = goalValue as { valueOf?: () => unknown };
+            numericValue = obj.valueOf ? Number(obj.valueOf()) : Number(goalValue);
+          }
+          }
+          return {
+            name: f.fund_name,
+            fund_goal: goalValue,
+            fund_goal_type: typeof goalValue,
+            fund_goal_value: numericValue,
+            hasGoal: goalValue != null && numericValue != null && !isNaN(numericValue)
+          };
+        }));
       } else {
         console.error("Failed to load funds:", fundsResult.reason);
       }
@@ -847,8 +871,25 @@ export default function PublicGroupPage() {
               ) : (
                 publicFunds.map((f) => {
                   const stats = fundStats[f.fund_id] || { totalCollected: 0, contributorCount: 0 };
-                  const progress = f.fund_goal && f.fund_goal > 0
-                    ? Math.min((stats.totalCollected / f.fund_goal) * 100, 100) 
+                  
+                  // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
+                  let fundGoal: number | null = null;
+                  if (f.fund_goal != null) {
+                    if (typeof f.fund_goal === 'number') {
+                      fundGoal = f.fund_goal;
+                    } else if (typeof f.fund_goal === 'string') {
+                      fundGoal = parseFloat(f.fund_goal);
+                    } else if (typeof f.fund_goal === 'object') {
+                      // Handle Decimal/object types from database
+                      const obj = f.fund_goal as { valueOf?: () => unknown };
+                      fundGoal = obj.valueOf ? Number(obj.valueOf()) : Number(f.fund_goal);
+                    }
+                  }
+                  
+                  const hasGoal = fundGoal != null && !isNaN(fundGoal) && fundGoal > 0;
+                  const totalCollected = stats.totalCollected || 0;
+                  const progress = hasGoal 
+                    ? Math.min((totalCollected / fundGoal!) * 100, 100) 
                     : null;
                   
                   return (
@@ -879,7 +920,7 @@ export default function PublicGroupPage() {
                             Suggested: ${f.default_amount.toFixed(2)}
                           </p>
                         )}
-                        {f.fund_goal && f.fund_goal > 0 && progress !== null && (
+                        {hasGoal && progress !== null && (
                           <div className="mt-3">
                             <Progress 
                               value={progress} 

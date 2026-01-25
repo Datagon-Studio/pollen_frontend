@@ -106,20 +106,42 @@ function FundCard({
         </p>
       )}
 
-      {fund.fund_goal && fund.fund_goal > 0 && (
-        <div className="mb-4">
-          <Progress 
-            value={fund.totalCollected ? (fund.totalCollected / fund.fund_goal) * 100 : 0} 
-            className="h-2 mb-1"
-          />
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Goal</span>
-            <span className="font-medium text-foreground">
-              GHS {fund.totalCollected?.toLocaleString() || "0"} out of GHS {fund.fund_goal.toLocaleString()}
-            </span>
+      {(() => {
+        // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
+        let fundGoal: number | null = null;
+        if (fund.fund_goal != null) {
+          if (typeof fund.fund_goal === 'number') {
+            fundGoal = fund.fund_goal;
+          } else if (typeof fund.fund_goal === 'string') {
+            fundGoal = parseFloat(fund.fund_goal);
+          } else if (typeof fund.fund_goal === 'object') {
+            // Handle Decimal/object types from database
+            const obj = fund.fund_goal as { valueOf?: () => unknown };
+            fundGoal = obj.valueOf ? Number(obj.valueOf()) : Number(fund.fund_goal);
+          }
+        }
+        
+        // If no valid goal, don't show progress
+        if (fundGoal == null || isNaN(fundGoal) || fundGoal <= 0) return null;
+        
+        const totalCollected = fund.totalCollected || 0;
+        const progressValue = (totalCollected / fundGoal) * 100;
+        
+        return (
+          <div className="mb-4">
+            <Progress 
+              value={Math.min(progressValue, 100)} 
+              className="h-2 mb-1"
+            />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Goal</span>
+              <span className="font-medium text-foreground">
+                GHS {totalCollected.toLocaleString()} out of GHS {fundGoal.toLocaleString()}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="flex items-center justify-between">
         <Button 
@@ -183,6 +205,30 @@ export default function Funds() {
       );
       
       setFunds(fundsWithStats);
+      
+      // Debug: Log fund_goal values
+      console.log("Funds loaded with fund_goal values:", fundsWithStats.map(f => {
+        const goalValue = f.fund_goal;
+        let numericValue = null;
+        if (goalValue != null) {
+          if (typeof goalValue === 'number') {
+            numericValue = goalValue;
+          } else if (typeof goalValue === 'string') {
+            numericValue = parseFloat(goalValue);
+          } else if (typeof goalValue === 'object' && goalValue !== null) {
+            // Handle Decimal/object types - try to extract numeric value
+            const obj = goalValue as { valueOf?: () => unknown };
+            numericValue = obj.valueOf ? Number(obj.valueOf()) : Number(goalValue);
+          }
+        }
+        return {
+          name: f.fund_name,
+          fund_goal: goalValue,
+          fund_goal_type: typeof goalValue,
+          fund_goal_value: numericValue,
+          hasGoal: goalValue != null && numericValue != null && !isNaN(numericValue)
+        };
+      }));
     } catch (error) {
       console.error("Failed to load funds:", error);
       toast({
