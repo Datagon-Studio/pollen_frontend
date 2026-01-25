@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DataTable } from "@/components/ui/data-table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Progress } from "@/components/ui/progress";
 import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, CalendarIcon, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -846,6 +847,9 @@ export default function PublicGroupPage() {
               ) : (
                 publicFunds.map((f) => {
                   const stats = fundStats[f.fund_id] || { totalCollected: 0, contributorCount: 0 };
+                  const progress = f.fund_goal && stats.totalCollected 
+                    ? Math.min((stats.totalCollected / f.fund_goal) * 100, 100) 
+                    : null;
                   
                   return (
                     <Card key={f.fund_id} className="hover:border-amber/50 transition-colors">
@@ -874,6 +878,17 @@ export default function PublicGroupPage() {
                           <p className="text-sm text-muted-foreground mb-3">
                             Suggested: ${f.default_amount.toFixed(2)}
                           </p>
+                        )}
+                        {f.fund_goal && progress !== null && (
+                          <div className="mt-3">
+                            <Progress 
+                              value={progress} 
+                              className="h-2 mb-1"
+                            />
+                            <p className="text-xs text-muted-foreground text-right">
+                              {progress.toFixed(0)}% of goal reached
+                            </p>
+                          </div>
                         )}
                       </CardContent>
                     </Card>

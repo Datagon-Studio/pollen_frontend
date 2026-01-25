@@ -49,9 +49,6 @@ interface RecordContributionModalProps {
 // Channel options based on spec: offline channels for manual recording
 const channels = ["Cash", "Bank Deposit", "Cheque", "Mobile Money"];
 
-// Status options for contributions (must match database CHECK constraint)
-const statusOptions = ["pending", "confirmed", "failed", "reversed"];
-
 export function RecordContributionModal({ open, onOpenChange, onSuccess }: RecordContributionModalProps) {
   const { toast } = useToast();
   const { account } = useAccount();
@@ -117,7 +114,6 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
     amount: "",
     channel: "",
     dateReceived: new Date(),
-    status: "pending",
     comment: "",
   });
   const [memberOpen, setMemberOpen] = useState(false);
@@ -158,7 +154,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
       return;
     }
 
-    if (!formData.fund || !formData.amount || !formData.channel || !formData.status) {
+    if (!formData.fund || !formData.amount || !formData.channel) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -204,8 +200,8 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
         date_received: formData.dateReceived.toISOString(),
         comment: formData.comment || null,
         payment_reference: null,
-        status: formData.status,
         received_by_user_id: null, // Will be set by backend from auth token
+        status: 'pending', // Manually recorded contributions require approval
       });
 
       if (response.success) {
@@ -220,7 +216,6 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
           amount: "", 
           channel: "", 
           dateReceived: new Date(), 
-          status: "pending",
           comment: "" 
         });
         setMemberSearch("");
@@ -467,22 +462,6 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
               </Select>
             </div>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Comment */}
             <div className="space-y-2">

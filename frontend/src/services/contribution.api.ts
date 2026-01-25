@@ -22,7 +22,9 @@ export interface ContributionWithDetails extends Contribution {
   fund_name: string;
 }
 
-export type CreateContributionInput = Omit<Contribution, 'contribution_id' | 'created_at' | 'updated_at'>;
+export type CreateContributionInput = Omit<Contribution, 'contribution_id' | 'created_at' | 'updated_at'> & {
+  status?: Contribution['status'];
+};
 export type UpdateContributionInput = Partial<Omit<CreateContributionInput, 'account_id' | 'fund_id'>>;
 
 export interface ContributionStats {

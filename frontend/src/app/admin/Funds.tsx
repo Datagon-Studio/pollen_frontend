@@ -108,16 +108,16 @@ function FundCard({
 
       {fund.fund_goal && (
         <div className="mb-4">
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Goal</span>
-            <span className="font-medium text-foreground">
-              ${fund.totalCollected?.toLocaleString() || "0"} / ${fund.fund_goal.toLocaleString()}
-            </span>
-          </div>
           <Progress 
             value={fund.totalCollected ? (fund.totalCollected / fund.fund_goal) * 100 : 0} 
-            className="h-2"
+            className="h-2 mb-1"
           />
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Goal</span>
+            <span className="font-medium text-foreground">
+              GHS {fund.totalCollected?.toLocaleString() || "0"} out of GHS {fund.fund_goal.toLocaleString()}
+            </span>
+          </div>
         </div>
       )}
 
