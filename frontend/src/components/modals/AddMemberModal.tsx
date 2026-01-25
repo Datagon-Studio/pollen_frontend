@@ -187,11 +187,8 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   // Generate invite link
   const generateInviteLink = () => {
     if (!account?.account_id) return "";
-    // Create a slug from account_id (first 8 chars) or use account name if available
-    const slug = account.account_name
-      ? account.account_name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
-      : account.account_id.substring(0, 8);
-    return `https://pollenhive.app/group/${slug}/join`;
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${baseUrl}/group/${account.account_id}/join`;
   };
 
   const inviteLink = generateInviteLink();

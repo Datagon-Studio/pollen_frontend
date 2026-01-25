@@ -154,7 +154,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
       return;
     }
 
-zx     if (!formData.fund || !formData.amount || !formData.channel) {
+    if (!formData.fund || !formData.amount || !formData.channel) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
