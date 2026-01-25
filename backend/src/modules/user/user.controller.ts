@@ -71,6 +71,7 @@ export class UserController {
 
       const input: UpdateUserProfileInput = {
         full_name: req.body.full_name,
+        profile_image_url: req.body.profile_image_url,
       };
 
       const profile = await userService.updateUserProfile(userId, input);
