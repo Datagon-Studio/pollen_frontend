@@ -776,7 +776,7 @@ export default function PublicGroupPage() {
               style={{ color: foregroundColor }}
             >
               {isVerified && memberName 
-                ? `Welcome back, ${memberName}! Support our community by contributing to our active groups.`
+                ? <>Welcome back, <strong className="uppercase">{memberName}</strong>! Support our community by contributing to our active groups.</>
                 : "Support our community by contributing to our active funds"
               }
             </p>
@@ -800,7 +800,7 @@ export default function PublicGroupPage() {
                   className="w-full sm:w-auto"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Log Out
+                  Leave
                 </Button>
               )}
             </div>
