@@ -17,6 +17,7 @@ import PublicSettings from "./app/admin/PublicSettings";
 import PublicGroupLanding from "./app/public/PublicGroupLanding";
 import PublicGroupPage from "./app/public/PublicGroupPage";
 import JoinGroupPage from "./app/public/JoinGroupPage";
+import VerifyMemberEmail from "./app/public/VerifyMemberEmail";
 import PaymentCallback from "./app/public/PaymentCallback";
 import Reports from "./app/admin/Reports";
 import Settings from "./app/admin/Settings";
@@ -108,6 +109,7 @@ const App = () => {
           <Route path="/group" element={<PublicGroupLanding />} />
           <Route path="/group/:accountId" element={<PublicGroupPage />} />
           <Route path="/group/:accountId/join" element={<JoinGroupPage />} />
+          <Route path="/verify-member-email" element={<VerifyMemberEmail />} />
           <Route path="/payment/callback" element={<PaymentCallback />} />
           <Route
             path="/reports"

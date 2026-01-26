@@ -8,6 +8,8 @@
 
 import { memberRepository } from './member.repository.js';
 import { Member, CreateMemberInput, UpdateMemberInput } from './member.entity.js';
+import { postmarkService } from '../../shared/services/postmark.service.js';
+import crypto from 'crypto';
 
 export class MemberService {
   /**
@@ -162,6 +164,82 @@ export class MemberService {
    */
   async verifyEmail(memberId: string): Promise<Member> {
     return memberRepository.update(memberId, { email_verified: true });
+  }
+
+  /**
+   * Send verification email to member
+   */
+  async sendVerificationEmail(memberId: string, baseUrl?: string): Promise<void> {
+    const member = await this.getMember(memberId);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    if (!member.email) {
+      throw new Error('Member does not have an email address');
+    }
+
+    if (member.email_verified) {
+      throw new Error('Email is already verified');
+    }
+
+    // Generate verification token
+    const secret = process.env.EMAIL_VERIFICATION_SECRET || 'default-secret-change-in-production';
+    const timestamp = Date.now();
+    const tokenData = `${memberId}:${member.email}:${timestamp}`;
+    const token = crypto
+      .createHash('sha256')
+      .update(tokenData + secret)
+      .digest('hex');
+    
+    const verificationToken = Buffer.from(`${memberId}:${timestamp}:${token}`).toString('base64url');
+
+    // Create verification URL
+    const frontendUrl = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const verificationUrl = `${frontendUrl}/verify-member-email?token=${verificationToken}`;
+
+    // Send email via Postmark
+    const emailSubject = 'Verify Your Email - PollenHive';
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #f59e0b; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Verify Your Email Address</h2>
+          <p>Hello ${member.full_name},</p>
+          <p>Thank you for joining! Please verify your email address by clicking the button below:</p>
+          <a href="${verificationUrl}" class="button">Verify Email</a>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+          <p>This link will expire in 24 hours.</p>
+          <div class="footer">
+            <p>If you didn't request this verification email, you can safely ignore it.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const result = await postmarkService.sendEmail(
+      member.email,
+      emailSubject,
+      emailBody,
+      `Hello ${member.full_name},\n\nThank you for joining! Please verify your email address by clicking this link:\n\n${verificationUrl}\n\nThis link will expire in 24 hours.\n\nIf you didn't request this verification email, you can safely ignore it.`,
+      'email-verification'
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send verification email');
+    }
   }
 
   /**

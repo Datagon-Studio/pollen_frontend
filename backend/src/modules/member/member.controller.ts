@@ -308,6 +308,28 @@ memberRoutes.post('/:id/verify-email', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/v1/members/:id/send-verification-email
+ * Send verification email to member
+ */
+memberRoutes.post('/:id/send-verification-email', async (req: Request, res: Response) => {
+  try {
+    const baseUrl = req.body.baseUrl || req.headers.origin;
+    await memberService.sendVerificationEmail(req.params.id, baseUrl);
+    res.status(200).json({
+      success: true,
+      message: 'Verification email sent successfully',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to send verification email';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
 
 
 

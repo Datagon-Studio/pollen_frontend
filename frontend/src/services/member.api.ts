@@ -130,6 +130,20 @@ export const memberApi = {
   async verifyEmail(id: string) {
     return apiClient.post<Member>(`/members/${id}/verify-email`);
   },
+
+  /**
+   * Send verification email to member
+   */
+  async sendVerificationEmail(id: string, baseUrl?: string) {
+    return apiClient.post(`/members/${id}/send-verification-email`, { baseUrl });
+  },
+
+  /**
+   * Verify email via token (public)
+   */
+  async verifyEmailToken(token: string) {
+    return apiClient.post<Member>('/members/verify-email-token', { token });
+  },
 };
 
 export function isMemberActive(member: Member): boolean {

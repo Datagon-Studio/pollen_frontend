@@ -337,9 +337,13 @@ export default function JoinGroupPage() {
         throw new Error(response.error || 'Failed to register member');
       }
 
+      const successMessage = formData.email.trim()
+        ? `Welcome ${formData.fullName}! You've been added to the group. A verification email has been sent to ${formData.email}.`
+        : `Welcome ${formData.fullName}! You've been added to the group.`;
+
       toast({
         title: "Success",
-        description: `Welcome ${formData.fullName}! You've been added to the group.`,
+        description: successMessage,
       });
 
       // Redirect to public group page after a short delay

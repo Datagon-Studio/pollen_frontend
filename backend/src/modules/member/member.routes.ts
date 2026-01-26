@@ -10,6 +10,7 @@ import { authenticateToken, AuthenticatedRequest } from '../../shared/middleware
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from './member.service.js';
 import { accountService } from '../account/account.service.js';
+import crypto from 'crypto';
 
 export const memberRoutesWithAuth = Router();
 
@@ -401,6 +402,98 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
   }
 });
 
+// POST /api/v1/members/verify-email-token - Verify email via token (public)
+memberRoutesWithAuth.post('/verify-email-token', async (req: Request, res: Response) => {
+  console.log('[Verify Email Token] Route hit');
+  try {
+    const { token } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification token is required',
+      });
+    }
+
+    // Decode token
+    let decoded: string;
+    try {
+      decoded = Buffer.from(token, 'base64url').toString('utf-8');
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token format',
+      });
+    }
+
+    const parts = decoded.split(':');
+    if (parts.length !== 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token format',
+      });
+    }
+
+    const [memberId, timestamp, tokenHash] = parts;
+    const tokenTimestamp = parseInt(timestamp, 10);
+
+    // Check if token is expired (24 hours)
+    const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+    if (Date.now() - tokenTimestamp > TOKEN_EXPIRY) {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification token has expired',
+      });
+    }
+
+    // Get member to verify token
+    const member = await memberService.getMember(memberId);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        error: 'Member not found',
+      });
+    }
+
+    if (!member.email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Member does not have an email address',
+      });
+    }
+
+    // Verify token hash
+    const secret = process.env.EMAIL_VERIFICATION_SECRET || 'default-secret-change-in-production';
+    const tokenData = `${memberId}:${member.email}:${timestamp}`;
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(tokenData + secret)
+      .digest('hex');
+
+    if (tokenHash !== expectedHash) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid verification token',
+      });
+    }
+
+    // Verify the email
+    const verifiedMember = await memberService.verifyEmail(memberId);
+
+    res.status(200).json({
+      success: true,
+      data: verifiedMember,
+      message: 'Email verified successfully',
+    });
+  } catch (error) {
+    console.error('Exception verifying email token:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to verify email',
+    });
+  }
+});
+
 // POST /api/v1/members/register - Create new member (public - for join page)
 memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
   console.log('[Register Member] Route hit:', req.body);
@@ -480,6 +573,18 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
       email_verified: false, // Email verification not required for public registration
       membership_number: membership_number?.trim() || null,
     });
+
+    // Automatically send verification email if email is provided
+    if (member.email) {
+      try {
+        const baseUrl = req.headers.origin || process.env.FRONTEND_URL;
+        await memberService.sendVerificationEmail(member.member_id, baseUrl);
+        console.log(`[Register Member] Verification email sent to ${member.email}`);
+      } catch (emailError) {
+        // Don't fail registration if email sending fails, just log it
+        console.error('[Register Member] Failed to send verification email:', emailError);
+      }
+    }
 
     res.status(201).json({
       success: true,
