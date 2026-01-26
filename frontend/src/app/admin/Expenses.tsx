@@ -312,6 +312,39 @@ export default function Expenses() {
     setDateTo(undefined);
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      const exportData = filteredExpenses.map((expense) => ({
+        Date: expense.date,
+        "Expense Name": expense.expenseName,
+        Category: expense.expenseCategory,
+        Notes: expense.notes || "—",
+        Visible: expense.memberVisible ? "Yes" : "No",
+        Amount: `$${expense.amountValue.toFixed(2)}`,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+
+      const filename = `expenses_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} expenses`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export expenses",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <AppLayout>
       <PageHeader
@@ -319,9 +352,15 @@ export default function Expenses() {
         description="Track and categorize group expenses"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExportToExcel} 
+              disabled={filteredExpenses.length === 0}
+              title="Install xlsx package to enable export: npm install xlsx"
+            >
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export Excel
             </Button>
             <Button size="sm" onClick={() => setShowRecordExpense(true)}>
               <Plus className="h-4 w-4 mr-2" />
