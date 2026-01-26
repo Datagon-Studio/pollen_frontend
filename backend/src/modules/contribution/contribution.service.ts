@@ -1,6 +1,10 @@
 import { contributionRepository, Contribution, CreateContributionInput, UpdateContributionInput, ContributionWithDetails } from './contribution.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
 import { memberRepository } from '../member/member.repository.js';
+import { accountRepository } from '../account/account.repository.js';
+import { configRepository } from '../config/config.repository.js';
+import { userRepository } from '../user/user.repository.js';
+import { postmarkService } from '../../shared/services/postmark.service.js';
 
 export const contributionService = {
   async getContribution(id: string): Promise<Contribution | null> {
@@ -97,6 +101,91 @@ export const contributionService = {
     };
 
     const contribution = await contributionRepository.create(contributionData);
+
+    // Send email notification to admins if enabled
+    try {
+      const config = await configRepository.findByAccountId(input.account_id);
+      // Check if email notifications are enabled via default_notification_channel
+      const shouldSendEmail = config && (
+        config.default_notification_channel === 'email' || 
+        config.default_notification_channel === 'both'
+      );
+      
+      if (shouldSendEmail) {
+        const account = await accountRepository.findByAccountId(input.account_id);
+        const admins = await userRepository.findAdminsByAccountId(input.account_id);
+        const fund = await fundRepository.findById(input.fund_id);
+        const member = memberId ? await memberRepository.findById(memberId) : null;
+
+        // Format amount
+        const formattedAmount = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(input.amount);
+
+        // Prepare email content
+        const subject = `New Contribution Received - ${formattedAmount}`;
+        const memberName = member ? member.full_name || 'Anonymous' : 'Anonymous';
+        const fundName = fund?.fund_name || 'Unknown Fund';
+        const accountName = account?.account_name || 'Your Account';
+
+        const htmlBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">New Contribution Received</h2>
+            <p>Hello,</p>
+            <p>A new contribution has been received for <strong>${accountName}</strong>:</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Amount:</strong> ${formattedAmount}</p>
+              <p style="margin: 5px 0;"><strong>Fund:</strong> ${fundName}</p>
+              <p style="margin: 5px 0;"><strong>Contributor:</strong> ${memberName}</p>
+              <p style="margin: 5px 0;"><strong>Channel:</strong> ${input.channel === 'online' ? 'Online' : 'Offline'}</p>
+              ${input.comment ? `<p style="margin: 5px 0;"><strong>Comment:</strong> ${input.comment}</p>` : ''}
+            </div>
+            <p style="margin-top: 20px;">Thank you for using PollenHive!</p>
+          </body>
+          </html>
+        `;
+
+        const textBody = `
+New Contribution Received
+
+A new contribution has been received for ${accountName}:
+
+Amount: ${formattedAmount}
+Fund: ${fundName}
+Contributor: ${memberName}
+Channel: ${input.channel === 'online' ? 'Online' : 'Offline'}
+${input.comment ? `Comment: ${input.comment}` : ''}
+
+Thank you for using PollenHive!
+        `.trim();
+
+        // Send emails to all admins
+        const emailPromises = admins
+          .filter(admin => admin.email) // Only send to admins with email
+          .map(admin => 
+            postmarkService.sendEmail(
+              admin.email,
+              subject,
+              htmlBody,
+              textBody,
+              'new-contribution'
+            )
+          );
+
+        await Promise.allSettled(emailPromises);
+        console.log(`📧 [Contribution] Sent email notifications to ${admins.length} admin(s)`);
+      }
+    } catch (error) {
+      // Don't fail contribution creation if email fails
+      console.error('Error sending contribution notification emails:', error);
+    }
 
     return contribution;
   },

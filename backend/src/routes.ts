@@ -3,6 +3,7 @@ import { accountRoutes } from './modules/account/account.routes.js';
 import { memberRoutesWithAuth } from './modules/member/member.routes.js';
 import { fundRoutesWithAuth } from './modules/fund/fund.routes.js';
 import { contributionRoutesWithAuth } from './modules/contribution/contribution.routes.js';
+import { configRoutes } from './modules/config/config.routes.js';
 import { expenseRoutesWithAuth } from './modules/expense/expense.routes.js';
 import { expenseCategoryRoutes } from './modules/expense-category/expense-category.controller.js';
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
@@ -22,4 +23,5 @@ routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
 routes.use('/payments', paymentRoutes);
+routes.use('/config', configRoutes);
 
