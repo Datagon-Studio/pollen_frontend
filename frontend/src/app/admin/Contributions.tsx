@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2 } from "lucide-react";
+import { format } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +28,6 @@ import { contributionApi, ContributionWithDetails } from "@/services/contributio
 import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 
 // Simple cache with TTL
 const cache = {
@@ -462,6 +462,41 @@ export default function Contributions() {
     ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
   ];
 
+  const handleExportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      const exportData = filteredContributions.map((contribution) => ({
+        "Date Received": contribution.dateReceived,
+        Member: contribution.memberName,
+        Fund: contribution.fundName,
+        Amount: contribution.amount,
+        Comment: contribution.comment || "—",
+        "Payment Method": contribution.paymentMethod || contribution.channel,
+        Status: contribution.status,
+        "Payment Reference": contribution.paymentReference || "—",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Contributions");
+
+      const filename = `contributions_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} contributions`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export contributions",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <AppLayout>
       <PageHeader
@@ -469,9 +504,14 @@ export default function Contributions() {
         description="Track and manage all member contributions"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExportToExcel}
+              disabled={filteredContributions.length === 0}
+            >
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export Excel
             </Button>
             <Button size="sm" onClick={() => setShowRecordContribution(true)}>
               <HandCoins className="h-4 w-4 mr-2" />
