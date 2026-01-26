@@ -125,7 +125,11 @@ export default function PublicSettings() {
     }
   };
 
-  const publicUrl = account ? `localhost:8080/group/${account.account_id}` : "";
+  const baseUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080";
+  const publicUrl = account ? `${baseUrl}/group/${account.account_id}` : "";
 
   const handleCopy = () => {
     if (publicUrl) {
