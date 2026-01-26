@@ -922,10 +922,29 @@ export default function PublicGroupPage() {
                     } else if (typeof f.fund_goal === 'string') {
                       fundGoal = parseFloat(f.fund_goal);
                     } else if (typeof f.fund_goal === 'object') {
-                      // Handle Decimal/object types from database
-                      const obj = f.fund_goal as { valueOf?: () => unknown };
-                      fundGoal = obj.valueOf ? Number(obj.valueOf()) : Number(f.fund_goal);
+                      // Handle Decimal/object types from database - try multiple extraction methods
+                      const obj = f.fund_goal as { valueOf?: () => unknown; toString?: () => string; [key: string]: unknown };
+                      if (obj.valueOf) {
+                        const value = obj.valueOf();
+                        fundGoal = typeof value === 'number' ? value : Number(value);
+                      } else if (obj.toString) {
+                        fundGoal = parseFloat(obj.toString());
+                      } else {
+                        // Try direct conversion
+                        fundGoal = Number(f.fund_goal);
+                      }
                     }
+                  }
+                  
+                  // Debug log for fund calculation
+                  if (f.fund_goal != null) {
+                    console.log(`[Fund Calculation] ${f.fund_name}:`, {
+                      fund_goal_raw: f.fund_goal,
+                      fund_goal_type: typeof f.fund_goal,
+                      fund_goal_extracted: fundGoal,
+                      totalCollected: stats.totalCollected,
+                      hasGoal: fundGoal != null && !isNaN(fundGoal) && fundGoal > 0
+                    });
                   }
                   
                   const hasGoal = fundGoal != null && !isNaN(fundGoal) && fundGoal > 0;
@@ -957,14 +976,14 @@ export default function PublicGroupPage() {
                         {f.description && (
                           <p className="text-sm text-muted-foreground mb-3">{f.description}</p>
                         )}
-                        {hasGoal && progress !== null && (
+                        {hasGoal && (
                           <div className="mt-3">
                             <Progress 
-                              value={progress} 
+                              value={progress || 0} 
                               className="h-2 mb-1"
                             />
                             <p className="text-xs text-muted-foreground text-right">
-                              {progress.toFixed(0)}% of goal reached
+                              {progress !== null ? progress.toFixed(0) : 0}% of goal reached
                             </p>
                           </div>
                         )}
