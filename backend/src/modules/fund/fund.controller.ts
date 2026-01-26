@@ -210,6 +210,7 @@ fundRoutes.post('/', async (req: Request, res: Response) => {
       fund_name: req.body.fund_name,
       description: req.body.description,
       default_amount: req.body.default_amount,
+      fund_goal: req.body.fund_goal,
       is_active: req.body.is_active,
       is_public: req.body.is_public,
     };
@@ -239,6 +240,7 @@ fundRoutes.put('/:id', async (req: Request, res: Response) => {
       fund_name: req.body.fund_name,
       description: req.body.description,
       default_amount: req.body.default_amount,
+      fund_goal: req.body.fund_goal,
       is_active: req.body.is_active,
       is_public: req.body.is_public,
     };
