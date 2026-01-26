@@ -30,11 +30,12 @@ interface FundDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fund: Fund | null;
+  onEdit?: () => void;
 }
 
 // Recent contributions will be loaded from API if needed
 
-export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalProps) {
+export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetailsModalProps) {
   const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
   const [loadingContributions, setLoadingContributions] = useState(false);
 
@@ -196,7 +197,12 @@ export function FundDetailsModal({ open, onOpenChange, fund }: FundDetailsModalP
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button>Edit Fund</Button>
+          <Button onClick={() => {
+            onOpenChange(false);
+            onEdit?.();
+          }}>
+            Edit Fund
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
