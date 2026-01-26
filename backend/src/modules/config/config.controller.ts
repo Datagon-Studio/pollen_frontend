@@ -16,6 +16,50 @@ import { supabase } from '../../shared/supabase/client.js';
 
 export class ConfigController {
   /**
+   * GET /api/v1/config/public/:accountId
+   * Get public config for an account (no auth required, only returns expense_visibility_level)
+   */
+  async getPublicConfig(req: Request, res: Response): Promise<void> {
+    try {
+      const accountId = req.params.accountId;
+      if (!accountId) {
+        res.status(400).json({
+          success: false,
+          error: 'Account ID is required',
+        });
+        return;
+      }
+
+      const config = await configService.getConfigByAccountId(accountId);
+
+      if (!config) {
+        // Return default if config doesn't exist
+        res.status(200).json({
+          success: true,
+          data: {
+            expense_visibility_level: 'summary',
+          },
+        });
+        return;
+      }
+
+      // Only return expense_visibility_level for public access
+      res.status(200).json({
+        success: true,
+        data: {
+          expense_visibility_level: config.expense_visibility_level,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch config';
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
    * GET /api/v1/config/me
    * Get current user's account config
    */

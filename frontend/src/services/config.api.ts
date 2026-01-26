@@ -30,7 +30,27 @@ export interface UpdateConfigInput {
   expense_visibility_level?: ExpenseVisibilityLevel;
 }
 
+export interface PublicConfig {
+  expense_visibility_level: ExpenseVisibilityLevel;
+}
+
 export const configApi = {
+  /**
+   * Get public config for an account (no auth required)
+   */
+  async getPublicConfig(accountId: string): Promise<PublicConfig> {
+    const response = await request<PublicConfig>(`/config/public/${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success || !response.data) {
+      // Default to 'summary' if config not found
+      return { expense_visibility_level: 'summary' };
+    }
+
+    return response.data;
+  },
+
   /**
    * Get current user's account config
    */

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useAccount } from "@/hooks/useAccount";
 import { accountApi } from "@/services/account.api";
 import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
+import { accountPublicPageApi } from "@/services/account-public-page.api";
 import { expenseApi, Expense } from "@/services/expense.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { memberApi } from "@/services/member.api";
@@ -53,15 +54,27 @@ export default function PublicSettings() {
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
   const [loadingConfig, setLoadingConfig] = useState(false);
 
-  // Load account data, config, and expenses
+  // Load account data, config, public page, and expenses
   useEffect(() => {
     if (account) {
-      setPrimaryColor(account.primary_color || "#000000");
-      setSecondaryColor(account.secondary_color || "#ffffff");
+      loadPublicPage();
       loadConfig();
       loadExpenses();
     }
   }, [account]);
+
+  const loadPublicPage = async () => {
+    try {
+      const publicPage = await accountPublicPageApi.getMyPublicPage();
+      setPrimaryColor(publicPage.primary_color || "#000000");
+      setSecondaryColor(publicPage.secondary_color || "#ffffff");
+    } catch (error) {
+      console.error("Error loading public page:", error);
+      // Fallback to defaults if public page doesn't exist yet
+      setPrimaryColor("#000000");
+      setSecondaryColor("#ffffff");
+    }
+  };
 
   // Update expenses tab visibility based on expense visibility level
   useEffect(() => {
@@ -118,11 +131,9 @@ export default function PublicSettings() {
     try {
       setSaving(true);
       await Promise.all([
-        accountApi.updateMyAccount({
+        accountPublicPageApi.updateMyPublicPage({
           primary_color: primaryColor,
           secondary_color: secondaryColor,
-          // expenses_tab_visible is now controlled by expense_visibility_level
-          expenses_tab_visible: expenseVisibilityLevel !== 'none',
         }),
         configApi.updateMyConfig({
           expense_visibility_level: expenseVisibilityLevel,

@@ -10,6 +10,7 @@ import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
 import { settlementRoutes } from './modules/settlement/settlement.controller.js';
 import { paymentRoutes } from './modules/payment/payment.controller.js';
+import { accountPublicPageRoutes } from './modules/account-public-page/account-public-page.routes.js';
 
 export const routes = Router();
 
@@ -24,4 +25,5 @@ routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
 routes.use('/payments', paymentRoutes);
 routes.use('/config', configRoutes);
+routes.use('/account-public-pages', accountPublicPageRoutes);
 

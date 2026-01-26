@@ -10,7 +10,13 @@ import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
 
 export const configRoutes = Router();
 
-// All config routes require authentication
+// Public route - no auth required
+// GET /api/v1/config/public/:accountId - Get public config (expense_visibility_level only)
+configRoutes.get('/public/:accountId', async (req, res) => {
+  await configController.getPublicConfig(req, res);
+});
+
+// All other config routes require authentication
 configRoutes.use(authenticateToken);
 
 // GET /api/v1/config/me - Get current user's account config

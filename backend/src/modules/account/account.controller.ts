@@ -42,16 +42,9 @@ export class AccountController {
         return;
       }
 
-      // Map backend field names to frontend field names for compatibility
-      const { foreground_color, background_color, ...rest } = account;
-      
       res.status(200).json({
         success: true,
-        data: {
-          ...rest,
-          primary_color: foreground_color,
-          secondary_color: background_color,
-        },
+        data: account,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch account';
@@ -89,28 +82,17 @@ export class AccountController {
         return;
       }
 
-      // Only allow updating account_name, account_logo, foreground_color, background_color, and expenses_tab_visible
-      // Map frontend field names (primary_color/secondary_color) to backend names (foreground_color/background_color)
+      // Only allow updating account_name and account_logo
       const input: UpdateAccountInput = {
         account_name: req.body.account_name,
         account_logo: req.body.account_logo,
-        foreground_color: req.body.foreground_color ?? req.body.primary_color,
-        background_color: req.body.background_color ?? req.body.secondary_color,
-        expenses_tab_visible: req.body.expenses_tab_visible,
       };
 
       const account = await accountService.updateAccount(userId, userAccount.account_id, input);
-
-      // Map backend field names to frontend field names for compatibility
-      const { foreground_color, background_color, ...rest } = account;
       
       res.status(200).json({
         success: true,
-        data: {
-          ...rest,
-          primary_color: foreground_color,
-          secondary_color: background_color,
-        },
+        data: account,
         message: 'Account updated successfully',
       });
     } catch (error) {

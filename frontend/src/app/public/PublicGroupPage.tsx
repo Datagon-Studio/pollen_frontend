@@ -19,6 +19,7 @@ import { expenseApi, Expense } from "@/services/expense.api";
 import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
 import { memberApi } from "@/services/member.api";
+import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
 import { ContributeConfirmationModal } from "@/components/modals/ContributeConfirmationModal";
 import { PaystackPaymentModal } from "@/components/modals/PaystackPaymentModal";
 
@@ -45,6 +46,7 @@ export default function PublicGroupPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [contributions, setContributions] = useState<(Contribution | ContributionWithDetails)[]>([]);
   const [activeTab, setActiveTab] = useState("funds");
+  const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
   
   // Filter states for contributions
   const [contributionSearch, setContributionSearch] = useState("");
@@ -200,13 +202,10 @@ export default function PublicGroupPage() {
 
   // Switch to funds tab if expenses tab is hidden and user is on expenses tab
   useEffect(() => {
-    if (account && activeTab === "expenses") {
-      const expensesTabVisible = account.expenses_tab_visible !== null ? account.expenses_tab_visible : true;
-      if (!expensesTabVisible) {
-        setActiveTab("funds");
-      }
+    if (activeTab === "expenses" && expenseVisibilityLevel === 'none') {
+      setActiveTab("funds");
     }
-  }, [account, activeTab]);
+  }, [expenseVisibilityLevel, activeTab]);
 
   const loadData = async () => {
     if (!accountId) return;
@@ -215,10 +214,11 @@ export default function PublicGroupPage() {
       console.log('[PublicGroupPage] Loading group:', accountId);
       
       // Parallelize data loading for better performance
-      const [accountResult, fundsResult, expensesResult] = await Promise.allSettled([
+      const [accountResult, fundsResult, expensesResult, configResult] = await Promise.allSettled([
         accountApi.getPublic(accountId),
         fundApi.getPublicByAccount(accountId),
         expenseApi.getPublicByAccount(accountId),
+        configApi.getPublicConfig(accountId),
       ]);
       
       // Handle account data
@@ -293,6 +293,15 @@ export default function PublicGroupPage() {
         setExpenses(expensesResult.value.filter(e => e.member_visible));
       } else {
         console.error("Failed to load expenses:", expensesResult.reason);
+      }
+      
+      // Handle config data
+      if (configResult.status === 'fulfilled') {
+        setExpenseVisibilityLevel(configResult.value.expense_visibility_level);
+      } else {
+        console.error("Failed to load config:", configResult.reason);
+        // Default to 'summary' if config fails to load
+        setExpenseVisibilityLevel('summary');
       }
     } catch (error) {
       console.error('[PublicGroupPage] Error loading group:', error);
@@ -862,7 +871,7 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+                {expenseVisibilityLevel !== 'none' && (
                   <TabsTrigger value="expenses" className="flex-1">
                     <Receipt className="h-4 w-4 mr-2" />
                     Expenses
@@ -879,7 +888,7 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+                {expenseVisibilityLevel !== 'none' && (
                   <TabsTrigger value="expenses" className="flex-1">
                     <Receipt className="h-4 w-4 mr-2" />
                     Expenses
@@ -1143,7 +1152,7 @@ export default function PublicGroupPage() {
           </TabsContent>
 
           {/* Expenses Tab */}
-          {account && (account.expenses_tab_visible !== null ? account.expenses_tab_visible : true) && (
+          {expenseVisibilityLevel !== 'none' && (
             <TabsContent value="expenses" className="mt-4">
             {!isVerified ? (
               <Card>
@@ -1154,6 +1163,40 @@ export default function PublicGroupPage() {
                     <Lock className="h-4 w-4 mr-2" />
                     Verify
                   </Button>
+                </CardContent>
+              </Card>
+            ) : expenseVisibilityLevel === 'summary' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Expense Summary</CardTitle>
+                  <CardDescription>Total expenses and contributions overview</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 border rounded-lg">
+                      <span className="text-muted-foreground">Total Contributions</span>
+                      <span className="text-lg font-semibold text-green-600">
+                        ${Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 border rounded-lg">
+                      <span className="text-muted-foreground">Total Expenses</span>
+                      <span className="text-lg font-semibold text-red-600">
+                        ${expenses.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 border rounded-lg bg-muted">
+                      <span className="font-medium">Net Position</span>
+                      <span className={`text-lg font-semibold ${
+                        (Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
+                         expenses.reduce((sum, e) => sum + Number(e.amount), 0)) >= 0 
+                          ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        ${(Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
+                            expenses.reduce((sum, e) => sum + Number(e.amount), 0)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

@@ -25,7 +25,7 @@ export class AccountService {
   }
 
   /**
-   * Update account (only account_name, account_logo, foreground_color, and background_color)
+   * Update account (only account_name and account_logo)
    * Status cannot be changed - always stays 'active'
    */
   async updateAccount(userId: string, accountId: string, input: UpdateAccountInput): Promise<Account> {
@@ -39,7 +39,7 @@ export class AccountService {
       throw new Error('Unauthorized: You do not have access to this account');
     }
 
-    // Business Rule: Only allow updating account_name, account_logo, foreground_color, background_color, and expenses_tab_visible
+    // Business Rule: Only allow updating account_name and account_logo
     // Status and kyc_status cannot be changed by user
     const updateData: UpdateAccountInput = {};
     
@@ -51,21 +51,6 @@ export class AccountService {
     // Handle account_logo: use provided value (including null), or keep existing if not provided
     if (input.account_logo !== undefined) {
       updateData.account_logo = input.account_logo;
-    }
-
-    // Handle foreground_color: use provided value (including null), or keep existing if not provided
-    if (input.foreground_color !== undefined) {
-      updateData.foreground_color = input.foreground_color;
-    }
-
-    // Handle background_color: use provided value (including null), or keep existing if not provided
-    if (input.background_color !== undefined) {
-      updateData.background_color = input.background_color;
-    }
-
-    // Handle expenses_tab_visible: use provided value (including null), or keep existing if not provided
-    if (input.expenses_tab_visible !== undefined) {
-      updateData.expenses_tab_visible = input.expenses_tab_visible;
     }
 
     // Business Rule: Account name validation if provided
