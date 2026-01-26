@@ -169,6 +169,14 @@ export default function PublicGroupPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams]);
 
+  // Reload fund stats when user verifies (to ensure progress bars are up to date)
+  useEffect(() => {
+    if (isVerified && publicFunds.length > 0) {
+      reloadFundStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVerified]);
+
   // Reload contributions when switching to contributions tab and user is verified
   useEffect(() => {
     if (activeTab === 'contributions' && isVerified && memberId) {
@@ -177,9 +185,10 @@ export default function PublicGroupPage() {
       if (paymentCompleted) {
         localStorage.removeItem('payment_completed_reload');
         // Wait a bit longer for webhook to process, then reload
-        setTimeout(() => {
+        setTimeout(async () => {
           console.log('[PublicGroupPage] Reloading contributions after payment, memberId:', memberId);
-          loadMemberData(memberId);
+          await loadMemberData(memberId);
+          await reloadFundStats();
         }, 2000);
       } else {
         console.log('[PublicGroupPage] Reloading contributions for tab switch, memberId:', memberId);
@@ -321,6 +330,36 @@ export default function PublicGroupPage() {
     }
   };
 
+  const reloadFundStats = async () => {
+    if (!publicFunds.length) return;
+    
+    try {
+      console.log('[PublicGroupPage] Reloading fund stats');
+      const statsMap: Record<string, { totalCollected: number; contributorCount: number }> = {};
+      await Promise.all(
+        publicFunds.map(async (fund) => {
+          try {
+            const statsResponse = await contributionApi.getFundStats(fund.fund_id);
+            if (statsResponse.success && statsResponse.data) {
+              statsMap[fund.fund_id] = {
+                totalCollected: statsResponse.data.totalCollected || 0,
+                contributorCount: statsResponse.data.contributorCount || 0,
+              };
+            } else {
+              statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+            }
+          } catch (error) {
+            console.error(`Failed to reload stats for fund ${fund.fund_id}:`, error);
+            statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+          }
+        })
+      );
+      setFundStats(statsMap);
+    } catch (error) {
+      console.error("[PublicGroupPage] Failed to reload fund stats:", error);
+    }
+  };
+
   const handleSendOtp = async () => {
     if (!phone.trim()) {
       toast({
@@ -399,6 +438,9 @@ export default function PublicGroupPage() {
         
         // Load member data (contributions)
         await loadMemberData(memberId);
+        
+        // Reload fund stats to update progress bars
+        await reloadFundStats();
         
         // Set contributions tab as default after verification
         setActiveTab("contributions");
@@ -915,11 +957,6 @@ export default function PublicGroupPage() {
                         {f.description && (
                           <p className="text-sm text-muted-foreground mb-3">{f.description}</p>
                         )}
-                        {f.default_amount && (
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Suggested: ${f.default_amount.toFixed(2)}
-                          </p>
-                        )}
                         {hasGoal && progress !== null && (
                           <div className="mt-3">
                             <Progress 
@@ -1168,11 +1205,13 @@ export default function PublicGroupPage() {
           memberId={memberId}
           memberName={memberName}
           memberPhone={phone}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowPaymentModal(false);
             setSelectedFund(null);
+            // Reload fund stats to update progress bars immediately
+            await reloadFundStats();
             // Reload data to show updated contributions
-            loadData();
+            await loadData();
             toast({
               title: "Success",
               description: "Your contribution has been processed successfully",
