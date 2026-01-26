@@ -11,6 +11,13 @@ import { AccountPublicPage, CreateAccountPublicPageInput, UpdateAccountPublicPag
 
 export class AccountPublicPageService {
   /**
+   * Get public page by account ID (public access, no auth required)
+   */
+  async getPublicPageByAccountIdPublic(accountId: string): Promise<AccountPublicPage | null> {
+    return accountPublicPageRepository.findByAccountId(accountId);
+  }
+
+  /**
    * Get public page by account ID (creates default if none exists)
    */
   async getPublicPageByAccountId(userId: string, accountId: string): Promise<AccountPublicPage> {

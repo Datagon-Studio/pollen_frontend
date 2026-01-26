@@ -10,7 +10,13 @@ import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
 
 export const accountPublicPageRoutes = Router();
 
-// All account public page routes require authentication
+// Public route - no auth required
+// GET /api/v1/account-public-pages/public/:accountId - Get public page (no auth)
+accountPublicPageRoutes.get('/public/:accountId', async (req, res) => {
+  await accountPublicPageController.getPublicPage(req, res);
+});
+
+// All other account public page routes require authentication
 accountPublicPageRoutes.use(authenticateToken);
 
 // GET /api/v1/account-public-pages/me - Get current user's account public page

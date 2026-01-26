@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
 import { memberApi } from "@/services/member.api";
 import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
+import { accountPublicPageApi, AccountPublicPage } from "@/services/account-public-page.api";
 import { ContributeConfirmationModal } from "@/components/modals/ContributeConfirmationModal";
 import { PaystackPaymentModal } from "@/components/modals/PaystackPaymentModal";
 
@@ -47,6 +48,7 @@ export default function PublicGroupPage() {
   const [contributions, setContributions] = useState<(Contribution | ContributionWithDetails)[]>([]);
   const [activeTab, setActiveTab] = useState("funds");
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
+  const [publicPage, setPublicPage] = useState<AccountPublicPage | null>(null);
   
   // Filter states for contributions
   const [contributionSearch, setContributionSearch] = useState("");
@@ -214,11 +216,12 @@ export default function PublicGroupPage() {
       console.log('[PublicGroupPage] Loading group:', accountId);
       
       // Parallelize data loading for better performance
-      const [accountResult, fundsResult, expensesResult, configResult] = await Promise.allSettled([
+      const [accountResult, fundsResult, expensesResult, configResult, publicPageResult] = await Promise.allSettled([
         accountApi.getPublic(accountId),
         fundApi.getPublicByAccount(accountId),
         expenseApi.getPublicByAccount(accountId),
         configApi.getPublicConfig(accountId),
+        accountPublicPageApi.getPublicPage(accountId),
       ]);
       
       // Handle account data
@@ -302,6 +305,13 @@ export default function PublicGroupPage() {
         console.error("Failed to load config:", configResult.reason);
         // Default to 'summary' if config fails to load
         setExpenseVisibilityLevel('summary');
+      }
+      
+      // Handle public page data
+      if (publicPageResult.status === 'fulfilled') {
+        setPublicPage(publicPageResult.value);
+      } else {
+        console.error("Failed to load public page:", publicPageResult.reason);
       }
     } catch (error) {
       console.error('[PublicGroupPage] Error loading group:', error);
@@ -485,8 +495,11 @@ export default function PublicGroupPage() {
   };
 
   // All hooks must be called before any conditional returns
-  const backgroundColor = account?.background_color || "#ffffff";
-  const foregroundColor = account?.foreground_color || "#000000";
+  // Use primary_color and secondary_color from account_public_pages, fallback to defaults
+  const primaryColor = publicPage?.primary_color || "#000000";
+  const secondaryColor = publicPage?.secondary_color || "#ffffff";
+  const backgroundColor = secondaryColor;
+  const foregroundColor = primaryColor;
 
   // Get unique funds and categories for filters
   const uniqueFunds = useMemo(() => {
@@ -860,7 +873,7 @@ export default function PublicGroupPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="bg-secondary/50 w-full">
+          <TabsList className="w-full" style={{ backgroundColor: secondaryColor + '80' }}>
             {isVerified ? (
               <>
                 <TabsTrigger value="contributions" className="flex-1">
@@ -963,11 +976,11 @@ export default function PublicGroupPage() {
                     : null;
                   
                   return (
-                    <Card key={f.fund_id} className="hover:border-amber/50 transition-colors">
+                    <Card key={f.fund_id} style={{ borderColor: 'transparent' }} className="hover:border-opacity-50 transition-colors" onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor + '50'} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}>
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
-                            <Wallet className="h-5 w-5 text-amber" />
+                            <Wallet className="h-5 w-5" style={{ color: primaryColor }} />
                             <span className="font-medium">{f.fund_name}</span>
                           </div>
                           {account && account.kyc_status === 'verified' && (
@@ -977,6 +990,7 @@ export default function PublicGroupPage() {
                                 setSelectedFund(f);
                                 setShowConfirmationDialog(true);
                               }}
+                              style={{ backgroundColor: primaryColor, color: secondaryColor }}
                             >
                               Contribute →
                             </Button>
@@ -987,10 +1001,15 @@ export default function PublicGroupPage() {
                         )}
                         {hasGoal && (
                           <div className="mt-3">
-                            <Progress 
-                              value={progress || 0} 
-                              className="h-2 mb-1"
-                            />
+                            <div className="relative h-2 mb-1 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all"
+                                style={{ 
+                                  width: `${progress || 0}%`,
+                                  backgroundColor: primaryColor
+                                }}
+                              />
+                            </div>
                             <p className="text-xs text-muted-foreground text-right">
                               {progress !== null ? progress.toFixed(0) : 0}% of goal reached
                             </p>

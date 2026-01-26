@@ -24,6 +24,21 @@ export interface UpdateAccountPublicPageInput {
 
 export const accountPublicPageApi = {
   /**
+   * Get public page for an account (no auth required)
+   */
+  async getPublicPage(accountId: string): Promise<AccountPublicPage | null> {
+    const response = await request<AccountPublicPage>(`/account-public-pages/public/${accountId}`, {
+      method: 'GET',
+    });
+
+    if (!response.success) {
+      return null;
+    }
+
+    return response.data || null;
+  },
+
+  /**
    * Get current user's account public page
    */
   async getMyPublicPage(): Promise<AccountPublicPage> {

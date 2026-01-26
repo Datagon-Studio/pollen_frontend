@@ -14,6 +14,36 @@ import { accountService } from '../account/account.service.js';
 
 export class AccountPublicPageController {
   /**
+   * GET /api/v1/account-public-pages/public/:accountId
+   * Get public page for an account (no auth required)
+   */
+  async getPublicPage(req: Request, res: Response): Promise<void> {
+    try {
+      const accountId = req.params.accountId;
+      if (!accountId) {
+        res.status(400).json({
+          success: false,
+          error: 'Account ID is required',
+        });
+        return;
+      }
+
+      const publicPage = await accountPublicPageService.getPublicPageByAccountIdPublic(accountId);
+
+      res.status(200).json({
+        success: true,
+        data: publicPage,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch public page';
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
    * GET /api/v1/account-public-pages/me
    * Get current user's account public page
    */
