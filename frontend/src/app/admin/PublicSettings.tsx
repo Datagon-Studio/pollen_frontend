@@ -58,11 +58,16 @@ export default function PublicSettings() {
     if (account) {
       setPrimaryColor(account.primary_color || "#000000");
       setSecondaryColor(account.secondary_color || "#ffffff");
-      setExpensesTabVisible(account.expenses_tab_visible !== null ? account.expenses_tab_visible : true);
       loadConfig();
       loadExpenses();
     }
   }, [account]);
+
+  // Update expenses tab visibility based on expense visibility level
+  useEffect(() => {
+    // Show expenses tab if visibility level is not 'none'
+    setExpensesTabVisible(expenseVisibilityLevel !== 'none');
+  }, [expenseVisibilityLevel]);
 
   const loadConfig = async () => {
     try {
@@ -107,22 +112,6 @@ export default function PublicSettings() {
     }
   };
 
-  const handleToggleExpenseVisibility = async (expenseId: string) => {
-    try {
-      await expenseApi.toggleVisibility(expenseId);
-      await loadExpenses();
-      toast({
-        title: "Success",
-        description: "Expense visibility updated",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update expense visibility",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSave = async () => {
     if (!account) return;
@@ -132,7 +121,8 @@ export default function PublicSettings() {
         accountApi.updateMyAccount({
           primary_color: primaryColor,
           secondary_color: secondaryColor,
-          expenses_tab_visible: expensesTabVisible,
+          // expenses_tab_visible is now controlled by expense_visibility_level
+          expenses_tab_visible: expenseVisibilityLevel !== 'none',
         }),
         configApi.updateMyConfig({
           expense_visibility_level: expenseVisibilityLevel,
@@ -802,57 +792,9 @@ export default function PublicSettings() {
               <p className="text-xs text-muted-foreground mt-2">
                 {expenseVisibilityLevel === 'none' && 'No expense information is shown to members'}
                 {expenseVisibilityLevel === 'summary' && 'Members see totals and net position only'}
-                {expenseVisibilityLevel === 'detailed' && 'Members see individual expenses marked as visible'}
+                {expenseVisibilityLevel === 'detailed' && 'Members see individual expenses marked as visible. Individual expense visibility can be managed from the Expenses page in the admin panel.'}
               </p>
             </div>
-
-            {expenseVisibilityLevel === 'detailed' && (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Control which expenses are visible on your public page
-                </p>
-
-                {loadingExpenses ? (
-                  <div className="text-sm text-muted-foreground">Loading expenses...</div>
-                ) : expenses.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No expenses found</div>
-                ) : (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {expenses.map((expense) => {
-                      const dateValue = expense.date ? new Date(expense.date) : new Date();
-                      return (
-                        <div
-                          key={expense.expense_id}
-                          className="flex items-center justify-between p-3 border border-border rounded-lg"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-foreground truncate">
-                                {expense.expense_name}
-                              </span>
-                              {!expense.member_visible && (
-                                <span className="text-xs text-muted-foreground">(Hidden)</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{expense.expense_category}</span>
-                              <span>•</span>
-                              <span>${Number(expense.amount).toFixed(2)}</span>
-                              <span>•</span>
-                              <span>{format(dateValue, "MMM d, yyyy")}</span>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={expense.member_visible}
-                            onCheckedChange={() => handleToggleExpenseVisibility(expense.expense_id)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
           </div>
 
           <Button className="w-full" onClick={handleSave} disabled={saving}>
