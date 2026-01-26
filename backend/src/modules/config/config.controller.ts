@@ -13,6 +13,7 @@ import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js
 import { accountService } from '../account/account.service.js';
 import { userRepository } from '../user/user.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
+import { postmarkService } from '../../shared/services/postmark.service.js';
 
 export class ConfigController {
   /**
@@ -179,6 +180,89 @@ export class ConfigController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update config';
       res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/v1/config/test-email
+   * Send a test email via Postmark
+   */
+  async sendTestEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const account = await accountService.getUserAccount(userId);
+      if (!account) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      // Check if user is admin for this account
+      const { data: userAccountLink } = await supabase
+        .from('user_accounts')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('account_id', account.account_id)
+        .single();
+
+      const isAdmin = userAccountLink?.role === 'admin';
+      
+      if (!isAdmin) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden: Admin access required',
+        });
+        return;
+      }
+
+      const { to } = req.body;
+      if (!to || typeof to !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Email address is required',
+        });
+        return;
+      }
+
+      // Send test email
+      const result = await postmarkService.sendEmail(
+        to,
+        'Hello from Postmark',
+        '<strong>Hello</strong> dear Postmark user.',
+        'Hello from Postmark!',
+        'test-email'
+      );
+
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          message: 'Test email sent successfully',
+          messageId: result.messageId,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to send test email',
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send test email';
+      res.status(500).json({
         success: false,
         error: message,
       });

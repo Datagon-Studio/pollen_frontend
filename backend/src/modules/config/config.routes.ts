@@ -28,3 +28,8 @@ configRoutes.get('/me', async (req, res) => {
 configRoutes.put('/me', async (req, res) => {
   await configController.updateMyConfig(req, res);
 });
+
+// POST /api/v1/config/test-email - Send test email
+configRoutes.post('/test-email', async (req, res) => {
+  await configController.sendTestEmail(req, res);
+});

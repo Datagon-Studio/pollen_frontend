@@ -36,6 +36,7 @@ import {
   Banknote,
   X,
   Cog,
+  Mail,
 } from "lucide-react";
 import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/services/account.api";
 import { settlementApi, SettlementDetails, CreateSettlementDetailsInput } from "@/services/settlement.api";
@@ -98,6 +99,8 @@ export default function Settings() {
   const [paymentIntegrationId, setPaymentIntegrationId] = useState<string | null>(null);
   const [smsTemplate, setSmsTemplate] = useState<string | null>(null);
   const [emailTemplate, setEmailTemplate] = useState<string | null>(null);
+  const [testEmailAddress, setTestEmailAddress] = useState("");
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
   
   // User profile state to check admin status
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -1374,6 +1377,68 @@ export default function Settings() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Template for email notifications
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Test Email */}
+                <div>
+                  <Label>Test Email</Label>
+                  <div className="mt-1.5 flex gap-2">
+                    <Input
+                      type="email"
+                      value={testEmailAddress}
+                      onChange={(e) => setTestEmailAddress(e.target.value)}
+                      placeholder="Enter email address to test"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!testEmailAddress) {
+                          toast({
+                            title: "Error",
+                            description: "Please enter an email address",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        try {
+                          setSendingTestEmail(true);
+                          await configApi.sendTestEmail(testEmailAddress);
+                          toast({
+                            title: "Success",
+                            description: "Test email sent successfully",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Error",
+                            description: error instanceof Error ? error.message : "Failed to send test email",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setSendingTestEmail(false);
+                        }
+                      }}
+                      disabled={sendingTestEmail || !testEmailAddress}
+                    >
+                      {sendingTestEmail ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Test
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Send a test email to verify Postmark configuration
                   </p>
                 </div>
               </div>

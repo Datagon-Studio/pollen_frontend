@@ -81,4 +81,23 @@ export const configApi = {
 
     return response.data;
   },
+
+  /**
+   * Send a test email via Postmark
+   */
+  async sendTestEmail(to: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const response = await request<{ messageId?: string }>('/config/test-email', {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to send test email');
+    }
+
+    return {
+      success: true,
+      messageId: response.data?.messageId,
+    };
+  },
 };
