@@ -340,7 +340,7 @@ export default function PublicSettings() {
             <div 
               className="p-8 min-h-[500px]"
               style={{ 
-                backgroundColor: secondaryColor,
+                backgroundColor: "#FFFFFF",
                 color: primaryColor 
               }}
             >
@@ -360,13 +360,13 @@ export default function PublicSettings() {
 
                 <h1 
                   className="text-2xl font-bold mb-2"
-                  style={{ color: primaryColor }}
+                  style={{ color: "#000000" }}
                 >
                   {account.account_name || "Community Group"}
                 </h1>
                 <p 
                   className="mb-6 opacity-80"
-                  style={{ color: primaryColor }}
+                  style={{ color: "#000000" }}
                 >
                   Support our community by contributing to our active funds
                 </p>
@@ -561,7 +561,7 @@ export default function PublicSettings() {
                   </div>
                 )}
 
-                <p className="text-xs opacity-60" style={{ color: primaryColor }}>
+                <p className="text-xs opacity-60" style={{ color: "#000000" }}>
                   Powered by PollenHive
                 </p>
               </div>
