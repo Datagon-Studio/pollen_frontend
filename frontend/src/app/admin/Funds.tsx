@@ -376,7 +376,8 @@ export default function Funds() {
       <FundDetailsModal 
         open={!!selectedFund && !showEditFund && !showDeleteFund} 
         onOpenChange={(open) => !open && setSelectedFund(null)} 
-        fund={selectedFund ? mapFundToModalFormat(selectedFund) : null} 
+        fund={selectedFund ? mapFundToModalFormat(selectedFund) : null}
+        onEdit={() => selectedFund && handleEdit(selectedFund)}
       />
     </AppLayout>
   );
