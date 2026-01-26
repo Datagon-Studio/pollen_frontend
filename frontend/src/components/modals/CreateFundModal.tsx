@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,20 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
   });
   const [saving, setSaving] = useState(false);
 
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) {
+      setFormData({
+        fundName: "",
+        description: "",
+        defaultAmount: "",
+        fundGoal: "",
+        isActive: true,
+        isPublic: true,
+      });
+    }
+  }, [open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -49,8 +63,8 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
       await fundApi.create({
         fund_name: formData.fundName.trim(),
         description: formData.description.trim() || null,
-        default_amount: formData.defaultAmount ? parseFloat(formData.defaultAmount) : null,
-        fund_goal: formData.fundGoal ? parseFloat(formData.fundGoal) : null,
+        default_amount: formData.defaultAmount && formData.defaultAmount.trim() ? parseFloat(formData.defaultAmount) : null,
+        fund_goal: formData.fundGoal && formData.fundGoal.trim() ? parseFloat(formData.fundGoal) : null,
         is_active: formData.isActive,
         is_public: formData.isPublic,
       });
@@ -60,7 +74,7 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
         description: `${formData.fundName} has been created successfully.`,
       });
 
-      setFormData({ fundName: "", description: "", defaultAmount: "", isActive: true, isPublic: true });
+      setFormData({ fundName: "", description: "", defaultAmount: "", fundGoal: "", isActive: true, isPublic: true });
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
