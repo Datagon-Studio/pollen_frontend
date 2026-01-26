@@ -65,8 +65,8 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
       await fundApi.update(fund.fund_id, {
         fund_name: formData.fundName.trim(),
         description: formData.description.trim() || null,
-        default_amount: formData.defaultAmount ? parseFloat(formData.defaultAmount) : null,
-        fund_goal: formData.fundGoal ? parseFloat(formData.fundGoal) : null,
+        default_amount: formData.defaultAmount && formData.defaultAmount.trim() ? parseFloat(formData.defaultAmount) : null,
+        fund_goal: formData.fundGoal && formData.fundGoal.trim() ? parseFloat(formData.fundGoal) : null,
         is_active: formData.isActive,
         is_public: formData.isPublic,
       });
