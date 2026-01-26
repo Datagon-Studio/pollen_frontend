@@ -4,8 +4,8 @@ export interface Account {
   account_id: string;
   account_name: string | null;
   account_logo: string | null;
-  foreground_color: string | null;
-  background_color: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
   expenses_tab_visible: boolean | null;
   kyc_status: 'unverified' | 'pending' | 'verified' | 'rejected';
   status: 'active' | 'inactive' | 'suspended';
@@ -16,8 +16,8 @@ export interface Account {
 export interface UpdateAccountInput {
   account_name?: string | null;
   account_logo?: string | null;
-  foreground_color?: string | null;
-  background_color?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
   expenses_tab_visible?: boolean | null;
 }
 
@@ -38,7 +38,7 @@ export const accountApi = {
   },
 
   /**
-   * Update current user's account (only account_name, account_logo, foreground_color, and background_color)
+   * Update current user's account (only account_name, account_logo, primary_color, and secondary_color)
    */
   async updateMyAccount(input: UpdateAccountInput): Promise<Account> {
     const response = await request<Account>('/accounts/me', {

@@ -45,15 +45,15 @@ export default function PublicSettings() {
   const [memberId, setMemberId] = useState<string | null>(null);
   
   // Color states
-  const [foregroundColor, setForegroundColor] = useState("#000000");
-  const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [primaryColor, setPrimaryColor] = useState("#000000");
+  const [secondaryColor, setSecondaryColor] = useState("#ffffff");
   const [expensesTabVisible, setExpensesTabVisible] = useState(true);
 
   // Load account data and expenses
   useEffect(() => {
     if (account) {
-      setForegroundColor(account.foreground_color || "#000000");
-      setBackgroundColor(account.background_color || "#ffffff");
+      setPrimaryColor(account.primary_color || "#000000");
+      setSecondaryColor(account.secondary_color || "#ffffff");
       setExpensesTabVisible(account.expenses_tab_visible !== null ? account.expenses_tab_visible : true);
       loadExpenses();
     }
@@ -106,8 +106,8 @@ export default function PublicSettings() {
     try {
       setSaving(true);
       await accountApi.updateMyAccount({
-        foreground_color: foregroundColor,
-        background_color: backgroundColor,
+        primary_color: primaryColor,
+        secondary_color: secondaryColor,
         expenses_tab_visible: expensesTabVisible,
       });
       toast({
@@ -267,7 +267,7 @@ export default function PublicSettings() {
       header: "Amount",
       className: "text-right font-semibold",
       render: (item: Contribution) => (
-        <span style={{ color: foregroundColor }}>
+        <span style={{ color: primaryColor }}>
           ${Number(item.amount).toFixed(2)}
         </span>
       ),
@@ -276,12 +276,12 @@ export default function PublicSettings() {
       key: "status",
       header: "Status",
       render: (item: Contribution) => (
-        <span className="text-xs capitalize" style={{ color: foregroundColor }}>
+        <span className="text-xs capitalize" style={{ color: primaryColor }}>
           {item.status}
         </span>
       ),
     },
-  ], [foregroundColor]);
+  ], [primaryColor]);
 
   if (accountLoading) {
     return (
@@ -340,8 +340,8 @@ export default function PublicSettings() {
             <div 
               className="p-8 min-h-[500px]"
               style={{ 
-                backgroundColor: backgroundColor,
-                color: foregroundColor 
+                backgroundColor: secondaryColor,
+                color: primaryColor 
               }}
             >
               <div className="max-w-md mx-auto text-center">
@@ -360,13 +360,13 @@ export default function PublicSettings() {
 
                 <h1 
                   className="text-2xl font-bold mb-2"
-                  style={{ color: foregroundColor }}
+                  style={{ color: primaryColor }}
                 >
                   {account.account_name || "Community Group"}
                 </h1>
                 <p 
                   className="mb-6 opacity-80"
-                  style={{ color: foregroundColor }}
+                  style={{ color: primaryColor }}
                 >
                   Support our community by contributing to our active funds
                 </p>
@@ -392,7 +392,7 @@ export default function PublicSettings() {
 
                   <TabsContent value="funds" className="mt-4">
                     <div className="space-y-3">
-                      <p className="text-sm opacity-70" style={{ color: foregroundColor }}>
+                      <p className="text-sm opacity-70" style={{ color: primaryColor }}>
                         Funds will appear here
                       </p>
                     </div>
@@ -403,7 +403,7 @@ export default function PublicSettings() {
                     <TabsContent value="expenses" className="mt-4">
                       <div className="space-y-2 text-left">
                         {visibleExpenses.length === 0 ? (
-                          <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
+                          <p className="text-sm opacity-70 text-center" style={{ color: primaryColor }}>
                             No expenses visible
                           </p>
                         ) : (
@@ -423,14 +423,14 @@ export default function PublicSettings() {
                                   >
                                     {expense.expense_category}
                                   </span>
-                                  <span className="font-semibold" style={{ color: foregroundColor }}>
+                                  <span className="font-semibold" style={{ color: primaryColor }}>
                                     ${Number(expense.amount).toFixed(2)}
                                   </span>
                                 </div>
-                                <p className="text-sm" style={{ color: foregroundColor }}>
+                                <p className="text-sm" style={{ color: primaryColor }}>
                                   {expense.expense_name}
                                 </p>
-                                <p className="text-xs opacity-70 mt-1" style={{ color: foregroundColor }}>
+                                <p className="text-xs opacity-70 mt-1" style={{ color: primaryColor }}>
                                   {format(dateValue, "MMM d, yyyy")}
                                 </p>
                               </div>
@@ -444,13 +444,13 @@ export default function PublicSettings() {
                   <TabsContent value="contributions" className="mt-4">
                     {!isVerified ? (
                       <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                        <Lock className="h-12 w-12 mx-auto mb-4 opacity-70" style={{ color: foregroundColor }} />
-                        <p className="mb-4 opacity-70" style={{ color: foregroundColor }}>
+                        <Lock className="h-12 w-12 mx-auto mb-4 opacity-70" style={{ color: primaryColor }} />
+                        <p className="mb-4 opacity-70" style={{ color: primaryColor }}>
                           Verify to see your contributions
                         </p>
                         <Button 
                           onClick={handleRequestAccess}
-                          style={{ backgroundColor: foregroundColor, color: backgroundColor }}
+                          style={{ backgroundColor: primaryColor, color: secondaryColor }}
                         >
                           <Lock className="h-4 w-4 mr-2" />
                           Verify
@@ -459,7 +459,7 @@ export default function PublicSettings() {
                     ) : (
                       <div className="space-y-4">
                         {contributions.length === 0 ? (
-                          <p className="text-sm opacity-70 text-center" style={{ color: foregroundColor }}>
+                          <p className="text-sm opacity-70 text-center" style={{ color: primaryColor }}>
                             No contributions found
                           </p>
                         ) : (
@@ -561,7 +561,7 @@ export default function PublicSettings() {
                   </div>
                 )}
 
-                <p className="text-xs opacity-60" style={{ color: foregroundColor }}>
+                <p className="text-xs opacity-60" style={{ color: primaryColor }}>
                   Powered by PollenHive
                 </p>
               </div>
@@ -596,41 +596,53 @@ export default function PublicSettings() {
           <div className="bg-card border border-border rounded-lg p-5">
             <h3 className="font-medium text-foreground mb-4">Branding</h3>
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Foreground Color</Label>
+                <Label>Primary Color</Label>
                 <div className="flex gap-2 mt-1.5">
-                  <Input
-                    type="color"
-                    value={foregroundColor}
-                    onChange={(e) => setForegroundColor(e.target.value)}
-                    className="h-10 w-20 p-1 cursor-pointer"
-                  />
+                  <div 
+                    className="rounded-lg border border-border p-1"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <Input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="h-10 w-20 p-1 cursor-pointer bg-transparent border-0"
+                      style={{ backgroundColor: 'transparent' }}
+                    />
+                  </div>
                   <Input
                     type="text"
-                    value={foregroundColor}
-                    onChange={(e) => setForegroundColor(e.target.value)}
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
                     placeholder="#000000"
-                    className="flex-1"
+                    className="w-24"
                   />
                 </div>
               </div>
 
               <div>
-                <Label>Background Color</Label>
+                <Label>Secondary Color</Label>
                 <div className="flex gap-2 mt-1.5">
-                  <Input
-                    type="color"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="h-10 w-20 p-1 cursor-pointer"
-                  />
+                  <div 
+                    className="rounded-lg border border-border p-1"
+                    style={{ backgroundColor: secondaryColor }}
+                  >
+                    <Input
+                      type="color"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="h-10 w-20 p-1 cursor-pointer bg-transparent border-0"
+                      style={{ backgroundColor: 'transparent' }}
+                    />
+                  </div>
                   <Input
                     type="text"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
                     placeholder="#ffffff"
-                    className="flex-1"
+                    className="w-24"
                   />
                 </div>
               </div>
