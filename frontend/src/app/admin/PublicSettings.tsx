@@ -601,15 +601,20 @@ export default function PublicSettings() {
                 <Label>Primary Color</Label>
                 <div className="flex gap-2 mt-1.5">
                   <div 
-                    className="rounded-lg border border-border p-1"
-                    style={{ backgroundColor: primaryColor }}
+                    className="rounded-lg overflow-hidden relative"
+                    style={{ backgroundColor: primaryColor, width: '80px', height: '40px' }}
                   >
                     <Input
                       type="color"
                       value={primaryColor}
                       onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-10 w-20 p-1 cursor-pointer bg-transparent border-0"
-                      style={{ backgroundColor: 'transparent' }}
+                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                      style={{ 
+                        border: 'none',
+                        outline: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none'
+                      }}
                     />
                   </div>
                   <Input
@@ -626,15 +631,20 @@ export default function PublicSettings() {
                 <Label>Secondary Color</Label>
                 <div className="flex gap-2 mt-1.5">
                   <div 
-                    className="rounded-lg border border-border p-1"
-                    style={{ backgroundColor: secondaryColor }}
+                    className="rounded-lg overflow-hidden relative"
+                    style={{ backgroundColor: secondaryColor, width: '80px', height: '40px' }}
                   >
                     <Input
                       type="color"
                       value={secondaryColor}
                       onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="h-10 w-20 p-1 cursor-pointer bg-transparent border-0"
-                      style={{ backgroundColor: 'transparent' }}
+                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                      style={{ 
+                        border: 'none',
+                        outline: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none'
+                      }}
                     />
                   </div>
                   <Input
