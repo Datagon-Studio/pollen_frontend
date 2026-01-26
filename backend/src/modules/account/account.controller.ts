@@ -82,17 +82,14 @@ export class AccountController {
         return;
       }
 
-      // Only allow updating account_name, account_logo, foreground_color, background_color, and expenses_tab_visible
+      // Only allow updating account_name and account_logo
       const input: UpdateAccountInput = {
         account_name: req.body.account_name,
         account_logo: req.body.account_logo,
-        foreground_color: req.body.foreground_color,
-        background_color: req.body.background_color,
-        expenses_tab_visible: req.body.expenses_tab_visible,
       };
 
       const account = await accountService.updateAccount(userId, userAccount.account_id, input);
-
+      
       res.status(200).json({
         success: true,
         data: account,

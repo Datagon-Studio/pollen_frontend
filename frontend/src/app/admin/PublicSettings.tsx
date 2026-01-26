@@ -11,6 +11,8 @@ import { ExternalLink, Copy, Check, Wallet, Receipt, Eye, EyeOff, Lock, Send, Lo
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/hooks/useAccount";
 import { accountApi } from "@/services/account.api";
+import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
+import { accountPublicPageApi } from "@/services/account-public-page.api";
 import { expenseApi, Expense } from "@/services/expense.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { memberApi } from "@/services/member.api";
@@ -33,6 +35,7 @@ export default function PublicSettings() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [allContributions, setAllContributions] = useState<Contribution[]>([]);
   
   // OTP verification states
   const [showOtpVerification, setShowOtpVerification] = useState(false);
@@ -48,16 +51,48 @@ export default function PublicSettings() {
   const [primaryColor, setPrimaryColor] = useState("#000000");
   const [secondaryColor, setSecondaryColor] = useState("#ffffff");
   const [expensesTabVisible, setExpensesTabVisible] = useState(true);
+  const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
+  const [loadingConfig, setLoadingConfig] = useState(false);
 
-  // Load account data and expenses
+  // Load account data, config, public page, and expenses
   useEffect(() => {
     if (account) {
-      setPrimaryColor(account.primary_color || "#000000");
-      setSecondaryColor(account.secondary_color || "#ffffff");
-      setExpensesTabVisible(account.expenses_tab_visible !== null ? account.expenses_tab_visible : true);
+      loadPublicPage();
+      loadConfig();
       loadExpenses();
     }
   }, [account]);
+
+  const loadPublicPage = async () => {
+    try {
+      const publicPage = await accountPublicPageApi.getMyPublicPage();
+      setPrimaryColor(publicPage.primary_color || "#000000");
+      setSecondaryColor(publicPage.secondary_color || "#ffffff");
+    } catch (error) {
+      console.error("Error loading public page:", error);
+      // Fallback to defaults if public page doesn't exist yet
+      setPrimaryColor("#000000");
+      setSecondaryColor("#ffffff");
+    }
+  };
+
+  // Update expenses tab visibility based on expense visibility level
+  useEffect(() => {
+    // Show expenses tab if visibility level is not 'none'
+    setExpensesTabVisible(expenseVisibilityLevel !== 'none');
+  }, [expenseVisibilityLevel]);
+
+  const loadConfig = async () => {
+    try {
+      setLoadingConfig(true);
+      const config = await configApi.getMyConfig();
+      setExpenseVisibilityLevel(config.expense_visibility_level);
+    } catch (error) {
+      console.error("Error loading config:", error);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
 
   // Switch to funds tab if expenses tab is hidden and user is on expenses tab
   useEffect(() => {
@@ -72,6 +107,12 @@ export default function PublicSettings() {
       setLoadingExpenses(true);
       const allExpenses = await expenseApi.getAll();
       setExpenses(allExpenses);
+      
+      // Also load all contributions for summary calculation
+      const contributionsData = await contributionApi.getByAccount(account.account_id);
+      if (contributionsData.success && contributionsData.data) {
+        setAllContributions(contributionsData.data);
+      }
     } catch (error) {
       console.error("Error loading expenses:", error);
       toast({
@@ -84,32 +125,20 @@ export default function PublicSettings() {
     }
   };
 
-  const handleToggleExpenseVisibility = async (expenseId: string) => {
-    try {
-      await expenseApi.toggleVisibility(expenseId);
-      await loadExpenses();
-      toast({
-        title: "Success",
-        description: "Expense visibility updated",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update expense visibility",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSave = async () => {
     if (!account) return;
     try {
       setSaving(true);
-      await accountApi.updateMyAccount({
-        primary_color: primaryColor,
-        secondary_color: secondaryColor,
-        expenses_tab_visible: expensesTabVisible,
-      });
+      await Promise.all([
+        accountPublicPageApi.updateMyPublicPage({
+          primary_color: primaryColor,
+          secondary_color: secondaryColor,
+        }),
+        configApi.updateMyConfig({
+          expense_visibility_level: expenseVisibilityLevel,
+        }),
+      ]);
       toast({
         title: "Success",
         description: "Public settings saved",
@@ -139,9 +168,29 @@ export default function PublicSettings() {
     }
   };
 
-  // Filter expenses that are visible (member_visible = true)
-  const visibleExpenses = expenses.filter(e => e.member_visible);
-  const hiddenExpenses = expenses.filter(e => !e.member_visible);
+  // Filter expenses based on visibility level
+  const visibleExpenses = useMemo(() => {
+    if (expenseVisibilityLevel === 'none') {
+      return [];
+    } else if (expenseVisibilityLevel === 'summary') {
+      return []; // Summary will show totals, not individual expenses
+    } else {
+      // detailed - show expenses marked as member_visible
+      return expenses.filter(e => e.member_visible);
+    }
+  }, [expenses, expenseVisibilityLevel]);
+
+  // Calculate totals for summary view
+  const expenseSummary = useMemo(() => {
+    if (expenseVisibilityLevel !== 'summary') return null;
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    // Use all contributions for summary, not just verified member's
+    const totalContributions = allContributions
+      .filter(c => c.status === 'confirmed')
+      .reduce((sum, c) => sum + Number(c.amount), 0);
+    const netPosition = totalContributions - totalExpenses;
+    return { totalExpenses, totalContributions, netPosition };
+  }, [expenses, allContributions, expenseVisibilityLevel]);
 
   const loadMemberData = async (memberId: string) => {
     try {
@@ -402,40 +451,90 @@ export default function PublicSettings() {
                   {expensesTabVisible && (
                     <TabsContent value="expenses" className="mt-4">
                       <div className="space-y-2 text-left">
-                        {visibleExpenses.length === 0 ? (
+                        {expenseVisibilityLevel === 'none' ? (
                           <p className="text-sm opacity-70 text-center" style={{ color: primaryColor }}>
-                            No expenses visible
+                            Expense information is not available
                           </p>
-                        ) : (
-                          visibleExpenses.map((expense) => {
-                            const dateValue = expense.date ? new Date(expense.date) : new Date();
-                            return (
-                              <div
-                                key={expense.expense_id}
-                                className="bg-card/50 border border-border/50 rounded-lg p-3"
-                              >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
-                                      categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
-                                    )}
-                                  >
-                                    {expense.expense_category}
+                        ) : expenseVisibilityLevel === 'summary' ? (
+                          expenseSummary ? (
+                            <div className="space-y-3">
+                              <div className="bg-card/50 border border-border/50 rounded-lg p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm opacity-80" style={{ color: primaryColor }}>
+                                    Total Contributions
                                   </span>
                                   <span className="font-semibold" style={{ color: primaryColor }}>
-                                    ${Number(expense.amount).toFixed(2)}
+                                    ${expenseSummary.totalContributions.toFixed(2)}
                                   </span>
                                 </div>
-                                <p className="text-sm" style={{ color: primaryColor }}>
-                                  {expense.expense_name}
-                                </p>
-                                <p className="text-xs opacity-70 mt-1" style={{ color: primaryColor }}>
-                                  {format(dateValue, "MMM d, yyyy")}
-                                </p>
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm opacity-80" style={{ color: primaryColor }}>
+                                    Total Expenses
+                                  </span>
+                                  <span className="font-semibold" style={{ color: primaryColor }}>
+                                    ${expenseSummary.totalExpenses.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="border-t border-border/50 pt-2 mt-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium" style={{ color: primaryColor }}>
+                                      Net Position
+                                    </span>
+                                    <span 
+                                      className={cn(
+                                        "font-bold",
+                                        expenseSummary.netPosition >= 0 ? "text-success" : "text-destructive"
+                                      )}
+                                      style={{ color: expenseSummary.netPosition >= 0 ? undefined : primaryColor }}
+                                    >
+                                      ${expenseSummary.netPosition.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                            );
-                          })
+                            </div>
+                          ) : (
+                            <p className="text-sm opacity-70 text-center" style={{ color: primaryColor }}>
+                              Loading summary...
+                            </p>
+                          )
+                        ) : (
+                          // detailed view
+                          visibleExpenses.length === 0 ? (
+                            <p className="text-sm opacity-70 text-center" style={{ color: primaryColor }}>
+                              No expenses visible
+                            </p>
+                          ) : (
+                            visibleExpenses.map((expense) => {
+                              const dateValue = expense.date ? new Date(expense.date) : new Date();
+                              return (
+                                <div
+                                  key={expense.expense_id}
+                                  className="bg-card/50 border border-border/50 rounded-lg p-3"
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
+                                        categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
+                                      )}
+                                    >
+                                      {expense.expense_category}
+                                    </span>
+                                    <span className="font-semibold" style={{ color: primaryColor }}>
+                                      ${Number(expense.amount).toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm" style={{ color: primaryColor }}>
+                                    {expense.expense_name}
+                                  </p>
+                                  <p className="text-xs opacity-70 mt-1" style={{ color: primaryColor }}>
+                                    {format(dateValue, "MMM d, yyyy")}
+                                  </p>
+                                </div>
+                              );
+                            })
+                          )
                         )}
                       </div>
                     </TabsContent>
@@ -663,60 +762,50 @@ export default function PublicSettings() {
           <div className="bg-card border border-border rounded-lg p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-foreground">Expense Visibility</h3>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="expenses-tab-toggle" className="text-sm text-muted-foreground">
-                  Show Expenses Tab
-                </Label>
-                <Switch
-                  id="expenses-tab-toggle"
-                  checked={expensesTabVisible}
-                  onCheckedChange={setExpensesTabVisible}
-                />
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Control which expenses are visible on your public page
-            </p>
 
-            {loadingExpenses ? (
-              <div className="text-sm text-muted-foreground">Loading expenses...</div>
-            ) : expenses.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No expenses found</div>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {expenses.map((expense) => {
-                  const dateValue = expense.date ? new Date(expense.date) : new Date();
-                  return (
-                    <div
-                      key={expense.expense_id}
-                      className="flex items-center justify-between p-3 border border-border rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground truncate">
-                            {expense.expense_name}
-                          </span>
-                          {!expense.member_visible && (
-                            <span className="text-xs text-muted-foreground">(Hidden)</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{expense.expense_category}</span>
-                          <span>•</span>
-                          <span>${Number(expense.amount).toFixed(2)}</span>
-                          <span>•</span>
-                          <span>{format(dateValue, "MMM d, yyyy")}</span>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={expense.member_visible}
-                        onCheckedChange={() => handleToggleExpenseVisibility(expense.expense_id)}
-                      />
-                    </div>
-                  );
-                })}
+            </div>
+            
+            {/* Expense Visibility Level - 3-way toggle */}
+            <div className="mb-4">
+              <Label className="text-sm font-medium mb-2 block">Expense Visibility Level</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={expenseVisibilityLevel === 'none' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setExpenseVisibilityLevel('none')}
+                >
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  None
+                </Button>
+                <Button
+                  type="button"
+                  variant={expenseVisibilityLevel === 'summary' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setExpenseVisibilityLevel('summary')}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Summary
+                </Button>
+                <Button
+                  type="button"
+                  variant={expenseVisibilityLevel === 'detailed' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setExpenseVisibilityLevel('detailed')}
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Detailed
+                </Button>
               </div>
-            )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {expenseVisibilityLevel === 'none' && 'No expense information is shown to members'}
+                {expenseVisibilityLevel === 'summary' && 'Members see totals and net position only'}
+                {expenseVisibilityLevel === 'detailed' && 'Members see individual expenses marked as visible. Individual expense visibility can be managed from the Expenses page in the admin panel.'}
+              </p>
+            </div>
           </div>
 
           <Button className="w-full" onClick={handleSave} disabled={saving}>

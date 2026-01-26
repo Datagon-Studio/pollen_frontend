@@ -35,9 +35,13 @@ import {
   Clock,
   Banknote,
   X,
+  Cog,
+  Mail,
 } from "lucide-react";
 import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/services/account.api";
 import { settlementApi, SettlementDetails, CreateSettlementDetailsInput } from "@/services/settlement.api";
+import { configApi, Config, NotificationChannel } from "@/services/config.api";
+import { userApi, UserProfile } from "@/services/user.api";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
@@ -82,14 +86,53 @@ export default function Settings() {
   const [settlementOtherProvider, setSettlementOtherProvider] = useState("");
   const [settlementIsActive, setSettlementIsActive] = useState(true);
 
+  // Config state
+  const [config, setConfig] = useState<Config | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [savingConfig, setSavingConfig] = useState(false);
+  
+  // Config form state
+  const [defaultNotificationChannel, setDefaultNotificationChannel] = useState<NotificationChannel>('both');
+  const [birthdayMessagesEnabled, setBirthdayMessagesEnabled] = useState(false);
+  const [defaultEmailSenderId, setDefaultEmailSenderId] = useState<string | null>(null);
+  const [smtpProfileId, setSmtpProfileId] = useState<string | null>(null);
+  const [paymentIntegrationId, setPaymentIntegrationId] = useState<string | null>(null);
+  const [smsTemplate, setSmsTemplate] = useState<string | null>(null);
+  const [emailTemplate, setEmailTemplate] = useState<string | null>(null);
+  const [testEmailAddress, setTestEmailAddress] = useState("");
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  
+  // User profile state to check admin status
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(true);
+  
+  // Check if user is admin (account-level admin - for now, all users with role 'admin' are admins)
+  const isAdmin = userProfile?.role === 'admin';
+  // TODO: Add proper superadmin check (platform-level admin)
+  const isSuperAdmin = false; // Placeholder until superadmin role is implemented
+
   useEffect(() => {
     const init = async () => {
       await loadAccount();
       await loadKYC();
       await loadSettlementDetails();
+      await loadConfig();
+      await loadUserProfile();
     };
     init();
   }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoadingUserProfile(true);
+      const profile = await userApi.getProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+    } finally {
+      setLoadingUserProfile(false);
+    }
+  };
 
   const loadAccount = async (skipLoading = false) => {
     try {
@@ -532,6 +575,63 @@ export default function Settings() {
       });
     } finally {
       setSavingKYC(false);
+    }
+  };
+
+  const loadConfig = async () => {
+    try {
+      setLoadingConfig(true);
+      const configData = await configApi.getMyConfig();
+      setConfig(configData);
+      setDefaultNotificationChannel(configData.default_notification_channel);
+      setBirthdayMessagesEnabled(configData.birthday_messages_enabled);
+      setDefaultEmailSenderId(configData.default_email_sender_id);
+      setSmtpProfileId(configData.smtp_profile_id);
+      setPaymentIntegrationId(configData.payment_integration_id);
+      setSmsTemplate(configData.sms_template);
+      setEmailTemplate(configData.email_template);
+    } catch (error) {
+      console.error("Error loading config:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!config) return;
+
+    setSavingConfig(true);
+    try {
+      const updatedConfig = await configApi.updateMyConfig({
+        default_notification_channel: defaultNotificationChannel,
+        birthday_messages_enabled: birthdayMessagesEnabled,
+        default_email_sender_id: isSuperAdmin ? defaultEmailSenderId : undefined, // Only update if superadmin
+        smtp_profile_id: isAdmin ? smtpProfileId : undefined, // Only update if admin
+        payment_integration_id: paymentIntegrationId,
+        sms_template: isAdmin ? smsTemplate : undefined, // Only update if admin
+        email_template: isAdmin ? emailTemplate : undefined, // Only update if admin
+      });
+
+      setConfig(updatedConfig);
+      
+      toast({
+        title: "Success",
+        description: "Configuration saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving config:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save configuration.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -1112,71 +1212,256 @@ export default function Settings() {
           )}
         </section>
 
-        {/* Notifications */}
+        {/* Configuration */}
         <section className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center">
               <Bell className="h-5 w-5 text-amber" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Notifications</h2>
+              <h2 className="font-semibold text-foreground">Configuration</h2>
               <p className="text-sm text-muted-foreground">
-                Configure how you receive updates
+                Configure account settings and preferences
               </p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Default Notification Channel</Label>
-              <Select defaultValue="both">
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="sms">SMS Only</SelectItem>
-                  <SelectItem value="email">Email Only</SelectItem>
-                  <SelectItem value="both">SMS and Email</SelectItem>
-                </SelectContent>
-              </Select>
+          {loadingConfig ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            <Separator />
-            <div className="flex items-center justify-between">
+          ) : (
+            <div className="space-y-4">
+              {/* Default Notification Channel */}
               <div>
-                <p className="font-medium text-foreground">New Contributions</p>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when members make contributions
-                </p>
+                <Label>Default Notification Channel</Label>
+                <Select 
+                  value={defaultNotificationChannel}
+                  onValueChange={(value: NotificationChannel) => setDefaultNotificationChannel(value)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="sms">SMS Only</SelectItem>
+                    <SelectItem value="email">Email Only</SelectItem>
+                    <SelectItem value="both">SMS and Email</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
+
+              <Separator />
+
+              {/* Birthday Messages */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Birthday Messages</p>
+                  <p className="text-sm text-muted-foreground">
+                    Send birthday greetings to members
+                  </p>
+                </div>
+                <Switch 
+                  checked={birthdayMessagesEnabled}
+                  onCheckedChange={setBirthdayMessagesEnabled}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Payment Integration ID - Visible to all */}
               <div>
-                <p className="font-medium text-foreground">Pending Confirmations</p>
-                <p className="text-sm text-muted-foreground">
-                  Weekly reminders for contributions awaiting confirmation
-                </p>
+                <Label>Payment Integration ID</Label>
+                <Input
+                  value={paymentIntegrationId || ""}
+                  onChange={(e) => setPaymentIntegrationId(e.target.value || null)}
+                  className="mt-1.5"
+                  placeholder="Payment integration identifier"
+                />
               </div>
-              <Switch defaultChecked />
             </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">Birthday Messages</p>
-                <p className="text-sm text-muted-foreground">
-                  Send birthday greetings to members
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </div>
+          )}
         </section>
 
+        {/* Admin Config - Only visible to admins */}
+        {isAdmin && (
+          <section className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center">
+                <Cog className="h-5 w-5 text-amber" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-foreground">Admin Config</h2>
+                <p className="text-sm text-muted-foreground">
+                  Advanced configuration settings (admin only)
+                </p>
+              </div>
+            </div>
+
+            {loadingConfig ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Member Portal Enabled (read-only, always true) */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">Member Portal</p>
+                    <p className="text-sm text-muted-foreground">
+                      Enable member transparency portal (always enabled)
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={true}
+                    disabled
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Superadmin-only fields */}
+                {isSuperAdmin && (
+                  <>
+                    <div>
+                      <Label>Default Email Sender ID</Label>
+                      <Input
+                        value={defaultEmailSenderId || ""}
+                        onChange={(e) => setDefaultEmailSenderId(e.target.value || null)}
+                        className="mt-1.5"
+                        placeholder="Email sender ID"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Superadmin only: Configure default email sender
+                      </p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* SMTP Profile ID */}
+                <div>
+                  <Label>SMTP Profile ID</Label>
+                  <Input
+                    value={smtpProfileId || ""}
+                    onChange={(e) => setSmtpProfileId(e.target.value || null)}
+                    className="mt-1.5"
+                    placeholder="SMTP profile identifier"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    SMTP configuration for email delivery
+                  </p>
+                </div>
+
+                {/* SMS Template */}
+                <div>
+                  <Label>SMS Template</Label>
+                  <textarea
+                    value={smsTemplate || ""}
+                    onChange={(e) => setSmsTemplate(e.target.value || null)}
+                    className="mt-1.5 w-full min-h-[100px] px-3 py-2 text-sm border border-input bg-background rounded-md"
+                    placeholder="SMS notification template"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Template for SMS notifications
+                  </p>
+                </div>
+
+                {/* Email Template */}
+                <div>
+                  <Label>Email Template</Label>
+                  <textarea
+                    value={emailTemplate || ""}
+                    onChange={(e) => setEmailTemplate(e.target.value || null)}
+                    className="mt-1.5 w-full min-h-[100px] px-3 py-2 text-sm border border-input bg-background rounded-md"
+                    placeholder="Email notification template"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Template for email notifications
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Test Email */}
+                <div>
+                  <Label>Test Email</Label>
+                  <div className="mt-1.5 flex gap-2">
+                    <Input
+                      type="email"
+                      value={testEmailAddress}
+                      onChange={(e) => setTestEmailAddress(e.target.value)}
+                      placeholder="Enter email address to test"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!testEmailAddress) {
+                          toast({
+                            title: "Error",
+                            description: "Please enter an email address",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        try {
+                          setSendingTestEmail(true);
+                          await configApi.sendTestEmail(testEmailAddress);
+                          toast({
+                            title: "Success",
+                            description: "Test email sent successfully",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Error",
+                            description: error instanceof Error ? error.message : "Failed to send test email",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setSendingTestEmail(false);
+                        }
+                      }}
+                      disabled={sendingTestEmail || !testEmailAddress}
+                    >
+                      {sendingTestEmail ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Test
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Send a test email to verify Postmark configuration
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         <div className="flex justify-end">
-          <Button>
-            <Save className="h-4 w-4 mr-2" />
-            Save Changes
+          <Button 
+            onClick={handleSaveConfig} 
+            disabled={savingConfig || loadingConfig}
+          >
+            {savingConfig ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Configuration
+              </>
+            )}
           </Button>
         </div>
       </div>
