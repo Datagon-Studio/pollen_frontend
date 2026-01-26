@@ -42,9 +42,10 @@ import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/servi
 import { settlementApi, SettlementDetails, CreateSettlementDetailsInput } from "@/services/settlement.api";
 import { configApi, Config, NotificationChannel } from "@/services/config.api";
 import { userApi, UserProfile } from "@/services/user.api";
+import { paystackBankApi, Bank } from "@/services/paystack-bank.api";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, FileText, Image as ImageIcon, XCircle } from "lucide-react";
 
 export default function Settings() {
   const [account, setAccount] = useState<Account | null>(null);
@@ -81,10 +82,18 @@ export default function Settings() {
   const [settlementAccountName, setSettlementAccountName] = useState("");
   const [settlementAccountNumber, setSettlementAccountNumber] = useState("");
   const [settlementBankName, setSettlementBankName] = useState("");
+  const [settlementBankCode, setSettlementBankCode] = useState("");
   const [settlementBankBranch, setSettlementBankBranch] = useState("");
   const [settlementProvider, setSettlementProvider] = useState("");
   const [settlementOtherProvider, setSettlementOtherProvider] = useState("");
   const [settlementIsActive, setSettlementIsActive] = useState(true);
+  
+  // Bank verification state
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
+  const [verifyingAccount, setVerifyingAccount] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   // Config state
   const [config, setConfig] = useState<Config | null>(null);
@@ -121,6 +130,17 @@ export default function Settings() {
     };
     init();
   }, []);
+
+  // Load banks when settlement type changes to 'bank'
+  useEffect(() => {
+    if (settlementType === 'bank') {
+      loadBanks().catch(console.error);
+    } else {
+      setVerificationStatus('idle');
+      setVerificationError(null);
+      setSettlementBankCode("");
+    }
+  }, [settlementType]);
 
   const loadUserProfile = async () => {
     try {
@@ -201,12 +221,127 @@ export default function Settings() {
           setSettlementOtherProvider("");
         }
         setSettlementIsActive(active.is_active);
+        
+        // Load banks if bank settlement type and try to match bank code
+        if (active.settlement_type === 'bank' && active.bank_name) {
+          loadBanks().then((loadedBanks) => {
+            const bank = loadedBanks.find(b => b.name.toLowerCase() === active.bank_name?.toLowerCase());
+            if (bank) {
+              setSettlementBankCode(bank.code);
+            }
+          }).catch(console.error);
+        }
       }
     } catch (error) {
       console.error("Error loading settlement details:", error);
     } finally {
       setLoadingSettlement(false);
     }
+  };
+
+  const loadBanks = async (): Promise<Bank[]> => {
+    if (banks.length > 0) return banks;
+    
+    try {
+      setLoadingBanks(true);
+      console.log("Loading banks from Paystack...");
+      const banksList = await paystackBankApi.getBanks('GH');
+      console.log("Banks received:", banksList.length);
+      const activeBanks = banksList.filter(b => b.active !== false && b.is_deleted !== true);
+      setBanks(activeBanks);
+      console.log("Active banks:", activeBanks.length);
+      
+      if (activeBanks.length === 0) {
+        toast({
+          title: "No Banks Found",
+          description: "No active banks were returned from Paystack.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Banks Loaded",
+          description: `Loaded ${activeBanks.length} banks successfully.`,
+        });
+      }
+      
+      return activeBanks;
+    } catch (error) {
+      console.error("Error loading banks:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load banks';
+      toast({
+        title: "Error Loading Banks",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return [];
+    } finally {
+      setLoadingBanks(false);
+    }
+  };
+
+  const verifyBankAccount = async (accountNumber: string, bankCode: string) => {
+    if (!accountNumber.trim() || !bankCode) {
+      setVerificationStatus('idle');
+      setVerificationError(null);
+      return;
+    }
+
+    // Only verify if account number is at least 10 digits
+    const accountNumberDigits = accountNumber.trim().replace(/\D/g, '');
+    if (accountNumberDigits.length < 10) {
+      setVerificationStatus('idle');
+      setVerificationError(null);
+      return;
+    }
+
+    try {
+      setVerifyingAccount(true);
+      setVerificationStatus('idle');
+      setVerificationError(null);
+
+      const result = await paystackBankApi.verifyAccount(accountNumberDigits, bankCode);
+      
+      // Auto-fill account name from verification
+      setSettlementAccountName(result.account_name);
+      setVerificationStatus('success');
+      setVerificationError(null);
+      
+      toast({
+        title: "Account Verified",
+        description: `Account name: ${result.account_name}`,
+      });
+    } catch (error) {
+      setVerificationStatus('error');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify account';
+      setVerificationError(errorMessage);
+      toast({
+        title: "Verification Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingAccount(false);
+    }
+  };
+
+  // Debounced verification
+  const verificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleAccountNumberChange = (value: string) => {
+    setSettlementAccountNumber(value);
+    
+    if (verificationTimeoutRef.current) {
+      clearTimeout(verificationTimeoutRef.current);
+    }
+    
+    // Debounce verification by 800ms after user stops typing
+    verificationTimeoutRef.current = setTimeout(() => {
+      if (value.trim().replace(/\D/g, '').length >= 10 && settlementBankCode) {
+        verifyBankAccount(value, settlementBankCode);
+      } else {
+        setVerificationStatus('idle');
+        setVerificationError(null);
+      }
+    }, 800);
   };
 
   const handleSaveSettlementDetails = async () => {
@@ -1086,39 +1221,102 @@ export default function Settings() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Account Name *</Label>
-                      <Input
-                        value={settlementAccountName}
-                        onChange={(e) => setSettlementAccountName(e.target.value)}
-                        placeholder="Name on bank account"
-                        className="mt-1.5"
-                      />
+                      <div className="relative">
+                        <Input
+                          value={settlementAccountName}
+                          onChange={(e) => setSettlementAccountName(e.target.value)}
+                          placeholder="Name on bank account"
+                          className="mt-1.5"
+                          disabled={verifyingAccount}
+                        />
+                        {verificationStatus === 'success' && (
+                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                        )}
+                        {verificationStatus === 'error' && (
+                          <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                      {verificationStatus === 'success' && (
+                        <p className="text-xs text-green-600 mt-1">Account verified successfully</p>
+                      )}
+                      {verificationError && (
+                        <p className="text-xs text-red-500 mt-1">{verificationError}</p>
+                      )}
                     </div>
                     <div>
                       <Label>Account Number *</Label>
                       <Input
                         value={settlementAccountNumber}
-                        onChange={(e) => setSettlementAccountNumber(e.target.value)}
+                        onChange={(e) => handleAccountNumberChange(e.target.value)}
                         placeholder="Bank account number"
                         className="mt-1.5"
+                        disabled={verifyingAccount}
                       />
+                      {verifyingAccount && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Verifying account...
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label>Bank Name</Label>
-                      <Input
-                        value={settlementBankName}
-                        onChange={(e) => setSettlementBankName(e.target.value)}
-                        placeholder="Bank name"
-                        className="mt-1.5"
-                      />
+                      <Label>Bank Name *</Label>
+                      <Select
+                        value={settlementBankCode}
+                        onValueChange={async (value) => {
+                          setSettlementBankCode(value);
+                          const selectedBank = banks.find(b => b.code === value);
+                          if (selectedBank) {
+                            setSettlementBankName(selectedBank.name);
+                            // Auto-verify when bank is selected and account number is entered
+                            if (settlementAccountNumber.trim().replace(/\D/g, '').length >= 10) {
+                              await verifyBankAccount(settlementAccountNumber, value);
+                            }
+                          }
+                        }}
+                        disabled={loadingBanks}
+                      >
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder={loadingBanks ? "Loading banks..." : "Select bank"} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border max-h-[300px]">
+                          {banks.map((bank) => (
+                            <SelectItem key={bank.code} value={bank.code}>
+                              {bank.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {settlementType === 'bank' && banks.length === 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => loadBanks().catch((err) => {
+                            console.error("Load banks error:", err);
+                          })}
+                          disabled={loadingBanks}
+                        >
+                          {loadingBanks ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Load Banks"
+                          )}
+                        </Button>
+                      )}
                     </div>
                     <div>
                       <Label>Bank Branch</Label>
                       <Input
                         value={settlementBankBranch}
                         onChange={(e) => setSettlementBankBranch(e.target.value)}
-                        placeholder="Bank branch"
+                        placeholder="Bank branch (optional)"
                         className="mt-1.5"
                       />
                     </div>
