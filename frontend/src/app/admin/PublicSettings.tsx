@@ -619,10 +619,10 @@ export default function PublicSettings() {
                   </div>
                   <Input
                     type="text"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    value={primaryColor.toUpperCase()}
+                    onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
                     placeholder="#000000"
-                    className="w-24"
+                    className="w-24 uppercase"
                   />
                 </div>
               </div>
@@ -649,10 +649,10 @@ export default function PublicSettings() {
                   </div>
                   <Input
                     type="text"
-                    value={secondaryColor}
-                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    value={secondaryColor.toUpperCase()}
+                    onChange={(e) => setSecondaryColor(e.target.value.toUpperCase())}
                     placeholder="#ffffff"
-                    className="w-24"
+                    className="w-24 uppercase"
                   />
                 </div>
               </div>
