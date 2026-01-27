@@ -159,12 +159,19 @@ export default function JoinGroupPage() {
     email: "",
   });
   
-  // OTP states
+  // Phone OTP states
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
+
+  // Email OTP states
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
 
   useEffect(() => {
     loadGroup();
@@ -278,6 +285,96 @@ export default function JoinGroupPage() {
       });
     } finally {
       setPhoneVerifying(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!formData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!accountId || !account) {
+      toast({
+        title: "Error",
+        description: "Group information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setEmailSending(true);
+    try {
+      const response = await memberApi.sendRegistrationEmailOTP(formData.email.trim(), accountId);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
+
+      setEmailOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${formData.email}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!accountId || !account) {
+      toast({
+        title: "Error",
+        description: "Group information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setEmailVerifying(true);
+    try {
+      const response = await memberApi.verifyRegistrationEmailOTP(
+        formData.email.trim(),
+        emailOtp.trim(),
+        accountId
+      );
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to verify OTP');
+      }
+
+      setEmailVerified(true);
+      toast({
+        title: "Email Verified",
+        description: "Email address has been verified successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailVerifying(false);
     }
   };
 
@@ -517,16 +614,69 @@ export default function JoinGroupPage() {
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email (Optional)</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="member@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Email verification will be sent via magic link after registration
-              </p>
+              <div className="flex gap-2">
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="member@example.com"
+                  value={formData.email}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    setEmailOtpSent(false);
+                    setEmailVerified(false);
+                    setEmailOtp("");
+                  }}
+                  disabled={emailVerified}
+                  className={cn(emailVerified && "bg-success/10 border-success")}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendEmailOtp}
+                  disabled={emailSending || emailVerified || !formData.email.trim()}
+                  className="shrink-0"
+                >
+                  {emailSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-1" />
+                      Send OTP
+                    </>
+                  )}
+                </Button>
+                {emailVerified && (
+                  <div className="flex items-center gap-1 text-success shrink-0 px-2">
+                    <Check className="h-4 w-4" />
+                    <span className="text-sm">Verified</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Email OTP Input */}
+              {emailOtpSent && !emailVerified && (
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Enter OTP code"
+                    value={emailOtp}
+                    onChange={(e) => setEmailOtp(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleVerifyEmailOtp}
+                    disabled={emailVerifying || !emailOtp.trim()}
+                  >
+                    {emailVerifying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Verify"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4 pt-4">
