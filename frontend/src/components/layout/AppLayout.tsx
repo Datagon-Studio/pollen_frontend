@@ -61,23 +61,25 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
-  const { isSuperAdmin, isAdmin, isOfficer } = useRoles();
+  const { isSuperAdmin, isAdmin, isOfficer, loading: rolesLoading } = useRoles();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // Filter nav items based on role
-  const navItems = allNavItems.filter(item => {
-    // Hide superadmin-only items from non-superadmins
-    if (item.superAdminOnly && !isSuperAdmin) {
-      return false;
-    }
-    // Hide Settings and Public Settings from collectors (officers)
-    if ((item.href === '/settings' || item.href === '/public-settings') && isOfficer) {
-      return false;
-    }
-    return true;
-  });
+  // Filter nav items based on role (only filter when roles are loaded)
+  const navItems = rolesLoading 
+    ? [] // Return empty array while loading to prevent showing all items
+    : allNavItems.filter(item => {
+        // Hide superadmin-only items from non-superadmins
+        if (item.superAdminOnly && !isSuperAdmin) {
+          return false;
+        }
+        // Hide Settings and Public Settings from collectors (officers)
+        if ((item.href === '/settings' || item.href === '/public-settings') && isOfficer) {
+          return false;
+        }
+        return true;
+      });
 
   // Cache user profile to avoid refetching on navigation
   const userProfileRef = useRef<UserProfile | null>(null);
@@ -272,25 +274,37 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
-                  isActive
-                    ? "bg-amber/10 text-amber-dark border-l-2 border-amber -ml-0.5 pl-[calc(0.75rem+2px)]"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-amber-dark")} />
-                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </Link>
-            );
-          })}
+          {rolesLoading ? (
+            // Show loading state while roles are being fetched
+            <div className="space-y-1">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="h-10 bg-secondary/50 animate-pulse rounded-md"
+                />
+              ))}
+            </div>
+          ) : (
+            navItems.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
+                    isActive
+                      ? "bg-amber/10 text-amber-dark border-l-2 border-amber -ml-0.5 pl-[calc(0.75rem+2px)]"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-amber-dark")} />
+                  {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                </Link>
+              );
+            })
+          )}
         </nav>
 
         {/* Footer */}
