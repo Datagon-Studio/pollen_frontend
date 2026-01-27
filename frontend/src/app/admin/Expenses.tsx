@@ -312,10 +312,8 @@ export default function Expenses() {
     setDateTo(undefined);
   };
 
-  const handleExportToExcel = async () => {
+  const handleExportToExcel = () => {
     try {
-      const XLSX = await import('xlsx');
-      
       const exportData = filteredExpenses.map((expense) => ({
         Date: expense.date,
         "Expense Name": expense.expenseName,
@@ -325,12 +323,38 @@ export default function Expenses() {
         Amount: `$${expense.amountValue.toFixed(2)}`,
       }));
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+      if (exportData.length === 0) {
+        throw new Error("No expenses to export");
+      }
 
-      const filename = `expenses_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
+      const headers = Object.keys(exportData[0]);
+      const escapeValue = (value: unknown) => {
+        const str = String(value ?? "");
+        const escaped = str.replace(/"/g, '""');
+        return `"${escaped}"`;
+      };
+
+      const csvRows = [
+        headers.join(","),
+        ...exportData.map((row) =>
+          headers.map((header) => escapeValue((row as any)[header])).join(",")
+        ),
+      ];
+
+      const csvContent = csvRows.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `expenses_${format(new Date(), "yyyy-MM-dd")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Export Successful",
@@ -339,7 +363,8 @@ export default function Expenses() {
     } catch (error) {
       toast({
         title: "Export Failed",
-        description: error instanceof Error ? error.message : "Failed to export expenses",
+        description:
+          error instanceof Error ? error.message : "Failed to export expenses",
         variant: "destructive",
       });
     }
@@ -357,7 +382,7 @@ export default function Expenses() {
               size="sm" 
               onClick={handleExportToExcel} 
               disabled={filteredExpenses.length === 0}
-              title="Install xlsx package to enable export: npm install xlsx"
+              title="Download filtered expenses as CSV (open in Excel)"
             >
               <Download className="h-4 w-4 mr-2" />
               Export Excel

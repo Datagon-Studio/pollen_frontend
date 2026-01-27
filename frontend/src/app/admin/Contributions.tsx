@@ -49,7 +49,7 @@ interface ContributionRow {
   amountValue: number;
   channel: "offline" | "online";
   paymentMethod: string | null;
-  status: "pending" | "confirmed" | "failed" | "reversed";
+  status: "pending" | "confirmed" | "failed" | "reversed" | "pledge";
   comment: string;
   paymentReference: string | null;
 }
@@ -462,10 +462,8 @@ export default function Contributions() {
     ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
   ];
 
-  const handleExportToExcel = async () => {
+  const handleExportToExcel = () => {
     try {
-      const XLSX = await import('xlsx');
-      
       const exportData = filteredContributions.map((contribution) => ({
         "Date Received": contribution.dateReceived,
         Member: contribution.memberName,
@@ -477,12 +475,38 @@ export default function Contributions() {
         "Payment Reference": contribution.paymentReference || "—",
       }));
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Contributions");
+      if (exportData.length === 0) {
+        throw new Error("No contributions to export");
+      }
 
-      const filename = `contributions_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
+      const headers = Object.keys(exportData[0]);
+      const escapeValue = (value: unknown) => {
+        const str = String(value ?? "");
+        const escaped = str.replace(/"/g, '""');
+        return `"${escaped}"`;
+      };
+
+      const csvRows = [
+        headers.join(","),
+        ...exportData.map((row) =>
+          headers.map((header) => escapeValue((row as any)[header])).join(",")
+        ),
+      ];
+
+      const csvContent = csvRows.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `contributions_${format(new Date(), "yyyy-MM-dd")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Export Successful",
@@ -491,7 +515,8 @@ export default function Contributions() {
     } catch (error) {
       toast({
         title: "Export Failed",
-        description: error instanceof Error ? error.message : "Failed to export contributions",
+        description:
+          error instanceof Error ? error.message : "Failed to export contributions",
         variant: "destructive",
       });
     }
