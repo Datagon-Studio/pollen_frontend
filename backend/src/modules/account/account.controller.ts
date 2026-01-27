@@ -13,6 +13,7 @@ import { UpdateAccountInput } from './account.entity.js';
 import { accountKYCService } from './account-kyc.service.js';
 import { CreateAccountKYCInput, UpdateAccountKYCInput } from './account-kyc.entity.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
+import { userService } from '../user/user.service.js';
 
 export class AccountController {
   /**
@@ -285,7 +286,7 @@ export class AccountController {
 
   /**
    * GET /api/v1/accounts/kyc/all
-   * Get all KYC submissions (admin only)
+   * Get all KYC submissions (superadmin only)
    */
   async getAllKYC(req: Request, res: Response): Promise<void> {
     try {
@@ -300,8 +301,15 @@ export class AccountController {
         return;
       }
 
-      // TODO: Add admin role check here later
-      // For now, allow all authenticated users
+      // Check if user is superadmin
+      const userProfile = await userService.getUserProfile(userId);
+      if (!userProfile || userProfile.role !== 'superadmin') {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden: Superadmin access required',
+        });
+        return;
+      }
 
       const kycList = await accountKYCService.getAllKYC();
 
@@ -370,7 +378,7 @@ export class AccountController {
 
   /**
    * POST /api/v1/accounts/:accountId/kyc/reject
-   * Reject a KYC submission (admin only)
+   * Reject a KYC submission (superadmin only)
    */
   async rejectKYC(req: Request, res: Response): Promise<void> {
     try {
@@ -385,8 +393,15 @@ export class AccountController {
         return;
       }
 
-      // TODO: Add admin role check here later
-      // For now, allow all authenticated users
+      // Check if user is superadmin
+      const userProfile = await userService.getUserProfile(userId);
+      if (!userProfile || userProfile.role !== 'superadmin') {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden: Superadmin access required',
+        });
+        return;
+      }
 
       const { accountId } = req.params;
 
