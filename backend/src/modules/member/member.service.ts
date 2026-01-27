@@ -11,6 +11,7 @@ import { Member, CreateMemberInput, UpdateMemberInput } from './member.entity.js
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { accountRepository } from '../account/account.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
+import { env } from '../../env.js';
 import crypto from 'crypto';
 
 export class MemberService {
@@ -261,8 +262,17 @@ export class MemberService {
       throw new Error('Email is required');
     }
 
-    const frontendUrl = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Determine frontend URL dynamically
+    // Priority: provided baseUrl > environment variable > localhost (dev only)
+    const frontendUrl = baseUrl || env.FRONTEND_URL || 
+                       (env.NODE_ENV === 'development' ? 'http://localhost:5173' : null);
+    
+    if (!frontendUrl) {
+      throw new Error('Frontend URL is not configured. Please set FRONTEND_URL environment variable.');
+    }
+    
     const resetPasswordUrl = `${frontendUrl}/reset-password`;
+    console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
     // Generate reset password link using Supabase Admin API
     let resetLink: string;
@@ -488,8 +498,14 @@ If you didn't expect this email, please contact the administrator.
     
     const verificationToken = Buffer.from(`${memberId}:${timestamp}:${token}`).toString('base64url');
 
-    // Create verification URL
-    const frontendUrl = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Create verification URL dynamically
+    const frontendUrl = baseUrl || env.FRONTEND_URL || 
+                       (env.NODE_ENV === 'development' ? 'http://localhost:5173' : null);
+    
+    if (!frontendUrl) {
+      throw new Error('Frontend URL is not configured. Please set FRONTEND_URL environment variable.');
+    }
+    
     const verificationUrl = `${frontendUrl}/verify-member-email?token=${verificationToken}`;
 
     // Send email via Postmark
