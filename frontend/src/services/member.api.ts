@@ -114,6 +114,34 @@ export const memberApi = {
   },
 
   /**
+   * Send email OTP for new member registration (public - for join page)
+   */
+  async sendRegistrationEmailOTP(email: string, accountId: string) {
+    return apiClient.post('/members/register-email-otp/send', { email, accountId });
+  },
+
+  /**
+   * Verify email OTP for new member registration (public - for join page)
+   */
+  async verifyRegistrationEmailOTP(email: string, code: string, accountId: string) {
+    return apiClient.post('/members/register-email-otp/verify', { email, code, accountId });
+  },
+
+  /**
+   * Send email OTP for new member registration (public - for join page)
+   */
+  async sendEmailRegistrationOTP(email: string, accountId: string) {
+    return apiClient.post('/members/register-email-otp/send', { email, accountId });
+  },
+
+  /**
+   * Verify email OTP for new member registration (public - for join page)
+   */
+  async verifyEmailRegistrationOTP(email: string, code: string, accountId: string) {
+    return apiClient.post('/members/register-email-otp/verify', { email, code, accountId });
+  },
+
+  /**
    * Register new member (public - for join page)
    */
   async register(data: {
