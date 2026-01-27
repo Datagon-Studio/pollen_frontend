@@ -112,6 +112,27 @@ export const userRepository = {
       })
       .filter((user: any) => user !== null && user !== undefined) as UserProfile[];
   },
+
+  /**
+   * Get user's role for a specific account
+   */
+  async getAccountRole(userId: string, accountId: string): Promise<{ account_id: string; role: string } | null> {
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .select('account_id, role')
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to fetch account role: ${error.message}`);
+    }
+
+    return data;
+  },
 };
 
 
