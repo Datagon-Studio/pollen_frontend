@@ -27,28 +27,15 @@ if (!parsed.success) {
 
 const env = parsed.data;
 
-// Validate required keys for production
-if (env.NODE_ENV === 'production') {
-  const missingKeys: string[] = [];
-  if (!env.PAYSTACK_SECRET_KEY) missingKeys.push('PAYSTACK_SECRET_KEY');
-  if (!env.PAYSTACK_PUBLIC_KEY) missingKeys.push('PAYSTACK_PUBLIC_KEY');
-  if (!env.EMAIL_VERIFICATION_SECRET) missingKeys.push('EMAIL_VERIFICATION_SECRET');
-  
-  if (missingKeys.length > 0) {
-    console.error('❌ Missing required environment variables for production:', missingKeys);
-    throw new Error(`Missing required environment variables: ${missingKeys.join(', ')}`);
-  }
-} else {
-  // Warn in development if keys are missing
-  if (!env.PAYSTACK_SECRET_KEY) {
-    console.warn('⚠️  PAYSTACK_SECRET_KEY not set. Payment features will not work.');
-  }
-  if (!env.PAYSTACK_PUBLIC_KEY) {
-    console.warn('⚠️  PAYSTACK_PUBLIC_KEY not set. Payment features will not work.');
-  }
-  if (!env.EMAIL_VERIFICATION_SECRET) {
-    console.warn('⚠️  EMAIL_VERIFICATION_SECRET not set. Email verification will not work.');
-  }
+// Warn if optional keys are missing (but don't fail - they're optional)
+if (!env.PAYSTACK_SECRET_KEY) {
+  console.warn('⚠️  PAYSTACK_SECRET_KEY not set. Payment features will not work.');
+}
+if (!env.PAYSTACK_PUBLIC_KEY) {
+  console.warn('⚠️  PAYSTACK_PUBLIC_KEY not set. Payment features will not work.');
+}
+if (!env.EMAIL_VERIFICATION_SECRET) {
+  console.warn('⚠️  EMAIL_VERIFICATION_SECRET not set. Email verification will not work.');
 }
 
 export { env };
