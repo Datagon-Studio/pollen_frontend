@@ -68,6 +68,31 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Admin-only route wrapper (excludes officers/viewers)
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const { isAdmin, loading: rolesLoading } = useRoles();
+
+  if (loading || rolesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  // Only admins (not officers/viewers) can access admin routes
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const App = () => {
   // Don't call useAuth here - it's called inside ProtectedRoute and other components
   // This prevents the hook from running before Router context is available
@@ -126,9 +151,9 @@ const App = () => {
           <Route
             path="/public-settings"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <PublicSettings />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
           <Route path="/group" element={<PublicGroupLanding />} />
@@ -147,9 +172,9 @@ const App = () => {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <Settings />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
           <Route
