@@ -8,12 +8,17 @@
 export interface UserProfile {
   user_id: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'superadmin' | 'admin' | 'user';
   full_name: string | null;
   phone_number: string | null;
   profile_image_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AccountRole {
+  account_id: string;
+  role: 'admin' | 'officer' | 'viewer';
 }
 
 export interface UpdateUserProfileInput {
