@@ -6,15 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -63,6 +66,42 @@ export default function SignIn() {
     } catch (err) {
       setError("An error occurred. Please try again.");
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setResettingPassword(true);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) {
+        throw resetError;
+      }
+
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Check your email for password reset instructions",
+      });
+    } catch (error) {
+      console.error("Error sending password reset:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send password reset email",
+        variant: "destructive",
+      });
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -135,6 +174,16 @@ export default function SignIn() {
                     autoComplete="off"
                     required
                   />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={resettingPassword}
+                      className="text-sm text-amber hover:underline font-medium disabled:opacity-50"
+                    >
+                      {resettingPassword ? "Sending..." : "Forgot password?"}
+                    </button>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
