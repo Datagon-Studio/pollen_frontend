@@ -812,7 +812,10 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
     // Automatically send verification email if email is provided
     if (member.email) {
       try {
-        const baseUrl = req.headers.origin || process.env.FRONTEND_URL;
+        // Get base URL dynamically from request headers or environment
+        const baseUrl = req.headers.origin || 
+                        (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+                        process.env.FRONTEND_URL;
         await memberService.sendVerificationEmail(member.member_id, baseUrl);
         console.log(`[Register Member] Verification email sent to ${member.email}`);
       } catch (emailError) {
