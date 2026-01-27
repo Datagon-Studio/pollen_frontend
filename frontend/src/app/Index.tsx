@@ -37,7 +37,7 @@ interface ContributionRow {
   fund: string;
   amount: string;
   date: string;
-  status: "pending" | "confirmed" | "failed" | "reversed";
+  status: "pending" | "confirmed" | "failed" | "reversed" | "pledge";
   fundId: string;
 }
 
@@ -49,9 +49,15 @@ const columns = [
   {
     key: "status",
     header: "Status",
-    render: (item: ContributionRow) => (
-      <StatusBadge status={item.status} />
-    ),
+    render: (item: ContributionRow) => {
+      const badgeStatus =
+        item.status === "confirmed"
+          ? "confirmed"
+          : item.status === "pending" || item.status === "pledge"
+            ? "pending"
+            : "rejected";
+      return <StatusBadge status={badgeStatus} />;
+    },
   },
 ];
 
@@ -187,6 +193,16 @@ export default function Dashboard() {
     };
   }, [stats, funds, activeFunds]);
 
+  const hasPendingCard = displayStats.pending !== 0;
+  const xlCols =
+    selectedFund === "all"
+      ? hasPendingCard
+        ? "xl:grid-cols-5"
+        : "xl:grid-cols-4"
+      : hasPendingCard
+        ? "xl:grid-cols-4"
+        : "xl:grid-cols-3";
+
   return (
     <AppLayout>
       {/* Header with Logo and Fund Selector */}
@@ -234,7 +250,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${selectedFund === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-4 mb-8`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${xlCols} gap-4 mb-8`}>
         <StatCard
           title="Total Balance"
           value={loading ? "..." : formatAmount(displayStats.balance)}
@@ -248,13 +264,15 @@ export default function Dashboard() {
           icon={CalendarDays}
           accentBorder
         />
-        <StatCard
-          title="Pending"
-          value={loading ? "..." : formatAmount(displayStats.pending)}
-          subtitle={loading ? "..." : `${displayStats.pendingCount} awaiting confirmation`}
-          icon={Clock}
-          accentBorder
-        />
+        {displayStats.pending !== 0 && (
+          <StatCard
+            title="Pending"
+            value={loading ? "..." : formatAmount(displayStats.pending)}
+            subtitle={loading ? "..." : `${displayStats.pendingCount} awaiting confirmation`}
+            icon={Clock}
+            accentBorder
+          />
+        )}
         {selectedFund === "all" && (
           <StatCard
             title="Active Funds"

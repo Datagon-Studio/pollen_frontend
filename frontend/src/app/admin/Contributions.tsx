@@ -338,7 +338,15 @@ export default function Contributions() {
       key: "status",
       header: "Status",
       sortable: true,
-      render: (item: ContributionRow) => <StatusBadge status={item.status as "pending" | "confirmed"} />,
+      render: (item: ContributionRow) => {
+        const badgeStatus =
+          item.status === "confirmed"
+            ? "confirmed"
+            : item.status === "pending" || item.status === "pledge"
+              ? "pending"
+              : "rejected";
+        return <StatusBadge status={badgeStatus} />;
+      },
     },
     {
       key: "actions",
