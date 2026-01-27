@@ -221,30 +221,85 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       });
       return;
     }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setEmailSending(true);
-    // Simulate sending OTP
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setEmailSending(false);
-    setEmailOtpSent(true);
-    toast({
-      title: "OTP Sent",
-      description: `Verification code sent to ${formData.email}`,
-    });
+    try {
+      const response = await memberApi.sendRegistrationEmailOTP(formData.email.trim(), account.account_id);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send OTP');
+      }
+
+      setEmailOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${formData.email}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const handleVerifyEmailOtp = async () => {
-    if (!emailOtp.trim()) return;
+    if (!emailOtp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!account?.account_id) {
+      toast({
+        title: "Error",
+        description: "Account not found",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setEmailVerifying(true);
-    // Simulate verification
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setEmailVerifying(false);
-    setEmailVerified(true);
-    toast({
-      title: "Email Verified",
-      description: "Email address has been verified successfully.",
-    });
+    try {
+      const response = await memberApi.verifyRegistrationEmailOTP(
+        formData.email.trim(),
+        emailOtp.trim(),
+        account.account_id
+      );
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to verify OTP');
+      }
+
+      setEmailVerified(true);
+      toast({
+        title: "Email Verified",
+        description: "Email address has been verified successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailVerifying(false);
+    }
   };
 
   const handleSendPhoneOtp = async () => {
@@ -406,6 +461,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
         email: formData.email.trim() || null,
         email_verified: emailVerified,
         membership_number: formData.membershipNumber.trim() || null,
+        isCollector: formData.isCollector,
       });
 
       if (!response.success) {
@@ -414,7 +470,9 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
 
       toast({
         title: "Member Added",
-        description: `${formData.fullName} has been added successfully.`,
+        description: formData.isCollector 
+          ? `${formData.fullName} has been added as a collector. A welcome email with password setup link has been sent to ${formData.email}.`
+          : `${formData.fullName} has been added successfully.`,
       });
 
       // Reset form
@@ -422,9 +480,13 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
+      console.error('[AddMemberModal] Error creating member:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create member";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create member",
+        description: errorMessage.includes('fetch') || errorMessage.includes('Network') 
+          ? "Unable to connect to server. Please check your connection and try again."
+          : errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -636,43 +698,23 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                   disabled={emailVerified}
                   className={cn(emailVerified && "bg-success/10 border-success")}
                 />
-                {!emailVerified && formData.email.trim() && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSendEmailOtp}
-                      disabled={emailSending || !formData.email.trim()}
-                      className="shrink-0"
-                    >
-                      {emailSending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4 mr-1" />
-                          Send OTP
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // TODO: Send magic link when implemented
-                        toast({
-                          title: "Magic Link",
-                          description: "Magic link functionality will be implemented soon",
-                        });
-                      }}
-                      disabled={!formData.email.trim()}
-                      className="shrink-0"
-                    >
-                      Verify
-                    </Button>
-                  </>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendEmailOtp}
+                  disabled={emailSending || emailVerified || !formData.email.trim()}
+                  className="shrink-0"
+                >
+                  {emailSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-1" />
+                      Send OTP
+                    </>
+                  )}
+                </Button>
                 {emailVerified && (
                   <div className="flex items-center gap-1 text-success shrink-0 px-2">
                     <Check className="h-4 w-4" />
