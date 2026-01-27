@@ -9,6 +9,8 @@
 import { memberRepository } from './member.repository.js';
 import { Member, CreateMemberInput, UpdateMemberInput } from './member.entity.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
+import { accountRepository } from '../account/account.repository.js';
+import { supabase } from '../../shared/supabase/client.js';
 import crypto from 'crypto';
 
 export class MemberService {
@@ -29,7 +31,7 @@ export class MemberService {
   /**
    * Create a new member
    */
-  async createMember(input: CreateMemberInput): Promise<Member> {
+  async createMember(input: CreateMemberInput, baseUrl?: string): Promise<Member> {
     // Validate required fields
     if (!input.full_name?.trim()) {
       throw new Error('Full name is required');
@@ -77,7 +79,299 @@ export class MemberService {
       email_verified: input.email_verified ?? false,
     };
 
-    return memberRepository.create(memberData);
+    const member = await memberRepository.create(memberData);
+
+    // If collector, create user account and send welcome email
+    if (input.isCollector && input.email?.trim()) {
+      try {
+        await this.createCollectorAccount(member, input.account_id, baseUrl);
+      } catch (error) {
+        // Log error but don't fail member creation
+        console.error('[Create Member] Failed to create collector account:', error);
+        // Re-throw to surface the error to the client
+        throw new Error(`Failed to create collector account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    return member;
+  }
+
+  /**
+   * Create collector account (auth user + link to account + send welcome email)
+   */
+  async createCollectorAccount(member: Member, accountId: string, baseUrl?: string): Promise<void> {
+    if (!member.email) {
+      throw new Error('Email is required to create collector account');
+    }
+
+    // Get account details for welcome email
+    const account = await accountRepository.findByAccountId(accountId);
+    if (!account) {
+      throw new Error('Account not found');
+    }
+
+    const accountName = account.account_name || 'your group';
+
+    // Check if user already exists by email - query users table directly (more efficient)
+    let userExists = false;
+    let userId: string | undefined;
+    
+    try {
+      // Query users table directly to find by email
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('user_id')
+        .eq('email', member.email.toLowerCase())
+        .maybeSingle();
+      
+      if (userError && userError.code !== 'PGRST116') {
+        // PGRST116 is "no rows returned", which is fine
+        console.error(`[Create Collector] Error checking user existence:`, userError);
+        // Continue to try creating user
+      } else if (userData?.user_id) {
+        userExists = true;
+        userId = userData.user_id;
+        console.log(`[Create Collector] User ${member.email} already exists with ID: ${userId}`);
+      }
+    } catch (error) {
+      console.log(`[Create Collector] Could not check existing users, will try to create:`, error);
+      // Continue to try creating user
+    }
+
+    if (userExists && userId) {
+      // Check if user is already linked to this account
+      const { data: existingLink, error: linkError } = await supabase
+        .from('user_accounts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+
+      if (linkError && linkError.code !== 'PGRST116') {
+        // PGRST116 is "no rows returned", which is fine
+        console.error(`[Create Collector] Error checking account link:`, linkError);
+        throw new Error(`Failed to check account link: ${linkError.message}`);
+      }
+
+      if (existingLink) {
+        // User already linked, just send welcome email
+        console.log(`[Create Collector] User ${userId} already linked to account ${accountId}, sending welcome email`);
+        await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+        return;
+      }
+      
+      // User exists but not linked to this account - link them
+      console.log(`[Create Collector] Linking existing user ${userId} to account ${accountId}`);
+      await accountRepository.linkUserToAccount(userId, accountId, 'officer');
+      await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+      return;
+    } else {
+      // Create new auth user
+      console.log(`[Create Collector] Creating new auth user for ${member.email}`);
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email: member.email,
+        email_confirm: true, // Auto-confirm email since it's verified
+        user_metadata: {
+          full_name: member.full_name,
+        },
+      });
+
+      if (createError) {
+        // Check if error is "user already exists"
+        if (createError.message?.toLowerCase().includes('already been registered') || 
+            createError.message?.toLowerCase().includes('user already exists')) {
+          // User was created between our check and create - query users table
+          console.log(`[Create Collector] User was created between check and create, querying users table`);
+          
+          // Query users table directly to find by email
+          const { data: retryUserData, error: retryError } = await supabase
+            .from('users')
+            .select('user_id')
+            .eq('email', member.email.toLowerCase())
+            .maybeSingle();
+          
+          if (retryError && retryError.code !== 'PGRST116') {
+            throw new Error(`Failed to find existing user: ${retryError.message}`);
+          }
+          
+          if (retryUserData?.user_id) {
+            userId = retryUserData.user_id;
+            // Check if already linked
+            const { data: existingLink } = await supabase
+              .from('user_accounts')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('account_id', accountId)
+              .maybeSingle();
+            
+            if (existingLink) {
+              await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+              return;
+            }
+            // Link existing user
+            await accountRepository.linkUserToAccount(userId, accountId, 'officer');
+            await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+            return;
+          } else {
+            throw new Error(`Failed to create auth user: User exists but could not be found`);
+          }
+        } else {
+          throw new Error(`Failed to create auth user: ${createError.message}`);
+        }
+      } else if (!newUser.user) {
+        throw new Error('Failed to create auth user: No user returned');
+      } else {
+        userId = newUser.user.id;
+      }
+
+      // Wait a bit for the trigger to create user profile and account
+      // Then remove any auto-created account link
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Check if trigger created an account link and remove it
+      const { data: autoCreatedLinks } = await supabase
+        .from('user_accounts')
+        .select('account_id')
+        .eq('user_id', userId);
+
+      if (autoCreatedLinks && autoCreatedLinks.length > 0) {
+        // Delete auto-created account links (trigger creates one)
+        for (const link of autoCreatedLinks) {
+          await supabase
+            .from('user_accounts')
+            .delete()
+            .eq('user_id', userId)
+            .eq('account_id', link.account_id);
+        }
+      }
+      
+      // Link new user to account with 'officer' role
+      await accountRepository.linkUserToAccount(userId, accountId, 'officer');
+      
+      // Send welcome email with reset password link
+      await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+    }
+  }
+
+  /**
+   * Send welcome email to collector with reset password link
+   */
+  async sendCollectorWelcomeEmail(member: Member, accountName: string, baseUrl?: string): Promise<void> {
+    if (!member.email) {
+      throw new Error('Email is required');
+    }
+
+    const frontendUrl = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetPasswordUrl = `${frontendUrl}/reset-password`;
+
+    // Generate reset password link using Supabase Admin API
+    let resetLink: string;
+    try {
+      const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email: member.email,
+        options: {
+          redirectTo: resetPasswordUrl,
+        },
+      });
+
+      if (resetError) {
+        console.error('[Send Collector Welcome Email] Error generating reset link:', resetError);
+        throw new Error(`Failed to generate reset password link: ${resetError.message}`);
+      }
+
+      if (!resetData?.properties?.action_link) {
+        throw new Error('Reset password link was not generated');
+      }
+
+      resetLink = resetData.properties.action_link;
+    } catch (error) {
+      console.error('[Send Collector Welcome Email] Failed to generate reset link:', error);
+      throw error;
+    }
+
+    // Collector role description
+    const collectorRoles = [
+      'Collect contributions from members',
+      'Record expenses and transactions',
+      'View member information and contributions',
+      'Access admin portal features',
+    ];
+
+    const emailSubject = `Welcome to ${accountName} as a Collector`;
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to ${accountName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #f8f9fa; padding: 20px; border-radius: 5px 5px 0 0; }
+          .content { background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; }
+          .footer { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; font-size: 12px; color: #666; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .button:hover { background-color: #0056b3; }
+          .roles { margin: 20px 0; padding-left: 20px; }
+          .roles li { margin: 8px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to ${accountName}!</h1>
+          </div>
+          <div class="content">
+            <p>Hello ${member.full_name},</p>
+            <p>You have been added to <strong>${accountName}</strong> as a collector.</p>
+            <p>Your role is to:</p>
+            <ul class="roles">
+              ${collectorRoles.map(role => `<li>${role}</li>`).join('')}
+            </ul>
+            <p>Kindly find attached the reset password link. Set a password with your verified email and login afterwards.</p>
+            <a href="${resetLink}" class="button">Set Password & Login</a>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">${resetLink}</p>
+            <p>This link will expire in 24 hours.</p>
+          </div>
+          <div class="footer">
+            <p>If you didn't expect this email, please contact the administrator.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const plainText = `
+Hello ${member.full_name},
+
+You have been added to ${accountName} as a collector.
+
+Your role is to:
+${collectorRoles.map(role => `- ${role}`).join('\n')}
+
+Kindly find attached the reset password link. Set a password with your verified email and login afterwards.
+
+Reset Password Link: ${resetLink}
+
+This link will expire in 24 hours.
+
+If you didn't expect this email, please contact the administrator.
+    `;
+
+    const result = await postmarkService.sendEmail(
+      member.email,
+      emailSubject,
+      emailBody,
+      plainText,
+      'collector-welcome'
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send welcome email');
+    }
   }
 
   /**
