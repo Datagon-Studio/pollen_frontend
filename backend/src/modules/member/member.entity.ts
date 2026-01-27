@@ -28,6 +28,7 @@ export interface CreateMemberInput {
   email?: string | null;
   email_verified?: boolean;
   membership_number?: string | null;
+  isCollector?: boolean;
 }
 
 export interface UpdateMemberInput {
