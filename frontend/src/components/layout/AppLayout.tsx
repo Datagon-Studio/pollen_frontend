@@ -61,14 +61,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
-  const { isSuperAdmin } = useRoles();
+  const { isSuperAdmin, isAdmin, isOfficer } = useRoles();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Filter nav items based on role
   const navItems = allNavItems.filter(item => {
+    // Hide superadmin-only items from non-superadmins
     if (item.superAdminOnly && !isSuperAdmin) {
+      return false;
+    }
+    // Hide Settings and Public Settings from collectors (officers)
+    if ((item.href === '/settings' || item.href === '/public-settings') && isOfficer) {
       return false;
     }
     return true;
