@@ -7,7 +7,7 @@
  */
 
 import { userRepository } from './user.repository.js';
-import { UserProfile, UpdateUserProfileInput } from './user.entity.js';
+import { UserProfile, UpdateUserProfileInput, AccountRole } from './user.entity.js';
 
 export class UserService {
   /**
@@ -55,6 +55,25 @@ export class UserService {
     }
 
     return userRepository.update(userId, input);
+  }
+
+  /**
+   * Get user's role for a specific account
+   */
+  async getAccountRole(userId: string, accountId: string): Promise<AccountRole | null> {
+    if (!userId || !accountId) {
+      throw new Error('User ID and Account ID are required');
+    }
+
+    const result = await userRepository.getAccountRole(userId, accountId);
+    if (!result) {
+      return null;
+    }
+
+    return {
+      account_id: result.account_id,
+      role: result.role as 'admin' | 'officer' | 'viewer',
+    };
   }
 }
 
