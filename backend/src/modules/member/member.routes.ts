@@ -10,6 +10,8 @@ import { authenticateToken, AuthenticatedRequest } from '../../shared/middleware
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from './member.service.js';
 import { accountService } from '../account/account.service.js';
+import { postmarkService } from '../../shared/services/postmark.service.js';
+import { otpRepository } from '../otp/otp.repository.js';
 import crypto from 'crypto';
 
 export const memberRoutesWithAuth = Router();
@@ -43,6 +45,34 @@ const isPhoneVerified = (accountId: string, phone: string): boolean => {
 const markPhoneVerified = (accountId: string, phone: string): void => {
   const key = `${accountId}:${normalizePhone(phone)}`;
   verifiedPhones.set(key, Date.now());
+};
+
+// Temporary store for verified email addresses (expires after 10 minutes)
+const verifiedEmails = new Map<string, number>();
+
+// Helper to check if email is verified
+const isEmailVerified = (accountId: string, email: string): boolean => {
+  const key = `${accountId}:${email.toLowerCase().trim()}`;
+  const timestamp = verifiedEmails.get(key);
+  if (!timestamp) return false;
+  
+  if (Date.now() - timestamp > VERIFICATION_EXPIRY) {
+    verifiedEmails.delete(key);
+    return false;
+  }
+  
+  return true;
+};
+
+// Helper to mark email as verified
+const markEmailVerified = (accountId: string, email: string): void => {
+  const key = `${accountId}:${email.toLowerCase().trim()}`;
+  verifiedEmails.set(key, Date.now());
+};
+
+// Helper to generate 6-digit OTP
+const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Public routes (no auth required) - MUST be before auth middleware
@@ -402,6 +432,211 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
   }
 });
 
+// POST /api/v1/members/register-email-otp/send - Send email OTP for new member registration (public)
+memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: Response) => {
+  console.log('[Register Email OTP Send] Route hit:', req.body);
+  try {
+    const { email, accountId } = req.body;
+
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required',
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format',
+      });
+    }
+
+    if (!accountId || typeof accountId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID is required',
+      });
+    }
+
+    // Validate UUID format for accountId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid account ID format',
+      });
+    }
+
+    // Check if member with this email already exists in this account
+    const members = await memberService.getMembersByAccount(accountId);
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingMember = members.find(m => 
+      m.email && m.email.toLowerCase().trim() === normalizedEmail
+    );
+    
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        error: 'A member with this email address already exists',
+      });
+    }
+
+    // Generate OTP code
+    const otpCode = generateOTP();
+    
+    // Store OTP in database
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5); // 5 minutes expiry
+
+    try {
+      await otpRepository.create({
+        account_id: accountId,
+        identifier: normalizedEmail,
+        identifier_type: 'email',
+        otp_code: otpCode,
+        expires_at: expiresAt,
+        max_attempts: 3,
+      });
+      console.log(`[Register Email OTP Send] OTP stored in database for ${normalizedEmail}`);
+    } catch (dbError) {
+      console.error('[Register Email OTP Send] Failed to store OTP in database:', dbError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate OTP. Please try again.',
+      });
+    }
+
+    // Send OTP via email
+    const emailSubject = 'Your PollenHive Verification Code';
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .otp-code { font-size: 32px; font-weight: bold; color: #f59e0b; text-align: center; padding: 20px; background-color: #fef3c7; border-radius: 8px; margin: 20px 0; }
+          .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Email Verification Code</h2>
+          <p>Hello,</p>
+          <p>Your verification code for PollenHive is:</p>
+          <div class="otp-code">${otpCode}</div>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+          <div class="footer">
+            <p>Best regards,<br>The PollenHive Team</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const result = await postmarkService.sendEmail(
+      email.trim(),
+      emailSubject,
+      emailBody,
+      `Your PollenHive verification code is ${otpCode}. This code will expire in 5 minutes.`,
+      'email-otp'
+    );
+
+    if (!result.success) {
+      console.error('Failed to send email OTP:', result.error);
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to send OTP. Please try again later.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully to your email',
+    });
+  } catch (error) {
+    console.error('Exception sending email OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send OTP',
+    });
+  }
+});
+
+// POST /api/v1/members/register-email-otp/verify - Verify email OTP for new member registration (public)
+memberRoutesWithAuth.post('/register-email-otp/verify', async (req: Request, res: Response) => {
+  console.log('[Register Email OTP Verify] Route hit:', req.body);
+  try {
+    const { email, code, accountId } = req.body;
+
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required',
+      });
+    }
+
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP code is required',
+      });
+    }
+
+    if (!accountId || typeof accountId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID is required',
+      });
+    }
+
+    // Validate UUID format for accountId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid account ID format',
+      });
+    }
+
+    // Verify OTP from database
+    const normalizedEmail = email.toLowerCase().trim();
+    const isValid = await otpRepository.verify(
+      accountId,
+      normalizedEmail,
+      'email',
+      code.trim()
+    );
+
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired OTP code. Please request a new code.',
+      });
+    }
+
+    // Mark email as verified for this account (valid for 10 minutes)
+    markEmailVerified(accountId, email);
+    console.log(`[Register Email OTP Verify] Email verified and stored: ${accountId}:${normalizedEmail}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+    });
+  } catch (error) {
+    console.error('Exception verifying email OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to verify OTP',
+    });
+  }
+});
+
 // POST /api/v1/members/verify-email-token - Verify email via token (public)
 memberRoutesWithAuth.post('/verify-email-token', async (req: Request, res: Response) => {
   console.log('[Verify Email Token] Route hit');
@@ -570,7 +805,7 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
       phone: phone.trim(),
       phone_verified: true, // Verified via OTP
       email: email?.trim() || null,
-      email_verified: false, // Email verification not required for public registration
+      email_verified: email?.trim() ? isEmailVerified(accountId, email.trim()) : false,
       membership_number: membership_number?.trim() || null,
     });
 
