@@ -193,17 +193,22 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
       email: req.body.email,
       email_verified: req.body.email_verified,
       membership_number: req.body.membership_number,
+      isCollector: req.body.isCollector || false,
     };
 
-    const member = await memberService.createMember(input);
+    const baseUrl = req.headers.origin || process.env.FRONTEND_URL;
+    const member = await memberService.createMember(input, baseUrl);
     res.status(201).json({
       success: true,
       data: member,
       message: 'Member created successfully',
     });
   } catch (error) {
+    console.error('[Create Member] Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to create member';
-    res.status(400).json({
+    const statusCode = message.includes('not found') || message.includes('Unauthorized') ? 404 : 
+                       message.includes('already exists') ? 409 : 400;
+    res.status(statusCode).json({
       success: false,
       error: message,
     });
