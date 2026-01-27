@@ -1,5 +1,10 @@
 node_modules
 
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
 # Environment variables
 .env
 .env.local

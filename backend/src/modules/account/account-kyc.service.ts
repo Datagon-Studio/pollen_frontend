@@ -110,7 +110,7 @@ export class AccountKYCService {
     
     // Update account KYC status to verified
     await accountRepository.update(accountId, {
-      kyc_status: 'verified',
+      kyc_status: KYCStatus.VERIFIED,
     });
 
     return kyc;

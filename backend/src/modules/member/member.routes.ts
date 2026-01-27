@@ -12,6 +12,7 @@ import { memberService } from './member.service.js';
 import { accountService } from '../account/account.service.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { otpRepository } from '../otp/otp.repository.js';
+import { env } from '../../env.js';
 import crypto from 'crypto';
 
 export const memberRoutesWithAuth = Router();
