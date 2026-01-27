@@ -7,6 +7,7 @@
 import { accountKYCRepository } from './account-kyc.repository.js';
 import { accountRepository } from './account.repository.js';
 import { CreateAccountKYCInput, UpdateAccountKYCInput, AccountKYC } from './account-kyc.entity.js';
+import { KYCStatus } from './account.entity.js';
 
 export class AccountKYCService {
   /**
@@ -53,7 +54,7 @@ export class AccountKYCService {
     // Update account KYC status to pending (for both new and updated submissions)
     try {
       const updatedAccount = await accountRepository.update(input.account_id, {
-        kyc_status: 'pending',
+        kyc_status: KYCStatus.PENDING,
       });
       console.log('Account KYC status updated to pending:', updatedAccount.kyc_status);
     } catch (error) {
@@ -121,7 +122,7 @@ export class AccountKYCService {
   async rejectKYC(accountId: string, verifiedBy: string): Promise<void> {
     // Update account KYC status to rejected
     await accountRepository.update(accountId, {
-      kyc_status: 'rejected',
+      kyc_status: KYCStatus.REJECTED,
     });
   }
 }

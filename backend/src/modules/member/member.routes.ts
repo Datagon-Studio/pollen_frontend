@@ -698,7 +698,13 @@ memberRoutesWithAuth.post('/verify-email-token', async (req: Request, res: Respo
     }
 
     // Verify token hash
-    const secret = process.env.EMAIL_VERIFICATION_SECRET || 'default-secret-change-in-production';
+    const secret = env.EMAIL_VERIFICATION_SECRET;
+    if (!secret) {
+      return res.status(500).json({
+        success: false,
+        error: 'Email verification secret not configured',
+      });
+    }
     const tokenData = `${memberId}:${member.email}:${timestamp}`;
     const expectedHash = crypto
       .createHash('sha256')

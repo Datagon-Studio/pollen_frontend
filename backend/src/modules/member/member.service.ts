@@ -196,12 +196,12 @@ export class MemberService {
           }
           
           if (retryUserData?.user_id) {
-            userId = retryUserData.user_id;
+            const foundUserId = retryUserData.user_id;
             // Check if already linked
             const { data: existingLink } = await supabase
               .from('user_accounts')
               .select('*')
-              .eq('user_id', userId)
+              .eq('user_id', foundUserId)
               .eq('account_id', accountId)
               .maybeSingle();
             
@@ -210,7 +210,7 @@ export class MemberService {
               return;
             }
             // Link existing user
-            await accountRepository.linkUserToAccount(userId, accountId, 'officer');
+            await accountRepository.linkUserToAccount(foundUserId, accountId, 'officer');
             await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
             return;
           } else {
@@ -488,7 +488,10 @@ If you didn't expect this email, please contact the administrator.
     }
 
     // Generate verification token
-    const secret = process.env.EMAIL_VERIFICATION_SECRET || 'default-secret-change-in-production';
+    const secret = env.EMAIL_VERIFICATION_SECRET;
+    if (!secret) {
+      throw new Error('EMAIL_VERIFICATION_SECRET is not configured. Cannot generate verification token.');
+    }
     const timestamp = Date.now();
     const tokenData = `${memberId}:${member.email}:${timestamp}`;
     const token = crypto

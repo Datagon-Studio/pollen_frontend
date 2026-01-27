@@ -3,9 +3,15 @@ import crypto from 'crypto';
 import { contributionService } from '../contribution/contribution.service.js';
 import { memberRepository } from '../member/member.repository.js';
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_26f11dd10895605a6eb9c0cdb0f4648cb852f2f6';
-const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_cab5814d019ab5a55e6a1260e2bbe85a248e9c10';
+import { env } from '../../env.js';
+
+const PAYSTACK_SECRET_KEY = env.PAYSTACK_SECRET_KEY;
+const PAYSTACK_PUBLIC_KEY = env.PAYSTACK_PUBLIC_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
+  console.warn('⚠️  Paystack keys not configured. Payment features will not work.');
+}
 
 interface InitializePaymentInput {
   account_id: string;
@@ -39,6 +45,12 @@ export const paymentService = {
     data?: PaymentInitializationResult;
     error?: string;
   }> {
+    if (!PAYSTACK_SECRET_KEY) {
+      return {
+        success: false,
+        error: 'Paystack secret key is not configured',
+      };
+    }
     try {
       // Convert amount to kobo (Paystack uses smallest currency unit)
       const amountInKobo = Math.round(input.amount * 100);
@@ -327,6 +339,12 @@ export const paymentService = {
     success: boolean;
     error?: string;
   }> {
+    if (!PAYSTACK_SECRET_KEY) {
+      return {
+        success: false,
+        error: 'Paystack secret key is not configured',
+      };
+    }
     try {
       // Verify webhook signature
       const hash = crypto

@@ -5,9 +5,14 @@
  */
 
 import axios from 'axios';
+import { env } from '../../env.js';
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_26f11dd10895605a6eb9c0cdb0f4648cb852f2f6';
+const PAYSTACK_SECRET_KEY = env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+if (!PAYSTACK_SECRET_KEY) {
+  console.warn('⚠️  Paystack secret key not configured. Bank verification will not work.');
+}
 
 export interface Bank {
   id: number;
@@ -37,6 +42,9 @@ export const paystackBankService = {
    * @param country - Country code (default: 'GH' for Ghana, 'NG' for Nigeria)
    */
   async getBanks(country: 'GH' | 'NG' = 'GH'): Promise<Bank[]> {
+    if (!PAYSTACK_SECRET_KEY) {
+      throw new Error('Paystack secret key is not configured');
+    }
     try {
       // Paystack API expects lowercase country name, not country code
       const countryName = country === 'GH' ? 'ghana' : 'nigeria';
@@ -92,6 +100,9 @@ export const paystackBankService = {
    * @param bankCode - The bank code (from getBanks)
    */
   async resolveAccount(accountNumber: string, bankCode: string): Promise<ResolveAccountResponse> {
+    if (!PAYSTACK_SECRET_KEY) {
+      throw new Error('Paystack secret key is not configured');
+    }
     try {
       // Remove any non-digit characters from account number
       const cleanAccountNumber = accountNumber.trim().replace(/\D/g, '');
