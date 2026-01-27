@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useRef } from "react";
+import { ReactNode, useState, useEffect, useRef, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -61,23 +61,26 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
-  const { isSuperAdmin, isOfficer } = useRoles();
+  const { isSuperAdmin, isOfficer, accountRole, loading: rolesLoading } = useRoles();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // Filter nav items based on role
-  const navItems = allNavItems.filter(item => {
-    // Hide superadmin-only items from non-superadmins
-    if (item.superAdminOnly && !isSuperAdmin) {
-      return false;
-    }
-    // Hide Settings and Public Settings from collectors (officers)
-    if ((item.href === '/settings' || item.href === '/public-settings') && isOfficer) {
-      return false;
-    }
-    return true;
-  });
+  // Filter nav items based on role - memoize to prevent recalculation on every render
+  // Only recompute when roles actually change (not when loading state changes)
+  const navItems = useMemo(() => {
+    return allNavItems.filter(item => {
+      // Hide superadmin-only items from non-superadmins
+      if (item.superAdminOnly && !isSuperAdmin) {
+        return false;
+      }
+      // Hide Settings and Public Settings from collectors (officers)
+      if ((item.href === '/settings' || item.href === '/public-settings') && isOfficer) {
+        return false;
+      }
+      return true;
+    });
+  }, [isSuperAdmin, isOfficer]);
 
   // Cache user profile to avoid refetching on navigation
   const userProfileRef = useRef<UserProfile | null>(null);
