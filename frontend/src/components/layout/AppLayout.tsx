@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccount } from "@/hooks/useAccount";
+import { useRoles } from "@/hooks/useRoles";
 import { userApi, UserProfile } from "@/services/user.api";
 import {
   DropdownMenu,
@@ -33,9 +34,10 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  superAdminOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Members", href: "/members", icon: Users },
   { label: "Funds", href: "/funds", icon: Wallet },
@@ -43,7 +45,7 @@ const navItems: NavItem[] = [
   { label: "Expenses", href: "/expenses", icon: Receipt },
   { label: "Public Settings", href: "/public-settings", icon: Globe },
   { label: "Reports", href: "/reports", icon: BarChart3 },
-  { label: "KYC Verification", href: "/kyc-verification", icon: Shield },
+  { label: "KYC Verification", href: "/kyc-verification", icon: Shield, superAdminOnly: true },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "User Profile", href: "/user-profile", icon: User },
 ];
@@ -59,9 +61,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
+  const { isSuperAdmin } = useRoles();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Filter nav items based on role
+  const navItems = allNavItems.filter(item => {
+    if (item.superAdminOnly && !isSuperAdmin) {
+      return false;
+    }
+    return true;
+  });
 
   // Cache user profile to avoid refetching on navigation
   const userProfileRef = useRef<UserProfile | null>(null);
