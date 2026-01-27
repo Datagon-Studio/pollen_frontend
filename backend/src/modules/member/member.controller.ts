@@ -196,7 +196,14 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
       isCollector: req.body.isCollector || false,
     };
 
-    const baseUrl = req.headers.origin || process.env.FRONTEND_URL;
+    // Get base URL dynamically from request headers or environment
+    // Priority: origin header > referer header > env variable
+    const baseUrl = req.headers.origin || 
+                    (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+                    process.env.FRONTEND_URL;
+    
+    console.log(`[Create Member] Base URL: ${baseUrl} (origin: ${req.headers.origin}, referer: ${req.headers.referer})`);
+    
     const member = await memberService.createMember(input, baseUrl);
     res.status(201).json({
       success: true,
@@ -319,7 +326,11 @@ memberRoutes.post('/:id/verify-email', async (req: Request, res: Response) => {
  */
 memberRoutes.post('/:id/send-verification-email', async (req: Request, res: Response) => {
   try {
-    const baseUrl = req.body.baseUrl || req.headers.origin;
+    // Get base URL dynamically from request headers or environment
+    const baseUrl = req.body.baseUrl || 
+                    req.headers.origin || 
+                    (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+                    process.env.FRONTEND_URL;
     await memberService.sendVerificationEmail(req.params.id, baseUrl);
     res.status(200).json({
       success: true,
