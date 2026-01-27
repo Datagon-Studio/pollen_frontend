@@ -34,6 +34,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [isActive, setIsActive] = useState(false);
+  const [isCollector, setIsCollector] = useState(false);
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -57,6 +58,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
         membershipNumber: member.membership_number || "",
       });
       setIsActive(isMemberActive(member));
+      setIsCollector(false);
       setPhoneVerified(member.phone_verified);
       setPhoneOtpSent(false);
       setPhoneOtp("");
@@ -152,6 +154,24 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       return;
     }
 
+    if (isCollector && !formData.email.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Email address is required to set a member as a collector.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isCollector && !member.email_verified) {
+      toast({
+        title: "Email Verification Required",
+        description: "Please verify the email address before setting a member as a collector.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       const input: UpdateMemberInput = {
@@ -169,6 +189,21 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to update member');
+      }
+
+      // If member is being set as a collector, send verification email / magic link
+      if (isCollector && formData.email.trim() && member.email_verified) {
+        try {
+          const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined;
+          await memberApi.sendVerificationEmail(member.member_id, baseUrl);
+        } catch (error) {
+          // Non-fatal: updating the member succeeded, but email failed
+          toast({
+            title: "Collector Email Failed",
+            description: error instanceof Error ? error.message : "Failed to send collector email",
+            variant: "destructive",
+          });
+        }
       }
 
       toast({
@@ -358,6 +393,26 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
                   <span>No email</span>
                 )}
               </div>
+            </div>
+
+            {/* Collector Option */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isCollector"
+                  checked={isCollector}
+                  onCheckedChange={(checked) => setIsCollector(checked)}
+                />
+                <Label
+                  htmlFor="isCollector"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Set as Collector
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
+              </p>
             </div>
 
             {/* Membership Number */}
