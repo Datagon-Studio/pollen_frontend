@@ -434,9 +434,7 @@ export default function JoinGroupPage() {
         throw new Error(response.error || 'Failed to register member');
       }
 
-      const successMessage = formData.email.trim()
-        ? `Welcome ${formData.fullName}! You've been added to the group. A verification email has been sent to ${formData.email}.`
-        : `Welcome ${formData.fullName}! You've been added to the group.`;
+      const successMessage = `Welcome ${formData.fullName}! You've been added to the group.`;
 
       toast({
         title: "Success",
@@ -629,23 +627,25 @@ export default function JoinGroupPage() {
                   disabled={emailVerified}
                   className={cn(emailVerified && "bg-success/10 border-success")}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendEmailOtp}
-                  disabled={emailSending || emailVerified || !formData.email.trim()}
-                  className="shrink-0"
-                >
-                  {emailSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-1" />
-                      Send OTP
-                    </>
-                  )}
-                </Button>
+                {!emailVerified && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendEmailOtp}
+                    disabled={emailSending || !formData.email.trim()}
+                    className="shrink-0"
+                  >
+                    {emailSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-1" />
+                        Send OTP
+                      </>
+                    )}
+                  </Button>
+                )}
                 {emailVerified && (
                   <div className="flex items-center gap-1 text-success shrink-0 px-2">
                     <Check className="h-4 w-4" />
