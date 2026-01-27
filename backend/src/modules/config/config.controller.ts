@@ -38,6 +38,7 @@ export class ConfigController {
         res.status(200).json({
           success: true,
           data: {
+            currency_code: 'GHS',
             expense_visibility_level: 'summary',
           },
         });
@@ -48,6 +49,7 @@ export class ConfigController {
       res.status(200).json({
         success: true,
         data: {
+          currency_code: config.currency_code || 'GHS',
           expense_visibility_level: config.expense_visibility_level,
         },
       });
@@ -151,6 +153,7 @@ export class ConfigController {
 
       // Build input, filtering out admin-only fields if user is not admin
       const input: UpdateConfigInput = {
+        currency_code: req.body.currency_code,
         payment_integration_id: req.body.payment_integration_id,
         birthday_messages_enabled: req.body.birthday_messages_enabled,
         default_notification_channel: req.body.default_notification_channel,

@@ -29,6 +29,7 @@ import { useAccount } from "@/hooks/useAccount";
 import { fundApi, Fund } from "@/services";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { reportingApi, DashboardStats } from "@/services/reporting.api";
+import { configApi } from "@/services/config.api";
 import { format } from "date-fns";
 
 interface ContributionRow {
@@ -64,6 +65,15 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { account, getInitials, loading: accountLoading } = useAccount();
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  const formatAmount = (amount: number) => {
+    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    return `${prefix}${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const loadFunds = async () => {
     try {
@@ -95,8 +105,10 @@ export default function Dashboard() {
         loadFunds(),
         loadContributions(),
         loadStats(),
+        configApi.getMyConfig().then((cfg) => setCurrencyCode(cfg.currency_code || "GHS")),
       ]).catch(error => {
         console.error("Failed to load dashboard data:", error);
+        setCurrencyCode("GHS");
       });
     }
   }, [account?.account_id]);
@@ -137,7 +149,7 @@ export default function Dashboard() {
       .map(c => ({
         member: c.member_name || "Anonymous",
         fund: c.fund_name,
-        amount: `$${c.amount.toFixed(2)}`,
+        amount: formatAmount(c.amount),
         date: format(new Date(c.date_received), "MMM d, yyyy"),
         status: c.status,
         fundId: c.fund_id,
@@ -225,20 +237,20 @@ export default function Dashboard() {
       <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${selectedFund === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-4 mb-8`}>
         <StatCard
           title="Total Balance"
-          value={loading ? "..." : `$${displayStats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={loading ? "..." : formatAmount(displayStats.balance)}
           icon={Wallet}
           accentBorder
         />
         <StatCard
           title="This Month"
-          value={loading ? "..." : `$${displayStats.month.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={loading ? "..." : formatAmount(displayStats.month)}
           subtitle={loading ? "..." : `${displayStats.monthContributions} contributions`}
           icon={CalendarDays}
           accentBorder
         />
         <StatCard
           title="Pending"
-          value={loading ? "..." : `$${displayStats.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={loading ? "..." : formatAmount(displayStats.pending)}
           subtitle={loading ? "..." : `${displayStats.pendingCount} awaiting confirmation`}
           icon={Clock}
           accentBorder

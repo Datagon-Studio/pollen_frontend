@@ -49,6 +49,7 @@ export default function PublicGroupPage() {
   const [activeTab, setActiveTab] = useState("funds");
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
   const [publicPage, setPublicPage] = useState<AccountPublicPage | null>(null);
+  const [currencyCode, setCurrencyCode] = useState<string>('GHS');
   
   // Filter states for contributions
   const [contributionSearch, setContributionSearch] = useState("");
@@ -301,6 +302,7 @@ export default function PublicGroupPage() {
       // Handle config data
       if (configResult.status === 'fulfilled') {
         setExpenseVisibilityLevel(configResult.value.expense_visibility_level);
+        setCurrencyCode(configResult.value.currency_code || 'GHS');
       } else {
         console.error("Failed to load config:", configResult.reason);
         // Default to 'summary' if config fails to load
@@ -588,7 +590,13 @@ export default function PublicGroupPage() {
       className: "text-right font-semibold",
       render: (item: Record<string, unknown>) => {
         const contribution = item as unknown as Contribution;
-        return <span className="text-foreground">${contribution.amount.toFixed(2)}</span>;
+        const prefix = currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `;
+        return (
+          <span className="text-foreground">
+            {prefix}
+            {contribution.amount.toFixed(2)}
+          </span>
+        );
       },
     },
     {
@@ -631,7 +639,7 @@ export default function PublicGroupPage() {
         );
       },
     },
-  ], [publicFunds]);
+  ], [publicFunds, currencyCode]);
 
   // Expense table columns
   const expenseColumns = useMemo(() => [
@@ -676,10 +684,16 @@ export default function PublicGroupPage() {
       className: "text-right font-semibold",
       render: (item: Record<string, unknown>) => {
         const expense = item as unknown as Expense;
-        return <span className="text-foreground">${Number(expense.amount).toFixed(2)}</span>;
+        const prefix = currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `;
+        return (
+          <span className="text-foreground">
+            {prefix}
+            {Number(expense.amount).toFixed(2)}
+          </span>
+        );
       },
     },
-  ], []);
+  ], [currencyCode]);
 
   if (loading) {
     return (
@@ -1195,13 +1209,15 @@ export default function PublicGroupPage() {
                     <div className="flex justify-between items-center p-4 border rounded-lg">
                       <span className="text-muted-foreground">Total Contributions</span>
                       <span className="text-lg font-semibold text-green-600">
-                        ${Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0).toFixed(2)}
+                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
+                        {Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center p-4 border rounded-lg">
                       <span className="text-muted-foreground">Total Expenses</span>
                       <span className="text-lg font-semibold text-red-600">
-                        ${expenses.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)}
+                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
+                        {expenses.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center p-4 border rounded-lg bg-muted">
@@ -1211,7 +1227,8 @@ export default function PublicGroupPage() {
                          expenses.reduce((sum, e) => sum + Number(e.amount), 0)) >= 0 
                           ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        ${(Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
+                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
+                        {(Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
                             expenses.reduce((sum, e) => sum + Number(e.amount), 0)).toFixed(2)}
                       </span>
                     </div>

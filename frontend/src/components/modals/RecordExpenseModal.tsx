@@ -28,6 +28,7 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { expenseApi } from "@/services";
+import { configApi } from "@/services/config.api";
 import { expenseCategoryApi, ExpenseCategory } from "@/services/expense-category.api";
 
 interface RecordExpenseModalProps {
@@ -49,6 +50,21 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess }: RecordExpe
     notes: "",
     memberVisible: true,
   });
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  useEffect(() => {
+    if (open) {
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
+    }
+  }, [open]);
+
+  const formatAmount = (amount: number) => {
+    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    return `${prefix}${amount.toFixed(2)}`;
+  };
 
   useEffect(() => {
     if (open) {
@@ -110,7 +126,7 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess }: RecordExpe
 
       toast({
         title: "Expense Recorded",
-        description: `$${formData.amount} expense for ${formData.expenseCategory} has been recorded.`,
+        description: `${formatAmount(amount)} expense for ${formData.expenseCategory} has been recorded.`,
       });
 
       setFormData({ expenseName: "", expenseCategory: "", date: new Date(), amount: "", notes: "", memberVisible: true });
@@ -202,12 +218,14 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess }: RecordExpe
             <div className="space-y-2">
               <Label htmlFor="amount">Amount *</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
+                </span>
                 <Input
                   id="amount"
                   type="number"
                   placeholder="0.00"
-                  className="pl-7"
+                  className="pl-10"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 />

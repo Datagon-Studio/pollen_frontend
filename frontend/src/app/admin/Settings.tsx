@@ -101,6 +101,7 @@ export default function Settings() {
   const [savingConfig, setSavingConfig] = useState(false);
   
   // Config form state
+  const [currencyCode, setCurrencyCode] = useState<string>('GHS');
   const [defaultNotificationChannel, setDefaultNotificationChannel] = useState<NotificationChannel>('both');
   const [birthdayMessagesEnabled, setBirthdayMessagesEnabled] = useState(false);
   const [defaultEmailSenderId, setDefaultEmailSenderId] = useState<string | null>(null);
@@ -718,6 +719,7 @@ export default function Settings() {
       setLoadingConfig(true);
       const configData = await configApi.getMyConfig();
       setConfig(configData);
+      setCurrencyCode(configData.currency_code || 'GHS');
       setDefaultNotificationChannel(configData.default_notification_channel);
       setBirthdayMessagesEnabled(configData.birthday_messages_enabled);
       setDefaultEmailSenderId(configData.default_email_sender_id);
@@ -743,6 +745,7 @@ export default function Settings() {
     setSavingConfig(true);
     try {
       const updatedConfig = await configApi.updateMyConfig({
+        currency_code: currencyCode,
         default_notification_channel: defaultNotificationChannel,
         birthday_messages_enabled: birthdayMessagesEnabled,
         default_email_sender_id: isSuperAdmin ? defaultEmailSenderId : undefined, // Only update if superadmin
@@ -1430,6 +1433,28 @@ export default function Settings() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Currency */}
+              <div>
+                <Label>Currency</Label>
+                <Select
+                  value={currencyCode}
+                  onValueChange={(value) => setCurrencyCode(value)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="GHS">Ghana Cedi (GHS)</SelectItem>
+                    <SelectItem value="USD">US Dollar (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This controls how amounts are labelled and formatted. No currency conversion is performed.
+                </p>
+              </div>
+
+              <Separator />
+
               {/* Default Notification Channel */}
               <div>
                 <Label>Default Notification Channel</Label>

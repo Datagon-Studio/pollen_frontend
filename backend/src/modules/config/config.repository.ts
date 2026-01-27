@@ -37,6 +37,7 @@ export const configRepository = {
       .from('config')
       .insert({
         account_id: input.account_id,
+        currency_code: input.currency_code ?? 'GHS',
         smtp_profile_id: input.smtp_profile_id ?? null,
         default_email_sender_id: input.default_email_sender_id ?? null,
         payment_integration_id: input.payment_integration_id ?? null,
@@ -65,6 +66,9 @@ export const configRepository = {
       updated_at: new Date().toISOString(),
     };
 
+    if (input.currency_code !== undefined) {
+      updateData.currency_code = input.currency_code;
+    }
     if (input.smtp_profile_id !== undefined) {
       updateData.smtp_profile_id = input.smtp_profile_id;
     }

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { paymentApi } from "@/services/payment.api";
+import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PaymentCallback() {
@@ -12,6 +13,7 @@ export default function PaymentCallback() {
   const { toast } = useToast();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("Verifying payment...");
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   useEffect(() => {
     const reference = searchParams.get("reference");
@@ -29,12 +31,23 @@ export default function PaymentCallback() {
         const result = await paymentApi.verifyPayment(paymentRef);
 
         if (result.status === "success") {
+          // Try to load currency from stored account config (if available)
+          const storedAccountId = localStorage.getItem('payment_callback_accountId');
+          if (storedAccountId) {
+            try {
+              const publicConfig = await configApi.getPublicConfig(storedAccountId);
+              setCurrencyCode(publicConfig.currency_code || 'GHS');
+            } catch {
+              setCurrencyCode('GHS');
+            }
+          }
+          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
           setStatus("success");
-          setMessage(`Payment of $${result.amount.toFixed(2)} verified successfully!`);
+          setMessage(`Payment of ${prefix}${result.amount.toFixed(2)} verified successfully!`);
           
           toast({
             title: "Payment Successful",
-            description: `Your contribution of $${result.amount.toFixed(2)} has been confirmed.`,
+            description: `Your contribution of ${prefix}${result.amount.toFixed(2)} has been confirmed.`,
           });
 
           // Redirect after 3 seconds (give webhook time to process)

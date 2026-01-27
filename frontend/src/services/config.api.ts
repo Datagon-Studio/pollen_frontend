@@ -6,6 +6,7 @@ export type ExpenseVisibilityLevel = 'none' | 'summary' | 'detailed';
 export interface Config {
   config_id: string;
   account_id: string;
+  currency_code: string;
   smtp_profile_id: string | null;
   default_email_sender_id: string | null;
   payment_integration_id: string | null;
@@ -20,6 +21,7 @@ export interface Config {
 }
 
 export interface UpdateConfigInput {
+  currency_code?: string;
   smtp_profile_id?: string | null;
   default_email_sender_id?: string | null;
   payment_integration_id?: string | null;
@@ -31,6 +33,7 @@ export interface UpdateConfigInput {
 }
 
 export interface PublicConfig {
+  currency_code: string;
   expense_visibility_level: ExpenseVisibilityLevel;
 }
 
@@ -45,7 +48,7 @@ export const configApi = {
 
     if (!response.success || !response.data) {
       // Default to 'summary' if config not found
-      return { expense_visibility_level: 'summary' };
+      return { expense_visibility_level: 'summary', currency_code: 'GHS' };
     }
 
     return response.data;

@@ -27,6 +27,7 @@ import { DeleteContributionModal } from "@/components/modals/DeleteContributionM
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
+import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 
 // Simple cache with TTL
@@ -71,6 +72,12 @@ export default function Contributions() {
   const [sortColumn, setSortColumn] = useState<string | null>("dateReceived");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  const formatAmount = useCallback((amount: number) => {
+    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    return `${prefix}${amount.toFixed(2)}`;
+  }, [currencyCode]);
 
   // Load contributions with caching
   const loadContributions = useCallback(async (forceRefresh = false) => {
@@ -151,6 +158,10 @@ export default function Contributions() {
   useEffect(() => {
     if (account?.account_id) {
       loadContributions();
+      // Load currency config once for this account
+      configApi.getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
     }
   }, [account?.account_id, activeTab, loadContributions]);
 
@@ -236,7 +247,7 @@ export default function Contributions() {
           <div className="space-y-1 text-sm">
             <p><strong>Member:</strong> {contribution.member_name || "Anonymous"}</p>
             <p><strong>Fund:</strong> {contribution.fund_name}</p>
-            <p><strong>Amount:</strong> ${contribution.amount.toFixed(2)}</p>
+            <p><strong>Amount:</strong> {formatAmount(contribution.amount)}</p>
             <p><strong>Payment Method:</strong> {contribution.payment_method || contribution.channel}</p>
             <p><strong>Date:</strong> {format(new Date(contribution.date_received), "PPP")}</p>
             {contribution.comment && <p><strong>Comment:</strong> {contribution.comment}</p>}
@@ -390,7 +401,7 @@ export default function Contributions() {
         memberName: c.member_name || "Anonymous",
         fundName: c.fund_name || "",
         fundId: c.fund_id,
-        amount: `$${c.amount.toFixed(2)}`,
+        amount: formatAmount(c.amount),
         amountValue: c.amount || 0,
         channel: c.channel,
         paymentMethod: c.payment_method,
@@ -399,7 +410,7 @@ export default function Contributions() {
         paymentReference: c.payment_reference,
       };
     });
-  }, [contributions]);
+  }, [contributions, formatAmount]);
 
   const filteredContributions = useMemo(() => {
     if (!contributionRows || contributionRows.length === 0) return [];
@@ -555,7 +566,7 @@ export default function Contributions() {
                 {pendingCount} contributions awaiting confirmation
               </p>
               <p className="text-sm text-muted-foreground">
-                Total pending: ${pendingAmount.toFixed(2)}
+                Total pending: {formatAmount(pendingAmount)}
               </p>
             </div>
             <Button 

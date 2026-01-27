@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { fundApi } from "@/services";
+import { configApi } from "@/services/config.api";
 
 interface CreateFundModalProps {
   open: boolean;
@@ -31,6 +32,16 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
     isPublic: true,
   });
   const [saving, setSaving] = useState(false);
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  useEffect(() => {
+    if (open) {
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
+    }
+  }, [open]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -119,12 +130,14 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
             <div className="space-y-2">
               <Label htmlFor="default-amount">Default Amount</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
+                </span>
                 <Input
                   id="default-amount"
                   type="number"
                   placeholder="0.00"
-                  className="pl-7"
+                  className="pl-10"
                   value={formData.defaultAmount}
                   onChange={(e) => setFormData({ ...formData, defaultAmount: e.target.value })}
                 />
@@ -136,13 +149,15 @@ export function CreateFundModal({ open, onOpenChange, onSuccess }: CreateFundMod
             <div className="space-y-2">
               <Label htmlFor="fund-goal">Fund Goal</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
+                </span>
                 <Input
                   id="fund-goal"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  className="pl-7"
+                  className="pl-10"
                   value={formData.fundGoal}
                   onChange={(e) => setFormData({ ...formData, fundGoal: e.target.value })}
                 />

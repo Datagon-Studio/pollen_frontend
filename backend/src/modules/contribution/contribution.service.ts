@@ -36,10 +36,13 @@ async function sendContributionConfirmationEmail(contribution: Contribution): Pr
     const member = contribution.member_id ? await memberRepository.findById(contribution.member_id) : null;
     const receivedByUser = contribution.received_by_user_id ? await userRepository.findByUserId(contribution.received_by_user_id) : null;
 
+    // Determine currency code (default GHS; no FX conversion, just formatting)
+    const currencyCode = config?.currency_code || 'GHS';
+
     // Format amount
     const formattedAmount = new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currencyCode,
     }).format(contribution.amount);
 
     // Format date
@@ -222,7 +225,8 @@ export const contributionService = {
 
     // Check minimum amount if fund has default
     if (fund.default_amount && input.amount < fund.default_amount) {
-      throw new Error(`Minimum contribution for ${fund.fund_name} is $${fund.default_amount}`);
+      // Use a generic message without hardcoded currency symbol
+      throw new Error(`Minimum contribution for ${fund.fund_name} is ${fund.default_amount}`);
     }
 
     // Business rule: For offline contributions, received_by_user_id is required

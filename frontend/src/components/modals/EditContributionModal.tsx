@@ -39,6 +39,7 @@ import { fundApi, Fund } from "@/services";
 import { memberApi, Member } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import { configApi } from "@/services/config.api";
 
 interface EditContributionModalProps {
   open: boolean;
@@ -71,6 +72,21 @@ export function EditContributionModal({ open, onOpenChange, contribution, onSucc
   const [fundOpen, setFundOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [fundSearch, setFundSearch] = useState("");
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  useEffect(() => {
+    if (open) {
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
+    }
+  }, [open]);
+
+  const formatAmount = (amount: number) => {
+    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    return `${prefix}${amount.toFixed(2)}`;
+  };
 
   // Initialize form data when contribution changes
   useEffect(() => {
@@ -192,7 +208,7 @@ export function EditContributionModal({ open, onOpenChange, contribution, onSucc
     if (selectedFund && selectedFund.default_amount && amount < selectedFund.default_amount) {
       toast({
         title: "Validation Error",
-        description: `Minimum contribution for ${selectedFund.fund_name} is $${selectedFund.default_amount}.`,
+        description: `Minimum contribution for ${selectedFund.fund_name} is ${formatAmount(selectedFund.default_amount)}.`,
         variant: "destructive",
       });
       return;
@@ -388,7 +404,9 @@ export function EditContributionModal({ open, onOpenChange, contribution, onSucc
                                 <div className="flex flex-col">
                                   <span>{fund.fund_name}</span>
                                   {fund.default_amount && (
-                                    <span className="text-xs text-muted-foreground">Default: ${fund.default_amount}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      Default: {formatAmount(fund.default_amount)}
+                                    </span>
                                   )}
                                 </div>
                               </CommandItem>
@@ -408,17 +426,19 @@ export function EditContributionModal({ open, onOpenChange, contribution, onSucc
                 Amount *
                 {selectedFund && (
                   <span className="text-xs text-muted-foreground ml-2">
-                    (Min: ${defaultAmount})
+                    (Min: {formatAmount(defaultAmount)})
                   </span>
                 )}
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
+                </span>
                 <Input
                   id="amount"
                   type="number"
                   placeholder={selectedFund ? `${defaultAmount}.00` : "0.00"}
-                  className="pl-7"
+                  className="pl-10"
                   min={defaultAmount}
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}

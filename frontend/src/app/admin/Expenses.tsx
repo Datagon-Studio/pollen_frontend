@@ -24,6 +24,7 @@ import { RecordExpenseModal } from "@/components/modals/RecordExpenseModal";
 import { EditExpenseModal } from "@/components/modals/EditExpenseModal";
 import { DeleteExpenseModal } from "@/components/modals/DeleteExpenseModal";
 import { expenseApi, Expense, ExpenseStats } from "@/services";
+import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -40,7 +41,7 @@ const categoryColors: Record<string, string> = {
   "Utilities": "bg-muted text-muted-foreground border-border",
 };
 
-// Helper function to format expense for display
+// Helper function to format expense for display (currency injected later)
 const formatExpenseForDisplay = (expense: Expense) => {
   try {
     const dateValue = expense.date ? new Date(expense.date) : new Date();
@@ -50,7 +51,7 @@ const formatExpenseForDisplay = (expense: Expense) => {
       expenseCategory: expense.expense_category,
       date: format(dateValue, "MMM d, yyyy"),
       dateValue: dateValue,
-      amount: `$${Number(expense.amount).toFixed(2)}`,
+      amount: Number(expense.amount).toFixed(2),
       amountValue: Number(expense.amount),
       notes: expense.notes || "",
       memberVisible: expense.member_visible,
@@ -64,7 +65,7 @@ const formatExpenseForDisplay = (expense: Expense) => {
       expenseCategory: expense.expense_category,
       date: format(fallbackDate, "MMM d, yyyy"),
       dateValue: fallbackDate,
-      amount: `$${Number(expense.amount).toFixed(2)}`,
+      amount: Number(expense.amount).toFixed(2),
       amountValue: Number(expense.amount),
       notes: expense.notes || "",
       memberVisible: expense.member_visible,
@@ -149,9 +150,22 @@ export default function Expenses() {
   const [sortColumn, setSortColumn] = useState<string | null>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const { toast } = useToast();
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  const formatAmount = useCallback(
+    (amount: number) => {
+      const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+      return `${prefix}${amount.toFixed(2)}`;
+    },
+    [currencyCode]
+  );
 
   useEffect(() => {
     loadExpenses();
+    configApi
+      .getMyConfig()
+      .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+      .catch(() => setCurrencyCode("GHS"));
   }, []);
 
   const loadExpenses = async () => {
@@ -320,7 +334,7 @@ export default function Expenses() {
         Category: expense.expenseCategory,
         Notes: expense.notes || "—",
         Visible: expense.memberVisible ? "Yes" : "No",
-        Amount: `$${expense.amountValue.toFixed(2)}`,
+        Amount: formatAmount(expense.amountValue),
       }));
 
       if (exportData.length === 0) {
@@ -400,7 +414,9 @@ export default function Expenses() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">Total Expenses (Filtered)</p>
-            <p className="text-2xl font-semibold text-foreground">${totalExpenses.toFixed(2)}</p>
+            <p className="text-2xl font-semibold text-foreground">
+              {formatAmount(totalExpenses)}
+            </p>
           </div>
 
           {/* Top row filters */}

@@ -11,6 +11,7 @@ import { EditFundModal } from "@/components/modals/EditFundModal";
 import { DeleteFundModal } from "@/components/modals/DeleteFundModal";
 import { FundDetailsModal } from "@/components/modals/FundDetailsModal";
 import { fundApi, Fund } from "@/services";
+import { configApi } from "@/services/config.api";
 import { contributionApi, FundContributionStats } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useToast } from "@/hooks/use-toast";
@@ -28,30 +29,36 @@ interface FundWithStats extends Fund {
 }
 
 // For FundDetailsModal compatibility
-const mapFundToModalFormat = (fund: FundWithStats) => ({
+const mapFundToModalFormat = (fund: FundWithStats, currencyCode: string) => {
+  const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+  return {
   id: fund.fund_id,
   name: fund.fund_name,
   status: fund.is_active ? "active" as const : "inactive" as const,
-  suggestedAmount: fund.default_amount ? `$${fund.default_amount}` : null,
+  suggestedAmount: fund.default_amount ? `${prefix}${fund.default_amount}` : null,
   collected: fund.totalCollected || 0,
   target: fund.fund_goal || null,
   contributors: fund.contributorCount || 0,
   description: fund.description || "",
   recurring: true,
   isPublic: fund.is_public,
-});
+  };
+};
 
 function FundCard({ 
   fund, 
   onViewDetails, 
   onEdit, 
-  onDelete 
+  onDelete,
+  currencyCode,
 }: { 
   fund: FundWithStats; 
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  currencyCode: string;
 }) {
+  const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
   return (
     <div className="bg-card border border-border rounded-lg p-5 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between mb-3">
@@ -62,7 +69,10 @@ function FundCard({
           <div className="flex-1">
             <h3 className="font-medium text-foreground">{fund.fund_name}</h3>
             {fund.default_amount && (
-              <p className="text-xs text-muted-foreground">Default: ${fund.default_amount}</p>
+              <p className="text-xs text-muted-foreground">
+                Default: {prefix}
+                {fund.default_amount}
+              </p>
             )}
           </div>
         </div>
@@ -136,7 +146,9 @@ function FundCard({
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Goal</span>
               <span className="font-medium text-foreground">
-                GHS {totalCollected.toLocaleString()} out of GHS {fundGoal.toLocaleString()}
+                {prefix}
+                {totalCollected.toLocaleString()} out of {prefix}
+                {fundGoal.toLocaleString()}
               </span>
             </div>
           </div>
@@ -167,10 +179,15 @@ export default function Funds() {
   const [loading, setLoading] = useState(true);
   const { account } = useAccount();
   const { toast } = useToast();
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   useEffect(() => {
     if (account?.account_id) {
       loadFunds();
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
     }
   }, [account?.account_id]);
 
@@ -300,7 +317,9 @@ export default function Funds() {
         <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-sm text-muted-foreground">Total Collected</p>
           <p className="text-2xl font-semibold text-foreground">
-            {loading ? "..." : `$${totalCollected.toLocaleString()}`}
+            {loading
+              ? "..."
+              : `${currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}${totalCollected.toLocaleString()}`}
           </p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
@@ -327,6 +346,7 @@ export default function Funds() {
                     onViewDetails={() => setSelectedFund(fund)}
                     onEdit={() => handleEdit(fund)}
                     onDelete={() => handleDelete(fund)}
+                    currencyCode={currencyCode}
                   />
                 ))}
               </div>
@@ -345,6 +365,7 @@ export default function Funds() {
                     onViewDetails={() => setSelectedFund(fund)}
                     onEdit={() => handleEdit(fund)}
                     onDelete={() => handleDelete(fund)}
+                    currencyCode={currencyCode}
                   />
                 ))}
               </div>
@@ -376,7 +397,7 @@ export default function Funds() {
       <FundDetailsModal 
         open={!!selectedFund && !showEditFund && !showDeleteFund} 
         onOpenChange={(open) => !open && setSelectedFund(null)} 
-        fund={selectedFund ? mapFundToModalFormat(selectedFund) : null}
+        fund={selectedFund ? mapFundToModalFormat(selectedFund, currencyCode) : null}
         onEdit={() => selectedFund && handleEdit(selectedFund)}
       />
     </AppLayout>

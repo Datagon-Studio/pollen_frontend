@@ -11,6 +11,11 @@ export type ExpenseVisibilityLevel = 'none' | 'summary' | 'detailed';
 export interface Config {
   config_id: string;
   account_id: string;
+  /**
+   * ISO 4217 currency code for this account's amounts.
+   * MVP: default 'GHS'. No FX conversion – purely display/formatting.
+   */
+  currency_code: string;
   smtp_profile_id: string | null;
   default_email_sender_id: string | null;
   payment_integration_id: string | null;
@@ -26,6 +31,7 @@ export interface Config {
 
 export interface CreateConfigInput {
   account_id: string;
+  currency_code?: string;
   smtp_profile_id?: string | null;
   default_email_sender_id?: string | null;
   payment_integration_id?: string | null;
@@ -38,6 +44,7 @@ export interface CreateConfigInput {
 }
 
 export interface UpdateConfigInput {
+  currency_code?: string;
   smtp_profile_id?: string | null;
   default_email_sender_id?: string | null;
   payment_integration_id?: string | null;
