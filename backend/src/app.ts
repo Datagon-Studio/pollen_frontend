@@ -25,9 +25,14 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// Health check - accessible at both /health and /api/v1/health
 app.get('/health', (_req, res) => {
   console.log('🏥 Health check called');
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/v1/health', (_req, res) => {
+  console.log('🏥 Health check called (via /api/v1/health)');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -40,7 +45,6 @@ app.get('/test', (_req, res) => {
     arkeselConfigured: !!process.env.ARKESEL_API_KEY,
   });
 });
-
 
 // API Routes
 app.use('/api/v1', routes);

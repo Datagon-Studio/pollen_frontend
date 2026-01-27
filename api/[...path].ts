@@ -33,6 +33,12 @@ async function loadApp() {
 // Export handler function - Vercel will call this
 export default async function handler(req: any, res: any) {
   try {
+    console.log('📥 Request received:', {
+      method: req.method,
+      url: req.url,
+      path: req.path || req.url,
+      headers: req.headers,
+    });
     const app = await loadApp();
     return app(req, res);
   } catch (error: any) {
