@@ -2,10 +2,6 @@
   "installCommand": "cd frontend && npm install && cd ../backend && npm install",
   "buildCommand": "cd backend && npm run build && cd ../frontend && npm run build",
   "outputDirectory": "frontend/dist",
-  "includeFiles": [
-    "api/**",
-    "backend/dist/**"
-  ],
   "rewrites": [
     {
       "source": "/((?!api).*)",
