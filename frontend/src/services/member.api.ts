@@ -15,7 +15,9 @@ export interface Member {
   updated_at: string;
 }
 
-export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'>;
+export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'> & {
+  isCollector?: boolean;
+};
 export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>>;
 
 export interface MemberStats {

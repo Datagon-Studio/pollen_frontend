@@ -10,6 +10,7 @@
 import { Request, Response } from 'express';
 import { userService } from './user.service.js';
 import { UpdateUserProfileInput } from './user.entity.js';
+import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 
 export class UserController {
   /**
@@ -85,6 +86,55 @@ export class UserController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update user profile';
       res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
+   * GET /api/v1/users/account-role/:accountId
+   * Get current user's role for a specific account
+   */
+  async getAccountRole(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+      const { accountId } = req.params;
+      
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      if (!accountId) {
+        res.status(400).json({
+          success: false,
+          error: 'Account ID is required',
+        });
+        return;
+      }
+
+      const accountRole = await userService.getAccountRole(userId, accountId);
+
+      if (!accountRole) {
+        res.status(404).json({
+          success: false,
+          error: 'Account role not found',
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        data: accountRole,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch account role';
+      res.status(500).json({
         success: false,
         error: message,
       });

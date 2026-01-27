@@ -25,6 +25,7 @@ import KYCVerification from "./app/admin/KYCVerification";
 import UserProfile from "./app/admin/UserProfile";
 import NotFound from "./app/NotFound";
 import { useAuth } from "./hooks/useAuth";
+import { useRoles } from "./hooks/useRoles";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,30 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return user ? <>{children}</> : <Navigate to="/signin" replace />;
+};
+
+// Superadmin-only route wrapper
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const { isSuperAdmin, loading: rolesLoading } = useRoles();
+
+  if (loading || rolesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 const App = () => {
@@ -130,9 +155,9 @@ const App = () => {
           <Route
             path="/kyc-verification"
             element={
-              <ProtectedRoute>
+              <SuperAdminRoute>
                 <KYCVerification />
-              </ProtectedRoute>
+              </SuperAdminRoute>
             }
           />
           <Route
