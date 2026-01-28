@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
-// Use relative path - works in both dev (Vite proxy) and production (same Vercel project)
-const API_BASE_URL = '/api/v1';
+// Use environment variable for backend URL, fallback to relative path
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

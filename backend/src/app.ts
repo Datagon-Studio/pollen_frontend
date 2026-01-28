@@ -67,7 +67,15 @@ app.get('/test', (_req, res) => {
 });
 
 // API Routes
+// On Vercel serverless, the function receives the full path including /api/v1
+// In local dev or standalone deployment, also use /api/v1
 app.use('/api/v1', routes);
+
+// Also mount routes at root for Vercel compatibility (in case path is stripped)
+if (process.env.VERCEL) {
+  app.use('/v1', routes);
+  app.use('/', routes); // Fallback
+}
 
 // 404 handler
 app.use((_req, res) => {
