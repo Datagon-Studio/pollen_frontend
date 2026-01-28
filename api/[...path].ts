@@ -32,13 +32,25 @@ async function loadApp() {
 
 // Export handler function - Vercel will call this
 export default async function handler(req: any, res: any) {
-  // Log immediately to verify function is being called
-  console.log('🚀 [...path] handler called:', {
+  // Log immediately to verify function is being called - this should appear in ALL requests to /api/*
+  console.log('🚀🚀🚀 [...path] CATCH-ALL HANDLER CALLED 🚀🚀🚀');
+  console.log('Request details:', {
     method: req.method,
     url: req.url,
     path: req.path,
     query: req.query,
+    headers: Object.keys(req.headers || {}),
   });
+  
+  // Quick test response to verify function is working
+  if (req.url?.includes('/test-catch-all')) {
+    return res.json({ 
+      message: 'Catch-all handler is working!',
+      url: req.url,
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  }
   
   try {
     const app = await loadApp();
