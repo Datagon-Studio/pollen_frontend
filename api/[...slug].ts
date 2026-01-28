@@ -32,46 +32,31 @@ async function loadApp() {
 
 // Export handler function - Vercel will call this
 export default async function handler(req: any, res: any) {
-  // Log immediately to verify function is being called - this should appear in ALL requests to /api/*
-  console.log('🚀🚀🚀 [...path] CATCH-ALL HANDLER CALLED 🚀🚀🚀');
-  console.log('Request details:', {
-    method: req.method,
-    url: req.url,
-    path: req.path,
-    query: req.query,
-    headers: Object.keys(req.headers || {}),
+  // Vercel converts the catch-all path to a query parameter: ...slug
+  // Reconstruct the correct path from the query parameter
+  const slugParam = req.query?.['...slug'];
+  const reconstructedPath = slugParam ? `/api/${slugParam}` : req.url;
+  
+  console.log('🚀 Handler called:', {
+    originalUrl: req.url,
+    slugParam: slugParam,
+    reconstructedPath: reconstructedPath,
   });
   
-  // Quick test response to verify function is working
-  if (req.url?.includes('/test-catch-all')) {
-    return res.json({ 
-      message: 'Catch-all handler is working!',
-      url: req.url,
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
+  // Override req.url with the reconstructed path so Express sees the correct route
+  req.url = reconstructedPath;
   
   try {
     const app = await loadApp();
-    console.log('✅ Express app loaded, passing request to Express');
-    console.log('📋 Request being passed to Express:', {
-      method: req.method,
-      url: req.url,
-      originalUrl: req.originalUrl,
-      path: req.path,
-      baseUrl: req.baseUrl,
-    });
+    console.log('✅ Passing to Express with corrected path:', req.url);
     return app(req, res);
   } catch (error: any) {
     console.error('❌ Handler error:', error);
-    console.error('Error stack:', error?.stack);
     if (!res.headersSent) {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to initialize server',
-        details: error?.message,
-        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        details: error?.message
       });
     }
   }
