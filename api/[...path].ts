@@ -55,6 +55,13 @@ export default async function handler(req: any, res: any) {
   try {
     const app = await loadApp();
     console.log('✅ Express app loaded, passing request to Express');
+    console.log('📋 Request being passed to Express:', {
+      method: req.method,
+      url: req.url,
+      originalUrl: req.originalUrl,
+      path: req.path,
+      baseUrl: req.baseUrl,
+    });
     return app(req, res);
   } catch (error: any) {
     console.error('❌ Handler error:', error);

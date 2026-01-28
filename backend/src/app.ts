@@ -25,6 +25,18 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Debug middleware to log all incoming requests
+app.use((req, _res, next) => {
+  console.log('📥 Express received request:', {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    baseUrl: req.baseUrl,
+  });
+  next();
+});
+
 // Health check - accessible at both /health and /api/v1/health
 app.get('/health', (_req, res) => {
   console.log('🏥 Health check called');
