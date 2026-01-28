@@ -28,11 +28,19 @@ app.use(express.urlencoded({ extended: true }));
 // Health check - accessible at both /health and /api/v1/health
 app.get('/health', (_req, res) => {
   console.log('🏥 Health check called');
+  // Prevent caching of health checks
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/v1/health', (_req, res) => {
   console.log('🏥 Health check called (via /api/v1/health)');
+  // Prevent caching of health checks
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -51,6 +59,10 @@ app.use('/api/v1', routes);
 
 // 404 handler
 app.use((_req, res) => {
+  // Prevent caching of 404 responses
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
