@@ -1,7 +1,13 @@
 import { supabase } from '@/lib/supabase';
 
-// Use environment variable for backend URL, fallback to relative path
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+// Backend URL:
+// - In development: use VITE_API_URL if defined (e.g. http://localhost:3333/api/v1)
+// - In production (Vercel): always hit same-origin /api/v1 so that
+//   requests go through the serverless function
+const API_BASE_URL =
+  import.meta.env.DEV && import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL
+    : '/api/v1';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
