@@ -32,22 +32,27 @@ async function loadApp() {
 
 // Export handler function - Vercel will call this
 export default async function handler(req: any, res: any) {
+  // Log immediately to verify function is being called
+  console.log('🚀 [...path] handler called:', {
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    query: req.query,
+  });
+  
   try {
-    console.log('📥 Request received:', {
-      method: req.method,
-      url: req.url,
-      path: req.path || req.url,
-      headers: req.headers,
-    });
     const app = await loadApp();
+    console.log('✅ Express app loaded, passing request to Express');
     return app(req, res);
   } catch (error: any) {
     console.error('❌ Handler error:', error);
+    console.error('Error stack:', error?.stack);
     if (!res.headersSent) {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to initialize server',
-        details: error?.message 
+        details: error?.message,
+        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
       });
     }
   }
