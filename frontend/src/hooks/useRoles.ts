@@ -14,14 +14,24 @@ let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function useRoles() {
-  const { account } = useAccount();
+  const { account, loading: accountLoading } = useAccount();
   const [platformRole, setPlatformRole] = useState<PlatformRole>(cachedPlatformRole);
   const [accountRole, setAccountRole] = useState<AccountRole | null>(cachedAccountRole);
-  const [loading, setLoading] = useState(!cachedAccountId || cachedAccountId !== account?.account_id);
+  // Important: keep loading true until account finishes loading; otherwise on refresh
+  // we may briefly resolve with accountRole=null and trigger redirects to "/".
+  const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+
+    // Wait for account to load (prevents route-guard redirects on refresh)
+    if (accountLoading) {
+      setLoading(true);
+      return () => {
+        mountedRef.current = false;
+      };
+    }
     
     // If account_id hasn't changed and we have cached data, use it immediately
     const now = Date.now();
@@ -57,7 +67,7 @@ export function useRoles() {
     return () => {
       mountedRef.current = false;
     };
-  }, [account?.account_id]);
+  }, [account?.account_id, accountLoading]);
 
   const loadRoles = async () => {
     try {
@@ -77,6 +87,8 @@ export function useRoles() {
           // If user doesn't have account role, default to null
           setAccountRole(null);
         }
+      } else {
+        setAccountRole(null);
       }
 
       // Update cache
