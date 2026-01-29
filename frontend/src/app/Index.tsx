@@ -25,6 +25,7 @@ import {
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
+import { KycSetupBanner } from "@/components/banners/KycSetupBanner";
 import { useAccount } from "@/hooks/useAccount";
 import { fundApi, Fund } from "@/services";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
@@ -205,6 +206,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
+      <KycSetupBanner />
       {/* Header with Logo and Fund Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
