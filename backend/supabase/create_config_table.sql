@@ -82,7 +82,9 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql 
+SECURITY DEFINER 
+SET search_path = pg_catalog, public;
 
 -- Create trigger to automatically create config when account is created
 DROP TRIGGER IF EXISTS on_account_created_config ON public.accounts;
