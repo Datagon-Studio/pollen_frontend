@@ -160,6 +160,7 @@ ALTER TABLE user_accounts ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Service role (backend) can do everything
 -- Note: Service role should bypass RLS, but this ensures compatibility
+DROP POLICY IF EXISTS "Service role full access on accounts" ON accounts;
 CREATE POLICY "Service role full access on accounts"
 ON accounts
 FOR ALL
@@ -168,6 +169,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read their own account (via user_accounts join)
+DROP POLICY IF EXISTS "Users can read their own account" ON accounts;
 CREATE POLICY "Users can read their own account"
 ON accounts
 FOR SELECT
@@ -181,6 +183,7 @@ USING (
 );
 
 -- Policy: Users can update their own account (via user_accounts join)
+DROP POLICY IF EXISTS "Users can update their own account" ON accounts;
 CREATE POLICY "Users can update their own account"
 ON accounts
 FOR UPDATE
@@ -202,6 +205,7 @@ WITH CHECK (
 
 -- Policy: Allow account creation (for trigger function and backend)
 -- SECURITY DEFINER functions run as function owner, but we need a policy
+DROP POLICY IF EXISTS "Allow account creation" ON accounts;
 CREATE POLICY "Allow account creation"
 ON accounts
 FOR INSERT
@@ -212,6 +216,7 @@ WITH CHECK (true);
 -- =====================================================
 
 -- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on user_accounts" ON user_accounts;
 CREATE POLICY "Service role full access on user_accounts"
 ON user_accounts
 FOR ALL
@@ -220,17 +225,50 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read their own account links
+DROP POLICY IF EXISTS "Users can read their own account links" ON user_accounts;
 CREATE POLICY "Users can read their own account links"
 ON user_accounts
 FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
--- Policy: Allow user_account creation (for trigger function and backend)
+-- Policy: Users can only create user_account links for themselves
+-- The SECURITY DEFINER trigger and service_role backend can still insert via other policies
+DROP POLICY IF EXISTS "Allow user_account creation" ON user_accounts;
 CREATE POLICY "Allow user_account creation"
 ON user_accounts
 FOR INSERT
-WITH CHECK (true);
+TO authenticated
+WITH CHECK (
+  -- User can only insert their own user_id
+  user_id = auth.uid()
+  -- Prevent self-promotion to admin (backend should handle this)
+  AND role IN ('member', 'viewer')
+);
+
+-- Policy: Users can update only their own account links
+-- Prevent privilege escalation by disallowing role changes
+DROP POLICY IF EXISTS "Users can update their own account links" ON user_accounts;
+CREATE POLICY "Users can update their own account links"
+ON user_accounts
+FOR UPDATE
+TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (
+  -- Ensure user_id remains the same (no transferring ownership)
+  user_id = auth.uid()
+  -- Prevent self-promotion (role changes should be backend-only)
+  AND role = (SELECT role FROM user_accounts WHERE id = user_accounts.id)
+);
+
+-- Policy: Users can delete only their own account links
+-- Allows users to leave accounts they're members of
+DROP POLICY IF EXISTS "Users can delete their own account links" ON user_accounts;
+CREATE POLICY "Users can delete their own account links"
+ON user_accounts
+FOR DELETE
+TO authenticated
+USING (user_id = auth.uid());
 
 -- =====================================================
 -- Verification Query
