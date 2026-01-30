@@ -21,9 +21,10 @@ CREATE INDEX IF NOT EXISTS idx_otp_codes_expires ON otp_codes(expires_at);
 CREATE OR REPLACE FUNCTION cleanup_expired_otps()
 RETURNS void AS $$
 BEGIN
-  DELETE FROM otp_codes WHERE expires_at < NOW();
+  DELETE FROM public.otp_codes WHERE expires_at < NOW();
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql 
+SET search_path = pg_catalog, public;
 
 -- Add comment
 COMMENT ON TABLE otp_codes IS 'Stores OTP verification codes for email and phone verification during member registration';
