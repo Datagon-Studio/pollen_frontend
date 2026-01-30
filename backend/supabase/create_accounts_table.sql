@@ -203,13 +203,10 @@ WITH CHECK (
   )
 );
 
--- Policy: Allow account creation (for trigger function and backend)
--- SECURITY DEFINER functions run as function owner, but we need a policy
+-- Policy: Account creation is ONLY allowed via service_role (backend/trigger)
+-- SECURITY DEFINER trigger bypasses RLS, so no authenticated policy needed
+-- This prevents clients from creating arbitrary accounts
 DROP POLICY IF EXISTS "Allow account creation" ON accounts;
-CREATE POLICY "Allow account creation"
-ON accounts
-FOR INSERT
-WITH CHECK (true);
 
 -- =====================================================
 -- RLS Policies for user_accounts table
