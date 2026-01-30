@@ -90,3 +90,86 @@ COMMENT ON COLUMN account_kyc.passport_photo_url IS 'URL to passport photo (requ
 COMMENT ON COLUMN account_kyc.national_id_url IS 'URL to National ID PDF (front and back combined, required for all accounts)';
 COMMENT ON COLUMN account_kyc.verified_by IS 'User ID of the admin who verified the KYC';
 COMMENT ON COLUMN account_kyc.verified_at IS 'Timestamp when KYC was verified';
+
+-- =====================================================
+-- Security: Row Level Security (RLS) Setup
+-- =====================================================
+
+-- Enable RLS on the table
+ALTER TABLE account_kyc ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on account_kyc" ON account_kyc;
+CREATE POLICY "Service role full access on account_kyc"
+ON account_kyc
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+-- Policy: Users can read KYC for their own account
+DROP POLICY IF EXISTS "Users can read their own account KYC" ON account_kyc;
+CREATE POLICY "Users can read their own account KYC"
+ON account_kyc
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = account_kyc.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Users can create KYC for their own account
+DROP POLICY IF EXISTS "Users can create KYC for their account" ON account_kyc;
+CREATE POLICY "Users can create KYC for their account"
+ON account_kyc
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = account_kyc.account_id
+    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.role = 'admin'
+  )
+);
+
+-- Policy: Users can update KYC for their own account
+DROP POLICY IF EXISTS "Users can update KYC for their account" ON account_kyc;
+CREATE POLICY "Users can update KYC for their account"
+ON account_kyc
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = account_kyc.account_id
+    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = account_kyc.account_id
+    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.role = 'admin'
+  )
+);
+
+-- Policy: Users can delete KYC for their own account
+DROP POLICY IF EXISTS "Users can delete KYC for their account" ON account_kyc;
+CREATE POLICY "Users can delete KYC for their account"
+ON account_kyc
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = account_kyc.account_id
+    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.role = 'admin'
+  )
+);

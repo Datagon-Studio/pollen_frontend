@@ -81,17 +81,81 @@ COMMENT ON COLUMN contributions.status IS 'Contribution status: pending, confirm
 -- =====================================================
 -- Security: Row Level Security (RLS) Setup
 -- =====================================================
--- Note: RLS is disabled for now as per requirements
--- When ready to enable, uncomment the following:
 
--- ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
+-- Enable RLS on the table
+ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
 
--- -- Policy: Service role can do everything (backend access)
--- CREATE POLICY "Service role full access"
---   ON contributions
---   FOR ALL
---   USING (true)
---   WITH CHECK (true);
+-- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on contributions" ON contributions;
+CREATE POLICY "Service role full access on contributions"
+ON contributions
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+-- Policy: Users can read contributions for their own account
+DROP POLICY IF EXISTS "Users can read contributions for their account" ON contributions;
+CREATE POLICY "Users can read contributions for their account"
+ON contributions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = contributions.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Users can create contributions for their own account
+DROP POLICY IF EXISTS "Users can create contributions for their account" ON contributions;
+CREATE POLICY "Users can create contributions for their account"
+ON contributions
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = contributions.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Users can update contributions for their own account
+DROP POLICY IF EXISTS "Users can update contributions for their account" ON contributions;
+CREATE POLICY "Users can update contributions for their account"
+ON contributions
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = contributions.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = contributions.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
+
+-- Policy: Users can delete contributions for their own account
+DROP POLICY IF EXISTS "Users can delete contributions for their account" ON contributions;
+CREATE POLICY "Users can delete contributions for their account"
+ON contributions
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM user_accounts
+    WHERE user_accounts.account_id = contributions.account_id
+    AND user_accounts.user_id = auth.uid()
+  )
+);
 
 -- =====================================================
 -- Verification Query
