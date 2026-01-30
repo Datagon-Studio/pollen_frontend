@@ -39,7 +39,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Drop trigger if exists (for idempotency)
 DROP TRIGGER IF EXISTS update_funds_updated_at ON funds;
@@ -71,6 +72,7 @@ ALTER TABLE funds ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 
 -- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on funds" ON funds;
 CREATE POLICY "Service role full access on funds"
 ON funds
 FOR ALL
@@ -79,6 +81,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read funds for their own account
+DROP POLICY IF EXISTS "Users can read funds for their account" ON funds;
 CREATE POLICY "Users can read funds for their account"
 ON funds
 FOR SELECT
@@ -92,6 +95,7 @@ USING (
 );
 
 -- Policy: Users can create funds for their own account
+DROP POLICY IF EXISTS "Users can create funds for their account" ON funds;
 CREATE POLICY "Users can create funds for their account"
 ON funds
 FOR INSERT
@@ -105,6 +109,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can update funds for their own account
+DROP POLICY IF EXISTS "Users can update funds for their account" ON funds;
 CREATE POLICY "Users can update funds for their account"
 ON funds
 FOR UPDATE
@@ -125,6 +130,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can delete funds for their own account
+DROP POLICY IF EXISTS "Users can delete funds for their account" ON funds;
 CREATE POLICY "Users can delete funds for their account"
 ON funds
 FOR DELETE

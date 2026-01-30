@@ -43,7 +43,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Drop trigger if exists (for idempotency)
 DROP TRIGGER IF EXISTS update_expenses_updated_at ON expenses;
@@ -77,6 +78,7 @@ ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 
 -- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on expenses" ON expenses;
 CREATE POLICY "Service role full access on expenses"
 ON expenses
 FOR ALL
@@ -85,6 +87,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read expenses for their own account
+DROP POLICY IF EXISTS "Users can read expenses for their account" ON expenses;
 CREATE POLICY "Users can read expenses for their account"
 ON expenses
 FOR SELECT
@@ -98,6 +101,7 @@ USING (
 );
 
 -- Policy: Users can create expenses for their own account
+DROP POLICY IF EXISTS "Users can create expenses for their account" ON expenses;
 CREATE POLICY "Users can create expenses for their account"
 ON expenses
 FOR INSERT
@@ -112,6 +116,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can update expenses for their own account
+DROP POLICY IF EXISTS "Users can update expenses for their account" ON expenses;
 CREATE POLICY "Users can update expenses for their account"
 ON expenses
 FOR UPDATE
@@ -132,6 +137,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can delete expenses for their own account
+DROP POLICY IF EXISTS "Users can delete expenses for their account" ON expenses;
 CREATE POLICY "Users can delete expenses for their account"
 ON expenses
 FOR DELETE

@@ -59,7 +59,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Create trigger to update updated_at on row update
 DROP TRIGGER IF EXISTS update_settlement_details_updated_at ON account_settlement_details;
@@ -91,6 +92,7 @@ ALTER TABLE account_settlement_details ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 
 -- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on settlement details" ON account_settlement_details;
 CREATE POLICY "Service role full access on settlement details"
 ON account_settlement_details
 FOR ALL
@@ -99,6 +101,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read settlement details for their own account
+DROP POLICY IF EXISTS "Users can read settlement details for their account" ON account_settlement_details;
 CREATE POLICY "Users can read settlement details for their account"
 ON account_settlement_details
 FOR SELECT
@@ -112,6 +115,7 @@ USING (
 );
 
 -- Policy: Users can create settlement details for their own account
+DROP POLICY IF EXISTS "Users can create settlement details for their account" ON account_settlement_details;
 CREATE POLICY "Users can create settlement details for their account"
 ON account_settlement_details
 FOR INSERT
@@ -125,6 +129,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can update settlement details for their own account
+DROP POLICY IF EXISTS "Users can update settlement details for their account" ON account_settlement_details;
 CREATE POLICY "Users can update settlement details for their account"
 ON account_settlement_details
 FOR UPDATE
@@ -145,6 +150,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can delete settlement details for their own account
+DROP POLICY IF EXISTS "Users can delete settlement details for their account" ON account_settlement_details;
 CREATE POLICY "Users can delete settlement details for their account"
 ON account_settlement_details
 FOR DELETE

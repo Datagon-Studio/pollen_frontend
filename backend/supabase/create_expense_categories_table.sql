@@ -32,7 +32,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Create trigger to update updated_at on row update
 DROP TRIGGER IF EXISTS update_expense_categories_updated_at ON expense_categories;
@@ -86,6 +87,7 @@ COMMENT ON COLUMN expense_categories.is_active IS 'Whether this category is curr
 ALTER TABLE expense_categories ENABLE ROW LEVEL SECURITY;
 
 -- Policy: All authenticated users can read active expense categories
+DROP POLICY IF EXISTS "Users can read active expense categories" ON expense_categories;
 CREATE POLICY "Users can read active expense categories"
 ON expense_categories
 FOR SELECT
@@ -93,6 +95,7 @@ TO authenticated
 USING (is_active = true);
 
 -- Policy: Service role has full access (for backend management)
+DROP POLICY IF EXISTS "Service role full access on expense categories" ON expense_categories;
 CREATE POLICY "Service role full access on expense categories"
 ON expense_categories
 FOR ALL

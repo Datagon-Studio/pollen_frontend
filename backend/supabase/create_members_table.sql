@@ -44,7 +44,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Drop trigger if exists (for idempotency)
 DROP TRIGGER IF EXISTS update_members_updated_at ON members;
@@ -78,6 +79,7 @@ ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 
 -- Policy: Service role (backend) can do everything
+DROP POLICY IF EXISTS "Service role full access on members" ON members;
 CREATE POLICY "Service role full access on members"
 ON members
 FOR ALL
@@ -86,6 +88,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Policy: Users can read members for their own account
+DROP POLICY IF EXISTS "Users can read members for their account" ON members;
 CREATE POLICY "Users can read members for their account"
 ON members
 FOR SELECT
@@ -99,6 +102,7 @@ USING (
 );
 
 -- Policy: Users can create members for their own account
+DROP POLICY IF EXISTS "Users can create members for their account" ON members;
 CREATE POLICY "Users can create members for their account"
 ON members
 FOR INSERT
@@ -112,6 +116,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can update members for their own account
+DROP POLICY IF EXISTS "Users can update members for their account" ON members;
 CREATE POLICY "Users can update members for their account"
 ON members
 FOR UPDATE
@@ -132,6 +137,7 @@ WITH CHECK (
 );
 
 -- Policy: Users can delete members for their own account
+DROP POLICY IF EXISTS "Users can delete members for their account" ON members;
 CREATE POLICY "Users can delete members for their account"
 ON members
 FOR DELETE
