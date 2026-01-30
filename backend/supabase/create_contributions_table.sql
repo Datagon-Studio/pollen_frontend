@@ -56,6 +56,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger to update updated_at on row update
+DROP TRIGGER IF EXISTS update_contributions_updated_at ON contributions;
 CREATE TRIGGER update_contributions_updated_at
   BEFORE UPDATE ON contributions
   FOR EACH ROW
