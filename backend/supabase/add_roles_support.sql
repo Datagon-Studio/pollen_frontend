@@ -18,7 +18,9 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql 
+SECURITY DEFINER 
+SET search_path = pg_catalog, public;
 
 -- Update user_accounts table to support officer role
 ALTER TABLE user_accounts DROP CONSTRAINT IF EXISTS user_accounts_role_check;
