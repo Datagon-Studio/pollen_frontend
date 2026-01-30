@@ -41,7 +41,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Create trigger to update updated_at on row update
 DROP TRIGGER IF EXISTS update_account_public_pages_updated_at ON account_public_pages;
