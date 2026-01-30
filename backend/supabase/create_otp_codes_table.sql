@@ -40,6 +40,7 @@ ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Allow public read access to OTP codes (needed for verification)
 -- But only for unverified, non-expired codes
+DROP POLICY IF EXISTS "Allow public read access to active OTP codes" ON otp_codes;
 CREATE POLICY "Allow public read access to active OTP codes"
 ON otp_codes FOR SELECT
 TO public
@@ -48,20 +49,15 @@ USING (
   AND expires_at > NOW()
 );
 
--- Policy: Allow public insert for creating OTP codes (for registration)
-CREATE POLICY "Allow public insert for OTP codes"
-ON otp_codes FOR INSERT
-TO public
-WITH CHECK (true);
+-- Policy: OTP insert/update is ONLY allowed via service_role (backend)
+-- This prevents clients from creating/modifying arbitrary OTP codes
+-- The backend uses service_role key which bypasses RLS entirely
+-- No public/authenticated INSERT/UPDATE policies needed - removed for security
+DROP POLICY IF EXISTS "Allow public insert for OTP codes" ON otp_codes;
+DROP POLICY IF EXISTS "Allow public update for OTP verification" ON otp_codes;
 
--- Policy: Allow public update for verification attempts
-CREATE POLICY "Allow public update for OTP verification"
-ON otp_codes FOR UPDATE
-TO public
-USING (verified = false AND expires_at > NOW())
-WITH CHECK (verified = false OR verified = true);
-
--- Policy: Allow service role full access (for cleanup, admin operations)
+-- Policy: Allow service role full access (for creation, cleanup, admin operations)
+DROP POLICY IF EXISTS "Allow service role full access" ON otp_codes;
 CREATE POLICY "Allow service role full access"
 ON otp_codes
 FOR ALL
