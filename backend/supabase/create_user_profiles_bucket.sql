@@ -39,7 +39,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'user-profiles'
-  AND name LIKE 'profile-images/' || auth.uid()::text || '/%'
+  AND name LIKE 'profile-images/' || (SELECT auth.uid())::text || '/%'
 );
 
 -- =====================================================
@@ -52,11 +52,11 @@ FOR UPDATE
 TO authenticated
 USING (
   bucket_id = 'user-profiles'
-  AND name LIKE 'profile-images/' || auth.uid()::text || '/%'
+  AND name LIKE 'profile-images/' || (SELECT auth.uid())::text || '/%'
 )
 WITH CHECK (
   bucket_id = 'user-profiles'
-  AND name LIKE 'profile-images/' || auth.uid()::text || '/%'
+  AND name LIKE 'profile-images/' || (SELECT auth.uid())::text || '/%'
 );
 
 -- =====================================================
@@ -69,7 +69,7 @@ FOR DELETE
 TO authenticated
 USING (
   bucket_id = 'user-profiles'
-  AND name LIKE 'profile-images/' || auth.uid()::text || '/%'
+  AND name LIKE 'profile-images/' || (SELECT auth.uid())::text || '/%'
 );
 
 -- =====================================================

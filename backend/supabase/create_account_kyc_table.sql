@@ -117,7 +117,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_kyc.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -131,7 +131,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_kyc.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
 );
@@ -146,7 +146,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_kyc.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
 )
@@ -154,7 +154,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_kyc.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
 );
@@ -169,7 +169,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_kyc.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
 );

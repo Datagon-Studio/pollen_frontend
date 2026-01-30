@@ -15,8 +15,8 @@ CREATE POLICY "Users can update own profile"
   ON users
   FOR UPDATE
   TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Add comment
 COMMENT ON COLUMN users.phone_number IS 'User phone number';

@@ -30,8 +30,8 @@ TO authenticated
 WITH CHECK (
   bucket_id = 'kyc-documents'
   AND (
-    (storage.foldername(name))[1] = auth.uid()::text
-    OR name LIKE '%/' || auth.uid()::text || '/%'
+    (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
   )
 );
 
@@ -45,8 +45,8 @@ TO authenticated
 USING (
   bucket_id = 'kyc-documents'
   AND (
-    (storage.foldername(name))[1] = auth.uid()::text
-    OR name LIKE '%/' || auth.uid()::text || '/%'
+    (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
   )
 );
 
@@ -60,15 +60,15 @@ TO authenticated
 USING (
   bucket_id = 'kyc-documents'
   AND (
-    (storage.foldername(name))[1] = auth.uid()::text
-    OR name LIKE '%/' || auth.uid()::text || '/%'
+    (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
   )
 )
 WITH CHECK (
   bucket_id = 'kyc-documents'
   AND (
-    (storage.foldername(name))[1] = auth.uid()::text
-    OR name LIKE '%/' || auth.uid()::text || '/%'
+    (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
   )
 );
 
@@ -82,8 +82,8 @@ TO authenticated
 USING (
   bucket_id = 'kyc-documents'
   AND (
-    (storage.foldername(name))[1] = auth.uid()::text
-    OR name LIKE '%/' || auth.uid()::text || '/%'
+    (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
   )
 );
 
@@ -99,7 +99,7 @@ USING (
   AND (
     EXISTS (
       SELECT 1 FROM users u
-      WHERE u.user_id = auth.uid()
+      WHERE u.user_id = (SELECT auth.uid())
       AND u.role IN ('admin', 'super_admin')
     )
   )

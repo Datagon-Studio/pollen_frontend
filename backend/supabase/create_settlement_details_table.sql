@@ -110,7 +110,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_settlement_details.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -124,7 +124,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_settlement_details.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -138,14 +138,14 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_settlement_details.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_settlement_details.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -159,6 +159,6 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = account_settlement_details.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );

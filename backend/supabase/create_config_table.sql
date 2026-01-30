@@ -138,7 +138,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = config.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -154,7 +154,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = config.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
 )
@@ -162,7 +162,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = config.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
     AND user_accounts.role = 'admin'
   )
   -- Ensure member_portal_enabled is always true (column name refers to NEW value in WITH CHECK)

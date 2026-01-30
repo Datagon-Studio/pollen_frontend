@@ -181,7 +181,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = accounts.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -195,14 +195,14 @@ USING (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = accounts.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_accounts
     WHERE user_accounts.account_id = accounts.account_id
-    AND user_accounts.user_id = auth.uid()
+    AND user_accounts.user_id = (SELECT auth.uid())
   )
 );
 
@@ -230,7 +230,7 @@ CREATE POLICY "Users can read their own account links"
 ON user_accounts
 FOR SELECT
 TO authenticated
-USING (user_id = auth.uid());
+USING (user_id = (SELECT auth.uid()));
 
 -- Policy: Users can only create user_account links for themselves
 -- The SECURITY DEFINER trigger and service_role backend can still insert via other policies
@@ -241,7 +241,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   -- User can only insert their own user_id
-  user_id = auth.uid()
+  user_id = (SELECT auth.uid())
   -- Prevent self-promotion to admin (backend should handle this)
   AND role IN ('member', 'viewer')
 );
@@ -253,10 +253,10 @@ CREATE POLICY "Users can update their own account links"
 ON user_accounts
 FOR UPDATE
 TO authenticated
-USING (user_id = auth.uid())
+USING (user_id = (SELECT auth.uid()))
 WITH CHECK (
   -- Ensure user_id remains the same (no transferring ownership)
-  user_id = auth.uid()
+  user_id = (SELECT auth.uid())
   -- Prevent self-promotion (role changes should be backend-only)
   AND role = (SELECT role FROM user_accounts WHERE id = user_accounts.id)
 );
@@ -268,7 +268,7 @@ CREATE POLICY "Users can delete their own account links"
 ON user_accounts
 FOR DELETE
 TO authenticated
-USING (user_id = auth.uid());
+USING (user_id = (SELECT auth.uid()));
 
 -- =====================================================
 -- Verification Query

@@ -35,7 +35,7 @@ CREATE POLICY "Users can view own profile"
   ON users
   FOR SELECT
   TO authenticated
-  USING (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can update their own profile
 -- Allow updating full_name and profile_image_url
@@ -43,8 +43,8 @@ CREATE POLICY "Users can update own profile"
   ON users
   FOR UPDATE
   TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Policy: Service role can do everything (backend access)
 -- Note: Service role should bypass RLS, but this policy ensures compatibility

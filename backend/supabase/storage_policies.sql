@@ -13,6 +13,7 @@
 -- Policy 1: Public Read Access
 -- =====================================================
 -- Everyone (including anonymous users) can view/download logos
+DROP POLICY IF EXISTS "Public can view logos" ON storage.objects;
 CREATE POLICY "Public can view logos"
 ON storage.objects
 FOR SELECT
@@ -23,6 +24,7 @@ USING (bucket_id = 'account-logos');
 -- Policy 2: Admin/Super Admin Upload
 -- =====================================================
 -- Only authenticated users with admin role can upload logos
+DROP POLICY IF EXISTS "Admins can upload logos" ON storage.objects;
 CREATE POLICY "Admins can upload logos"
 ON storage.objects
 FOR INSERT
@@ -34,7 +36,7 @@ WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts ua
       JOIN users u ON ua.user_id = u.user_id
-      WHERE ua.user_id = auth.uid()
+      WHERE ua.user_id = (SELECT auth.uid())
       AND u.role IN ('admin', 'super_admin')
     )
   )
@@ -44,6 +46,7 @@ WITH CHECK (
 -- Policy 3: Admin/Super Admin Update
 -- =====================================================
 -- Only admins can update/replace logos
+DROP POLICY IF EXISTS "Admins can update logos" ON storage.objects;
 CREATE POLICY "Admins can update logos"
 ON storage.objects
 FOR UPDATE
@@ -54,7 +57,7 @@ USING (
     EXISTS (
       SELECT 1 FROM user_accounts ua
       JOIN users u ON ua.user_id = u.user_id
-      WHERE ua.user_id = auth.uid()
+      WHERE ua.user_id = (SELECT auth.uid())
       AND u.role IN ('admin', 'super_admin')
     )
   )
@@ -65,7 +68,7 @@ WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts ua
       JOIN users u ON ua.user_id = u.user_id
-      WHERE ua.user_id = auth.uid()
+      WHERE ua.user_id = (SELECT auth.uid())
       AND u.role IN ('admin', 'super_admin')
     )
   )
@@ -75,6 +78,7 @@ WITH CHECK (
 -- Policy 4: Admin/Super Admin Delete
 -- =====================================================
 -- Only admins can delete logos
+DROP POLICY IF EXISTS "Admins can delete logos" ON storage.objects;
 CREATE POLICY "Admins can delete logos"
 ON storage.objects
 FOR DELETE
@@ -85,7 +89,7 @@ USING (
     EXISTS (
       SELECT 1 FROM user_accounts ua
       JOIN users u ON ua.user_id = u.user_id
-      WHERE ua.user_id = auth.uid()
+      WHERE ua.user_id = (SELECT auth.uid())
       AND u.role IN ('admin', 'super_admin')
     )
   )
@@ -95,6 +99,7 @@ USING (
 -- Policy 5: Service Role Full Access
 -- =====================================================
 -- Backend (service role) can do everything
+DROP POLICY IF EXISTS "Service role full access to logos" ON storage.objects;
 CREATE POLICY "Service role full access to logos"
 ON storage.objects
 FOR ALL
