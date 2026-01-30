@@ -138,7 +138,9 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql 
+SECURITY DEFINER 
+SET search_path = pg_catalog, public;
 
 -- Create trigger to automatically create account when user profile is created
 DROP TRIGGER IF EXISTS on_user_profile_created ON public.users;
