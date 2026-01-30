@@ -166,11 +166,7 @@ WITH CHECK (
   AND member_portal_enabled = true
 );
 
--- Policy: Allow config creation (for trigger function and backend)
--- Drop existing policy if it exists
+-- Policy: Config creation is ONLY allowed via service_role (backend/trigger)
+-- SECURITY DEFINER trigger bypasses RLS, so no authenticated policy needed
+-- This prevents clients from creating arbitrary config entries
 DROP POLICY IF EXISTS "Allow config creation" ON config;
-
-CREATE POLICY "Allow config creation"
-ON config
-FOR INSERT
-WITH CHECK (true);
