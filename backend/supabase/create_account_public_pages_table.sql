@@ -155,9 +155,7 @@ WITH CHECK (
   )
 );
 
--- Policy: Allow public page creation (for trigger function and backend)
+-- Policy: Public page creation is ONLY allowed via service_role (backend/trigger)
+-- SECURITY DEFINER trigger bypasses RLS, so no authenticated policy needed
+-- This prevents clients from creating arbitrary public pages
 DROP POLICY IF EXISTS "Allow public page creation" ON account_public_pages;
-CREATE POLICY "Allow public page creation"
-ON account_public_pages
-FOR INSERT
-WITH CHECK (true);
