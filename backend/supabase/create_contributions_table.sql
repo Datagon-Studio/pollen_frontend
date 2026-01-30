@@ -53,7 +53,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog, public;
 
 -- Create trigger to update updated_at on row update
 DROP TRIGGER IF EXISTS update_contributions_updated_at ON contributions;
