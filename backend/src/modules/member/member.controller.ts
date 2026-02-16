@@ -388,7 +388,7 @@ memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => 
     // Send OTP via Arkesel (Arkesel generates and sends the OTP)
     const result = await arkeselService.sendOTP(
       member.phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );

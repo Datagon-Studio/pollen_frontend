@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { settlementApi } from "@/services/settlement.api";
 import { Banknote, ShieldAlert, X } from "lucide-react";
 
@@ -13,7 +14,8 @@ function getStorageKey(accountId?: string) {
 }
 
 export function KycSetupBanner() {
-  const { account, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
+  const { account, loading: accountLoading } = useAccount(user?.id);
   const [dismissed, setDismissed] = useState<boolean>(false);
   const [settlementReady, setSettlementReady] = useState<boolean | null>(null);
 

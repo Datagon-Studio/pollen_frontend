@@ -6,7 +6,7 @@ const PORT = parseInt(env.PORT, 10);
 
 app.listen(PORT, () => {
   console.log('═══════════════════════════════════════════════════════');
-  console.log('🚀 PollenHive Backend Server Started');
+  console.log('🚀 Pollean Backend Server Started');
   console.log('═══════════════════════════════════════════════════════');
   console.log(`🐝 API running on port ${PORT}`);
   console.log(`📍 Environment: ${env.NODE_ENV}`);

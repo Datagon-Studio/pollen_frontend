@@ -27,6 +27,7 @@ import {
   Cell,
 } from "recharts";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { reportingApi, MonthlyData, FundBreakdown, NetPosition } from "@/services/reporting.api";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -40,7 +41,8 @@ const FUND_COLORS = [
 ];
 
 export default function Reports() {
-  const { account, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
+  const { account, loading: accountLoading } = useAccount(user?.id);
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<number>(6); // months

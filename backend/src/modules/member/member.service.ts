@@ -512,7 +512,7 @@ If you didn't expect this email, please contact the administrator.
     const verificationUrl = `${frontendUrl}/verify-member-email?token=${verificationToken}`;
 
     // Send email via Postmark
-    const emailSubject = 'Verify Your Email - PollenHive';
+    const emailSubject = 'Verify Your Email - Pollean';
     const emailBody = `
       <!DOCTYPE html>
       <html>

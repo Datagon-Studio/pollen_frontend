@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { clearAccountCache } from "./useAccount";
 
 const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes in milliseconds
 
@@ -32,6 +33,8 @@ export function useAuth() {
       }
       // Clear any cached data
       localStorage.removeItem('public_group_session');
+      // Clear account cache
+      clearAccountCache();
     } catch (error) {
       console.error('Failed to logout:', error);
       // Force clear user state even on error
@@ -40,6 +43,8 @@ export function useAuth() {
         clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = null;
       }
+      // Clear account cache even on error
+      clearAccountCache();
     }
   }, []);
 
@@ -115,7 +120,15 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       
-      setUser(session?.user ?? null);
+      const newUser = session?.user ?? null;
+      const previousUser = user;
+      
+      // Clear account cache if user changed or logged out
+      if (!newUser || (previousUser && newUser?.id !== previousUser.id)) {
+        clearAccountCache();
+      }
+      
+      setUser(newUser);
       setLoading(false);
       if (session?.user && !isPublicRoute()) {
         resetInactivityTimer();

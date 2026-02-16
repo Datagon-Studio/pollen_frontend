@@ -25,6 +25,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, getYear, getMonth, setMonth as setMonthDate, setYear as setYearDate } from "date-fns";
 import { memberApi } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import type { CaptionProps } from "react-day-picker";
 
 // DatePicker component with custom caption
@@ -159,7 +160,8 @@ interface AddMemberModalProps {
 
 export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModalProps) {
   const { toast } = useToast();
-  const { account } = useAccount();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const [saving, setSaving] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [formData, setFormData] = useState({

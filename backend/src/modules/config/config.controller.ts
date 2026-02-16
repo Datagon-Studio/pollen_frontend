@@ -245,9 +245,9 @@ export class ConfigController {
       // Send test email
       const result = await postmarkService.sendEmail(
         to,
-        'Hello from Postmark',
-        '<strong>Hello</strong> dear Postmark user.',
-        'Hello from Postmark!',
+        'Hello from Pollean',
+        '<strong>Hello</strong> from Pollean. Your email is configured correctly!',
+        'Hello from Pollean! Your email is configured correctly.',
         'test-email'
       );
 

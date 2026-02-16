@@ -5,9 +5,18 @@ import { accountApi, Account } from '@/services/account.api';
 let cachedAccount: Account | null = null;
 let loadingPromise: Promise<Account> | null = null;
 let cacheTimestamp: number = 0;
+let cachedUserId: string | null = null; // Track which user the cache belongs to
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useAccount() {
+// Export function to clear cache when user logs out or changes
+export function clearAccountCache() {
+  cachedAccount = null;
+  loadingPromise = null;
+  cacheTimestamp = 0;
+  cachedUserId = null;
+}
+
+export function useAccount(userId?: string) {
   const [account, setAccount] = useState<Account | null>(cachedAccount);
   const [loading, setLoading] = useState(!cachedAccount);
   const [error, setError] = useState<string | null>(null);
@@ -16,9 +25,19 @@ export function useAccount() {
   useEffect(() => {
     mountedRef.current = true;
     
-    // If we have cached data that's still fresh, use it immediately
+    // If userId changed, clear the cache
+    if (userId && cachedUserId && userId !== cachedUserId) {
+      clearAccountCache();
+    }
+    
+    // Update cached user ID
+    if (userId) {
+      cachedUserId = userId;
+    }
+    
+    // If we have cached data that's still fresh and for the same user, use it immediately
     const now = Date.now();
-    if (cachedAccount && (now - cacheTimestamp) < CACHE_DURATION) {
+    if (cachedAccount && (now - cacheTimestamp) < CACHE_DURATION && (!userId || userId === cachedUserId)) {
       setAccount(cachedAccount);
       setLoading(false);
       return;
@@ -49,7 +68,7 @@ export function useAccount() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [userId]);
 
   const loadAccount = async () => {
     try {

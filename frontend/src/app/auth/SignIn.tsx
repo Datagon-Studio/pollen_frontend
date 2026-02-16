@@ -142,7 +142,7 @@ export default function SignIn() {
               </div>
               <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
               <CardDescription className="text-center">
-                Sign in to your PollenHive account
+                Sign in to your Pollean account
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>

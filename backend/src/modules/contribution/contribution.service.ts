@@ -110,7 +110,7 @@ async function sendContributionConfirmationEmail(contribution: Contribution): Pr
             ${contribution.channel === 'online' ? `<p style="margin: 5px 0;"><strong>Payment Mode:</strong> ${recordedByInfo}</p>` : ''}
             ${contribution.comment ? `<p style="margin: 5px 0;"><strong>Comment:</strong> ${contribution.comment}</p>` : ''}
           </div>
-          <p style="margin-top: 20px;">Thank you for using PollenHive!</p>
+          <p style="margin-top: 20px;">Thank you for using Pollean!</p>
         </body>
         </html>
       `;
@@ -129,7 +129,7 @@ ${contribution.channel === 'offline' && recordedByInfo ? `Recorded By: ${recorde
 ${contribution.channel === 'online' ? `Payment Mode: ${recordedByInfo}` : ''}
 ${contribution.comment ? `Comment: ${contribution.comment}` : ''}
 
-Thank you for using PollenHive!
+Thank you for using Pollean!
       `.trim();
     }
 

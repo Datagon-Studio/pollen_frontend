@@ -1278,7 +1278,7 @@ export default function PublicGroupPage() {
         </Tabs>
 
         <p className="text-center text-xs opacity-60 mt-8" style={{ color: foregroundColor }}>
-          Powered by PollenHive
+          Powered by Pollean
         </p>
       </div>
 

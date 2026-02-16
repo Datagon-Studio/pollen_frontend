@@ -27,6 +27,7 @@ import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { KycSetupBanner } from "@/components/banners/KycSetupBanner";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { fundApi, Fund } from "@/services";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { reportingApi, DashboardStats } from "@/services/reporting.api";
@@ -71,7 +72,8 @@ export default function Dashboard() {
   const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const { account, getInitials, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
+  const { account, getInitials, loading: accountLoading } = useAccount(user?.id);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = (amount: number) => {

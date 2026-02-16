@@ -60,7 +60,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount();
+  const { account, getInitials: getAccountInitials, loading: accountLoading } = useAccount(user?.id);
   const { isSuperAdmin, isOfficer, accountRole, loading: rolesLoading } = useRoles();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -211,7 +211,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             )}
           </div>
           <span className="font-semibold text-foreground">
-            {account?.account_name || "PollenHive"}
+            {account?.account_name || "Pollean"}
           </span>
         </div>
       </header>
@@ -255,7 +255,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
             {sidebarOpen && (
               <span className="font-semibold text-foreground">
-                {account?.account_name || "PollenHive"}
+                {account?.account_name || "Pollean"}
               </span>
             )}
           </Link>

@@ -27,6 +27,7 @@ import { DeleteContributionModal } from "@/components/modals/DeleteContributionM
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -58,7 +59,8 @@ interface ContributionRow {
 // Columns will be defined inside component to access handlers
 
 export default function Contributions() {
-  const { account } = useAccount();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const { toast } = useToast();
   const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
   const [funds, setFunds] = useState<Fund[]>([]);

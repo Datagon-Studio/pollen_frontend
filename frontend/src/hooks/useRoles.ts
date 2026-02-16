@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { userApi } from "@/services/user.api";
 import { useAccount } from "./useAccount";
+import { useAuth } from "./useAuth";
 
 export type PlatformRole = 'superadmin' | 'admin' | 'user';
 export type AccountRole = 'admin' | 'officer' | 'viewer';
@@ -14,7 +15,8 @@ let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function useRoles() {
-  const { account, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
+  const { account, loading: accountLoading } = useAccount(user?.id);
   const [platformRole, setPlatformRole] = useState<PlatformRole>(cachedPlatformRole);
   const [accountRole, setAccountRole] = useState<AccountRole | null>(cachedAccountRole);
   // Important: keep loading true until account finishes loading; otherwise on refresh

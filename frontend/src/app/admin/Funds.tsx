@@ -14,6 +14,7 @@ import { fundApi, Fund } from "@/services";
 import { configApi } from "@/services/config.api";
 import { contributionApi, FundContributionStats } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -177,7 +178,8 @@ export default function Funds() {
   const [selectedFund, setSelectedFund] = useState<FundWithStats | null>(null);
   const [funds, setFunds] = useState<FundWithStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const { account } = useAccount();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const { toast } = useToast();
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 

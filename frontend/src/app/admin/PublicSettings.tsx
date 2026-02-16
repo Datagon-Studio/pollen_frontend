@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ExternalLink, Copy, Check, Wallet, Receipt, Eye, EyeOff, Lock, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { accountApi } from "@/services/account.api";
 import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
 import { accountPublicPageApi } from "@/services/account-public-page.api";
@@ -27,7 +28,8 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function PublicSettings() {
-  const { account, loading: accountLoading } = useAccount();
+  const { user } = useAuth();
+  const { account, loading: accountLoading } = useAccount(user?.id);
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [previewTab, setPreviewTab] = useState("funds");
@@ -661,7 +663,7 @@ export default function PublicSettings() {
                 )}
 
                 <p className="text-xs opacity-60" style={{ color: "#000000" }}>
-                  Powered by PollenHive
+                  Powered by Pollean
                 </p>
               </div>
             </div>

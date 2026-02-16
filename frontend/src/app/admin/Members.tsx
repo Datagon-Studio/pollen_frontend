@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { memberApi, Member, isMemberActive } from "@/services/member.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 
 const formatCurrency = (amount: number | null | undefined) => {
   const value = amount ?? 0;
@@ -62,7 +63,8 @@ function MemberActions({ member, onEdit, onDelete }: MemberActionsProps) {
 }
 
 export default function Members() {
-  const { account } = useAccount();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const [members, setMembers] = useState<Member[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [loading, setLoading] = useState(true);

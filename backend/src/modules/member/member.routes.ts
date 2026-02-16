@@ -162,7 +162,7 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );
@@ -343,7 +343,7 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );
@@ -511,7 +511,7 @@ memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: 
     }
 
     // Send OTP via email
-    const emailSubject = 'Your PollenHive Verification Code';
+    const emailSubject = 'Your Pollean Verification Code';
     const emailBody = `
       <!DOCTYPE html>
       <html>
@@ -528,12 +528,12 @@ memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: 
         <div class="container">
           <h2>Email Verification Code</h2>
           <p>Hello,</p>
-          <p>Your verification code for PollenHive is:</p>
+          <p>Your verification code for Pollean is:</p>
           <div class="otp-code">${otpCode}</div>
           <p>This code will expire in 5 minutes.</p>
           <p>If you didn't request this code, please ignore this email.</p>
           <div class="footer">
-            <p>Best regards,<br>The PollenHive Team</p>
+            <p>Best regards,<br>The Pollean Team</p>
           </div>
         </div>
       </body>
@@ -544,7 +544,7 @@ memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: 
       email.trim(),
       emailSubject,
       emailBody,
-      `Your PollenHive verification code is ${otpCode}. This code will expire in 5 minutes.`,
+      `Your Pollean verification code is ${otpCode}. This code will expire in 5 minutes.`,
       'email-otp'
     );
 
@@ -913,7 +913,7 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: R
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );

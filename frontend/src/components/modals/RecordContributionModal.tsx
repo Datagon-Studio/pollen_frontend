@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { fundApi, Fund } from "@/services";
 import { memberApi, Member } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
 import { contributionApi } from "@/services/contribution.api";
 import { configApi } from "@/services/config.api";
 
@@ -52,7 +53,8 @@ const channels = ["Cash", "Bank Deposit", "Cheque", "Mobile Money"];
 
 export function RecordContributionModal({ open, onOpenChange, onSuccess }: RecordContributionModalProps) {
   const { toast } = useToast();
-  const { account } = useAccount();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const [funds, setFunds] = useState<Fund[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingFunds, setLoadingFunds] = useState(false);

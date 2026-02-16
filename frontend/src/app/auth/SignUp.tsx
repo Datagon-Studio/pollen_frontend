@@ -113,7 +113,7 @@ export default function SignUp() {
               </div>
               <CardTitle className="text-2xl text-center">Create an account</CardTitle>
               <CardDescription className="text-center">
-                Sign up to get started with PollenHive
+                Sign up to get started with Pollean
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
