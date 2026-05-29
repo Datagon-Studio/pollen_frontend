@@ -297,13 +297,20 @@ export function AppLayout({ children }: AppLayoutProps) {
         )}
       >
         {/* Logo */}
-        <div className="h-[101px] flex items-center justify-between px-4 border-b border-border">
-          <Link
-            to="/"
-            className="flex items-center justify-center h-10 w-10 rounded-md"
-          >
-            <BrandSymbol className="h-16 w-16" alt="Pollean" />
-          </Link>
+        <div
+          className={cn(
+            "relative h-[101px] flex items-center border-b border-border",
+            sidebarOpen ? "justify-between px-4" : "justify-center px-4",
+          )}
+        >
+          {sidebarOpen && (
+            <Link
+              to="/"
+              className="flex items-center justify-center h-16 w-16 rounded-md shrink-0"
+            >
+              <BrandSymbol className="h-full w-full" alt="Pollean" />
+            </Link>
+          )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="hidden lg:flex p-1.5 hover:bg-secondary rounded-md"
