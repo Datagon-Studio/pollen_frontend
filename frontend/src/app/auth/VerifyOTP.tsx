@@ -3,9 +3,17 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { BrandSymbol } from "@/components/ui/brand";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState("");
@@ -59,11 +67,14 @@ export default function VerifyOTP() {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: otp,
-        type: 'signup',
+        type: "signup",
       });
 
       if (verifyError) {
-        setError(verifyError.message || "Invalid OTP. Please check your email and try again.");
+        setError(
+          verifyError.message ||
+            "Invalid OTP. Please check your email and try again.",
+        );
         setLoading(false);
         return;
       }
@@ -71,7 +82,7 @@ export default function VerifyOTP() {
       if (data.user) {
         // Clear signup email from session
         sessionStorage.removeItem("signup_email");
-        
+
         // Redirect to sign in page after email verification
         navigate("/signin?verified=true");
       }
@@ -94,7 +105,7 @@ export default function VerifyOTP() {
     try {
       // Resend sign-up OTP
       const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
+        type: "signup",
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/signin?verified=true`,
@@ -133,13 +144,16 @@ export default function VerifyOTP() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shadow-md">
-              <span className="text-2xl font-bold text-white">PH</span>
+            <div className="h-16 w-16 rounded-xl bg-card border border-border flex items-center justify-center shadow-md">
+              <BrandSymbol className="h-10 w-10" alt="Pollean" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">Verify your email</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            Verify your email
+          </CardTitle>
           <CardDescription className="text-center">
-            We've sent a verification code to <strong>{email || "your email"}</strong>
+            We've sent a verification code to{" "}
+            <strong>{email || "your email"}</strong>
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -171,7 +185,11 @@ export default function VerifyOTP() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading || otp.length < 6}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || otp.length < 6}
+            >
               {loading ? "Verifying..." : "Verify Email"}
             </Button>
             <div className="text-center">
@@ -185,7 +203,8 @@ export default function VerifyOTP() {
               </button>
             </div>
             <p className="text-xs text-center text-muted-foreground">
-              Didn't receive the code? Check your spam folder or click "Resend OTP"
+              Didn't receive the code? Check your spam folder or click "Resend
+              OTP"
             </p>
           </CardFooter>
         </form>
@@ -193,4 +212,3 @@ export default function VerifyOTP() {
     </div>
   );
 }
-

@@ -3,10 +3,18 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { BrandSymbol } from "@/components/ui/brand";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -48,10 +56,11 @@ export default function SignIn() {
 
     try {
       // Sign in with password
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (signInError) {
         setError(signInError.message || "Invalid email or password");
@@ -81,9 +90,12 @@ export default function SignIn() {
 
     try {
       setResettingPassword(true);
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
+      );
 
       if (resetError) {
         throw resetError;
@@ -97,7 +109,10 @@ export default function SignIn() {
       console.error("Error sending password reset:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send password reset email",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to send password reset email",
         variant: "destructive",
       });
     } finally {
@@ -130,17 +145,19 @@ export default function SignIn() {
             className="w-full h-full object-cover"
           />
         </div>
-        
+
         {/* Form Section */}
         <div className="flex items-center justify-center p-4 h-full overflow-y-auto">
           <Card className="w-full max-w-md">
             <CardHeader className="space-y-1">
               <div className="flex items-center justify-center mb-4">
-                <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shadow-md">
-                  <span className="text-2xl font-bold text-white">PH</span>
+                <div className="h-16 w-16 rounded-xl bg-card border border-border flex items-center justify-center shadow-md">
+                  <BrandSymbol className="h-10 w-10" alt="Pollean" />
                 </div>
               </div>
-              <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
+              <CardTitle className="text-2xl text-center">
+                Welcome back
+              </CardTitle>
               <CardDescription className="text-center">
                 Sign in to your Pollean account
               </CardDescription>
@@ -192,7 +209,10 @@ export default function SignIn() {
                 </Button>
                 <p className="text-sm text-center text-muted-foreground">
                   Don't have an account?{" "}
-                  <Link to="/signup" className="text-amber hover:underline font-medium">
+                  <Link
+                    to="/signup"
+                    className="text-amber hover:underline font-medium"
+                  >
                     Sign up
                   </Link>
                 </p>
@@ -204,4 +224,3 @@ export default function SignIn() {
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -37,9 +38,21 @@ import {
   X,
   Cog,
   Mail,
+  Moon,
+  Sun,
 } from "lucide-react";
-import { accountApi, Account, kycApi, AccountKYC, SubmitKYCInput } from "@/services/account.api";
-import { settlementApi, SettlementDetails, CreateSettlementDetailsInput } from "@/services/settlement.api";
+import {
+  accountApi,
+  Account,
+  kycApi,
+  AccountKYC,
+  SubmitKYCInput,
+} from "@/services/account.api";
+import {
+  settlementApi,
+  SettlementDetails,
+  CreateSettlementDetailsInput,
+} from "@/services/settlement.api";
 import { configApi, Config, NotificationChannel } from "@/services/config.api";
 import { userApi, UserProfile } from "@/services/user.api";
 import { paystackBankApi, Bank } from "@/services/paystack-bank.api";
@@ -48,6 +61,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, Image as ImageIcon, XCircle } from "lucide-react";
 
 export default function Settings() {
+  const { theme, setTheme } = useTheme();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,7 +76,9 @@ export default function Settings() {
   const [loadingKYC, setLoadingKYC] = useState(true);
   const [savingKYC, setSavingKYC] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
-  const [accountType, setAccountType] = useState<'individual' | 'business'>('business');
+  const [accountType, setAccountType] = useState<"individual" | "business">(
+    "business",
+  );
   const [officialName, setOfficialName] = useState("");
   const [businessRegFile, setBusinessRegFile] = useState<File | null>(null);
   const [passportPhotoFile, setPassportPhotoFile] = useState<File | null>(null);
@@ -72,13 +88,19 @@ export default function Settings() {
   const nationalIdInputRef = useRef<HTMLInputElement>(null);
 
   // Check if KYC has been submitted (pending, verified, or rejected)
-  const isKYCSubmitted = account?.kyc_status === 'pending' || account?.kyc_status === 'verified' || account?.kyc_status === 'rejected';
+  const isKYCSubmitted =
+    account?.kyc_status === "pending" ||
+    account?.kyc_status === "verified" ||
+    account?.kyc_status === "rejected";
 
   // Settlement state
-  const [settlementDetails, setSettlementDetails] = useState<SettlementDetails | null>(null);
+  const [settlementDetails, setSettlementDetails] =
+    useState<SettlementDetails | null>(null);
   const [loadingSettlement, setLoadingSettlement] = useState(true);
   const [savingSettlement, setSavingSettlement] = useState(false);
-  const [settlementType, setSettlementType] = useState<'bank' | 'mobile_money'>('mobile_money');
+  const [settlementType, setSettlementType] = useState<"bank" | "mobile_money">(
+    "mobile_money",
+  );
   const [settlementAccountName, setSettlementAccountName] = useState("");
   const [settlementAccountNumber, setSettlementAccountNumber] = useState("");
   const [settlementBankName, setSettlementBankName] = useState("");
@@ -87,39 +109,49 @@ export default function Settings() {
   const [settlementProvider, setSettlementProvider] = useState("");
   const [settlementOtherProvider, setSettlementOtherProvider] = useState("");
   const [settlementIsActive, setSettlementIsActive] = useState(true);
-  
+
   // Bank verification state
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
   const [verifyingAccount, setVerifyingAccount] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null,
+  );
 
   // Config state
   const [config, setConfig] = useState<Config | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
-  
+
   // Config form state
-  const [currencyCode, setCurrencyCode] = useState<string>('GHS');
-  const [defaultNotificationChannel, setDefaultNotificationChannel] = useState<NotificationChannel>('both');
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+  const [defaultNotificationChannel, setDefaultNotificationChannel] =
+    useState<NotificationChannel>("both");
   const [birthdayMessagesEnabled, setBirthdayMessagesEnabled] = useState(false);
-  const [defaultEmailSenderId, setDefaultEmailSenderId] = useState<string | null>(null);
+  const [defaultEmailSenderId, setDefaultEmailSenderId] = useState<
+    string | null
+  >(null);
   const [smtpProfileId, setSmtpProfileId] = useState<string | null>(null);
-  const [paymentIntegrationId, setPaymentIntegrationId] = useState<string | null>(null);
+  const [paymentIntegrationId, setPaymentIntegrationId] = useState<
+    string | null
+  >(null);
   const [smsTemplate, setSmsTemplate] = useState<string | null>(null);
   const [emailTemplate, setEmailTemplate] = useState<string | null>(null);
   const [testEmailAddress, setTestEmailAddress] = useState("");
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
-  
+
   // User profile state to check admin status
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loadingUserProfile, setLoadingUserProfile] = useState(true);
-  
+
   // Check if user is admin (account-level admin - for now, all users with role 'admin' are admins)
-  const isAdmin = userProfile?.role === 'admin';
+  const isAdmin = userProfile?.role === "admin";
   // TODO: Add proper superadmin check (platform-level admin)
   const isSuperAdmin = false; // Placeholder until superadmin role is implemented
+  const isDarkTheme = theme === "dark";
 
   useEffect(() => {
     const init = async () => {
@@ -134,10 +166,10 @@ export default function Settings() {
 
   // Load banks when settlement type changes to 'bank'
   useEffect(() => {
-    if (settlementType === 'bank') {
+    if (settlementType === "bank") {
       loadBanks().catch(console.error);
     } else {
-      setVerificationStatus('idle');
+      setVerificationStatus("idle");
       setVerificationError(null);
       setSettlementBankCode("");
     }
@@ -204,7 +236,8 @@ export default function Settings() {
     try {
       setLoadingSettlement(true);
       const settlements = await settlementApi.getMySettlementDetails();
-      const active = settlements.find(s => s.is_active) || settlements[0] || null;
+      const active =
+        settlements.find((s) => s.is_active) || settlements[0] || null;
       if (active) {
         setSettlementDetails(active);
         setSettlementType(active.settlement_type);
@@ -215,22 +248,31 @@ export default function Settings() {
         const provider = active.provider || "";
         setSettlementProvider(provider);
         // If provider is not in the standard list, set it as "Other" and store the name
-        if (provider && !["MTN Mobile Money", "Vodafone Cash", "AirtelTigo Money"].includes(provider)) {
+        if (
+          provider &&
+          !["MTN Mobile Money", "Vodafone Cash", "AirtelTigo Money"].includes(
+            provider,
+          )
+        ) {
           setSettlementProvider("Other");
           setSettlementOtherProvider(provider);
         } else {
           setSettlementOtherProvider("");
         }
         setSettlementIsActive(active.is_active);
-        
+
         // Load banks if bank settlement type and try to match bank code
-        if (active.settlement_type === 'bank' && active.bank_name) {
-          loadBanks().then((loadedBanks) => {
-            const bank = loadedBanks.find(b => b.name.toLowerCase() === active.bank_name?.toLowerCase());
-            if (bank) {
-              setSettlementBankCode(bank.code);
-            }
-          }).catch(console.error);
+        if (active.settlement_type === "bank" && active.bank_name) {
+          loadBanks()
+            .then((loadedBanks) => {
+              const bank = loadedBanks.find(
+                (b) => b.name.toLowerCase() === active.bank_name?.toLowerCase(),
+              );
+              if (bank) {
+                setSettlementBankCode(bank.code);
+              }
+            })
+            .catch(console.error);
         }
       }
     } catch (error) {
@@ -242,16 +284,18 @@ export default function Settings() {
 
   const loadBanks = async (): Promise<Bank[]> => {
     if (banks.length > 0) return banks;
-    
+
     try {
       setLoadingBanks(true);
       console.log("Loading banks from Paystack...");
-      const banksList = await paystackBankApi.getBanks('GH');
+      const banksList = await paystackBankApi.getBanks("GH");
       console.log("Banks received:", banksList.length);
-      const activeBanks = banksList.filter(b => b.active !== false && b.is_deleted !== true);
+      const activeBanks = banksList.filter(
+        (b) => b.active !== false && b.is_deleted !== true,
+      );
       setBanks(activeBanks);
       console.log("Active banks:", activeBanks.length);
-      
+
       if (activeBanks.length === 0) {
         toast({
           title: "No Banks Found",
@@ -264,11 +308,12 @@ export default function Settings() {
           description: `Loaded ${activeBanks.length} banks successfully.`,
         });
       }
-      
+
       return activeBanks;
     } catch (error) {
       console.error("Error loading banks:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load banks';
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load banks";
       toast({
         title: "Error Loading Banks",
         description: errorMessage,
@@ -282,38 +327,42 @@ export default function Settings() {
 
   const verifyBankAccount = async (accountNumber: string, bankCode: string) => {
     if (!accountNumber.trim() || !bankCode) {
-      setVerificationStatus('idle');
+      setVerificationStatus("idle");
       setVerificationError(null);
       return;
     }
 
     // Only verify if account number is at least 10 digits
-    const accountNumberDigits = accountNumber.trim().replace(/\D/g, '');
+    const accountNumberDigits = accountNumber.trim().replace(/\D/g, "");
     if (accountNumberDigits.length < 10) {
-      setVerificationStatus('idle');
+      setVerificationStatus("idle");
       setVerificationError(null);
       return;
     }
 
     try {
       setVerifyingAccount(true);
-      setVerificationStatus('idle');
+      setVerificationStatus("idle");
       setVerificationError(null);
 
-      const result = await paystackBankApi.verifyAccount(accountNumberDigits, bankCode);
-      
+      const result = await paystackBankApi.verifyAccount(
+        accountNumberDigits,
+        bankCode,
+      );
+
       // Auto-fill account name from verification
       setSettlementAccountName(result.account_name);
-      setVerificationStatus('success');
+      setVerificationStatus("success");
       setVerificationError(null);
-      
+
       toast({
         title: "Account Verified",
         description: `Account name: ${result.account_name}`,
       });
     } catch (error) {
-      setVerificationStatus('error');
-      const errorMessage = error instanceof Error ? error.message : 'Failed to verify account';
+      setVerificationStatus("error");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to verify account";
       setVerificationError(errorMessage);
       toast({
         title: "Verification Failed",
@@ -329,17 +378,17 @@ export default function Settings() {
   const verificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleAccountNumberChange = (value: string) => {
     setSettlementAccountNumber(value);
-    
+
     if (verificationTimeoutRef.current) {
       clearTimeout(verificationTimeoutRef.current);
     }
-    
+
     // Debounce verification by 800ms after user stops typing
     verificationTimeoutRef.current = setTimeout(() => {
-      if (value.trim().replace(/\D/g, '').length >= 10 && settlementBankCode) {
+      if (value.trim().replace(/\D/g, "").length >= 10 && settlementBankCode) {
         verifyBankAccount(value, settlementBankCode);
       } else {
-        setVerificationStatus('idle');
+        setVerificationStatus("idle");
         setVerificationError(null);
       }
     }, 800);
@@ -367,8 +416,10 @@ export default function Settings() {
     }
 
     // Validate mobile money number is exactly 10 digits
-    if (settlementType === 'mobile_money') {
-      const accountNumberDigits = settlementAccountNumber.trim().replace(/\D/g, '');
+    if (settlementType === "mobile_money") {
+      const accountNumberDigits = settlementAccountNumber
+        .trim()
+        .replace(/\D/g, "");
       if (accountNumberDigits.length !== 10) {
         toast({
           title: "Validation Error",
@@ -379,7 +430,7 @@ export default function Settings() {
       }
     }
 
-    if (settlementType === 'mobile_money') {
+    if (settlementType === "mobile_money") {
       if (!settlementProvider.trim()) {
         toast({
           title: "Validation Error",
@@ -388,7 +439,7 @@ export default function Settings() {
         });
         return;
       }
-      
+
       // If "Other" is selected, require the other provider name
       if (settlementProvider === "Other" && !settlementOtherProvider.trim()) {
         toast({
@@ -403,23 +454,30 @@ export default function Settings() {
     setSavingSettlement(true);
     try {
       // Determine the provider value - use "Other" provider name if "Other" is selected
-      const providerValue = settlementType === 'mobile_money' 
-        ? (settlementProvider === "Other" ? settlementOtherProvider.trim() : settlementProvider.trim())
-        : null;
+      const providerValue =
+        settlementType === "mobile_money"
+          ? settlementProvider === "Other"
+            ? settlementOtherProvider.trim()
+            : settlementProvider.trim()
+          : null;
 
       const input: CreateSettlementDetailsInput = {
         settlement_type: settlementType,
         account_name: settlementAccountName.trim(),
         account_number: settlementAccountNumber.trim(),
-        bank_name: settlementType === 'bank' ? settlementBankName.trim() || null : null,
-        bank_branch: settlementType === 'bank' ? settlementBankBranch.trim() || null : null,
+        bank_name:
+          settlementType === "bank" ? settlementBankName.trim() || null : null,
+        bank_branch:
+          settlementType === "bank"
+            ? settlementBankBranch.trim() || null
+            : null,
         provider: providerValue,
         is_active: settlementIsActive,
       };
 
       const updated = await settlementApi.upsertSettlementDetails(input);
       setSettlementDetails(updated);
-      
+
       toast({
         title: "Success",
         description: "Settlement details saved successfully",
@@ -428,7 +486,10 @@ export default function Settings() {
       console.error("Error saving settlement details:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save settlement details",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save settlement details",
         variant: "destructive",
       });
     } finally {
@@ -476,11 +537,15 @@ export default function Settings() {
     // If no file selected, return null to remove logo or keep existing
     if (!logoFile) {
       // If user clicked remove, return null; otherwise keep existing
-      return logoPreview === null && account?.account_logo ? null : account?.account_logo || null;
+      return logoPreview === null && account?.account_logo
+        ? null
+        : account?.account_logo || null;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
       const fileExt = logoFile.name.split(".").pop();
@@ -497,9 +562,9 @@ export default function Settings() {
         throw uploadError;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("account-logos")
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("account-logos").getPublicUrl(fileName);
 
       console.log("Logo uploaded successfully:", { fileName, publicUrl });
       return publicUrl;
@@ -514,9 +579,15 @@ export default function Settings() {
     }
   };
 
-  const uploadKYCDocument = async (file: File, bucket: string, folder: string): Promise<string> => {
+  const uploadKYCDocument = async (
+    file: File,
+    bucket: string,
+    folder: string,
+  ): Promise<string> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
       const fileExt = file.name.split(".").pop();
@@ -544,14 +615,14 @@ export default function Settings() {
 
   const handleKYCDocumentChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: 'business_reg' | 'passport' | 'national_id'
+    type: "business_reg" | "passport" | "national_id",
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    if (type === 'national_id' || type === 'business_reg') {
-      if (file.type !== 'application/pdf') {
+    if (type === "national_id" || type === "business_reg") {
+      if (file.type !== "application/pdf") {
         toast({
           title: "Invalid file",
           description: "Please select a PDF file",
@@ -567,7 +638,7 @@ export default function Settings() {
         });
         return;
       }
-    } else if (type === 'passport') {
+    } else if (type === "passport") {
       if (!file.type.startsWith("image/")) {
         toast({
           title: "Invalid file",
@@ -586,9 +657,9 @@ export default function Settings() {
       }
     }
 
-    if (type === 'business_reg') {
+    if (type === "business_reg") {
       setBusinessRegFile(file);
-    } else if (type === 'passport') {
+    } else if (type === "passport") {
       setPassportPhotoFile(file);
     } else {
       setNationalIdFile(file);
@@ -607,7 +678,8 @@ export default function Settings() {
     if (isKYCSubmitted) {
       toast({
         title: "Cannot Resubmit",
-        description: "This submission cannot be modified or resubmitted until a decision has been made.",
+        description:
+          "This submission cannot be modified or resubmitted until a decision has been made.",
         variant: "destructive",
       });
       return;
@@ -631,16 +703,25 @@ export default function Settings() {
       return;
     }
 
-    if (accountType === 'business' && !businessRegFile && !kyc?.business_registration_url) {
+    if (
+      accountType === "business" &&
+      !businessRegFile &&
+      !kyc?.business_registration_url
+    ) {
       toast({
         title: "Validation Error",
-        description: "Business registration document is required for business accounts",
+        description:
+          "Business registration document is required for business accounts",
         variant: "destructive",
       });
       return;
     }
 
-    if (accountType === 'individual' && !passportPhotoFile && !kyc?.passport_photo_url) {
+    if (
+      accountType === "individual" &&
+      !passportPhotoFile &&
+      !kyc?.passport_photo_url
+    ) {
       toast({
         title: "Validation Error",
         description: "Passport photo is required for individual accounts",
@@ -657,30 +738,44 @@ export default function Settings() {
 
       // Upload documents
       if (businessRegFile) {
-        businessRegUrl = await uploadKYCDocument(businessRegFile, "kyc-documents", "business-registration");
+        businessRegUrl = await uploadKYCDocument(
+          businessRegFile,
+          "kyc-documents",
+          "business-registration",
+        );
       }
       if (passportPhotoFile) {
-        passportPhotoUrl = await uploadKYCDocument(passportPhotoFile, "kyc-documents", "passport-photo");
+        passportPhotoUrl = await uploadKYCDocument(
+          passportPhotoFile,
+          "kyc-documents",
+          "passport-photo",
+        );
       }
       if (nationalIdFile) {
-        nationalIdUrl = await uploadKYCDocument(nationalIdFile, "kyc-documents", "national-id");
+        nationalIdUrl = await uploadKYCDocument(
+          nationalIdFile,
+          "kyc-documents",
+          "national-id",
+        );
       }
 
       const input: SubmitKYCInput = {
         account_type: accountType,
         official_name: officialName.trim(),
-        business_registration_url: accountType === 'business' ? businessRegUrl : null,
-        passport_photo_url: accountType === 'individual' ? passportPhotoUrl : null,
+        business_registration_url:
+          accountType === "business" ? businessRegUrl : null,
+        passport_photo_url:
+          accountType === "individual" ? passportPhotoUrl : null,
         national_id_url: nationalIdUrl,
       };
 
       const updatedKYC = await kycApi.submitKYC(input);
       setKyc(updatedKYC);
       console.log("KYC submitted, updated KYC:", updatedKYC);
-      
+
       // Reload account to get updated KYC status (skip loading state to avoid UI flicker)
       await loadAccount(true);
-      
+
       // Double-check by fetching account directly
       const refreshedAccount = await accountApi.getMyAccount();
       console.log("Refreshed account after submission:", refreshedAccount);
@@ -692,21 +787,26 @@ export default function Settings() {
       setPassportPhotoFile(null);
       setNationalIdFile(null);
       if (businessRegInputRef.current) businessRegInputRef.current.value = "";
-      if (passportPhotoInputRef.current) passportPhotoInputRef.current.value = "";
+      if (passportPhotoInputRef.current)
+        passportPhotoInputRef.current.value = "";
       if (nationalIdInputRef.current) nationalIdInputRef.current.value = "";
 
       toast({
         title: "Success",
-        description: "KYC information submitted successfully. Your account is now pending verification.",
+        description:
+          "KYC information submitted successfully. Your account is now pending verification.",
       });
-      
+
       // Close the warning dialog
       setShowWarningDialog(false);
     } catch (error) {
       console.error("Error submitting KYC:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit KYC information",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to submit KYC information",
         variant: "destructive",
       });
     } finally {
@@ -719,7 +819,7 @@ export default function Settings() {
       setLoadingConfig(true);
       const configData = await configApi.getMyConfig();
       setConfig(configData);
-      setCurrencyCode(configData.currency_code || 'GHS');
+      setCurrencyCode(configData.currency_code || "GHS");
       setDefaultNotificationChannel(configData.default_notification_channel);
       setBirthdayMessagesEnabled(configData.birthday_messages_enabled);
       setDefaultEmailSenderId(configData.default_email_sender_id);
@@ -748,7 +848,9 @@ export default function Settings() {
         currency_code: currencyCode,
         default_notification_channel: defaultNotificationChannel,
         birthday_messages_enabled: birthdayMessagesEnabled,
-        default_email_sender_id: isSuperAdmin ? defaultEmailSenderId : undefined, // Only update if superadmin
+        default_email_sender_id: isSuperAdmin
+          ? defaultEmailSenderId
+          : undefined, // Only update if superadmin
         smtp_profile_id: isAdmin ? smtpProfileId : undefined, // Only update if admin
         payment_integration_id: paymentIntegrationId,
         sms_template: isAdmin ? smsTemplate : undefined, // Only update if admin
@@ -756,7 +858,7 @@ export default function Settings() {
       });
 
       setConfig(updatedConfig);
-      
+
       toast({
         title: "Success",
         description: "Configuration saved successfully.",
@@ -765,7 +867,10 @@ export default function Settings() {
       console.error("Error saving config:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save configuration.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save configuration.",
         variant: "destructive",
       });
     } finally {
@@ -777,7 +882,7 @@ export default function Settings() {
     setSaving(true);
     try {
       let logoUrl: string | null;
-      
+
       // Determine the logo URL to save
       if (logoFile) {
         // Upload new logo
@@ -799,9 +904,13 @@ export default function Settings() {
         logoUrl = account?.account_logo || null;
       }
 
-      const updatedAccountName = accountName.trim() === "" ? null : accountName.trim();
+      const updatedAccountName =
+        accountName.trim() === "" ? null : accountName.trim();
 
-      console.log("Saving account with:", { account_name: updatedAccountName, account_logo: logoUrl });
+      console.log("Saving account with:", {
+        account_name: updatedAccountName,
+        account_logo: logoUrl,
+      });
 
       const updatedAccount = await accountApi.updateMyAccount({
         account_name: updatedAccountName,
@@ -823,7 +932,10 @@ export default function Settings() {
       console.error("Error saving account:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save account details.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save account details.",
         variant: "destructive",
       });
     } finally {
@@ -918,11 +1030,7 @@ export default function Settings() {
                   {logoPreview ? "Change Logo" : "Upload Logo"}
                 </Button>
                 {logoPreview && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRemoveLogo}
-                  >
+                  <Button variant="ghost" size="sm" onClick={handleRemoveLogo}>
                     <X className="h-4 w-4 mr-2" />
                     Remove
                   </Button>
@@ -930,7 +1038,11 @@ export default function Settings() {
               </div>
             </div>
             <div className="flex justify-end pt-2">
-              <Button onClick={handleSaveAccountDetails} disabled={saving} size="sm">
+              <Button
+                onClick={handleSaveAccountDetails}
+                disabled={saving}
+                size="sm"
+              >
                 {saving ? "Saving..." : "Save Account Details"}
               </Button>
             </div>
@@ -944,7 +1056,9 @@ export default function Settings() {
               <Shield className="h-5 w-5 text-amber" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">KYC Verification</h2>
+              <h2 className="font-semibold text-foreground">
+                KYC Verification
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Account verification status for online payments
               </p>
@@ -960,8 +1074,12 @@ export default function Settings() {
               {/* KYC Status Badge */}
               <div className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-lg">
                 <div>
-                  <p className="font-medium text-foreground">Current KYC Status</p>
-                  <p className="text-sm text-muted-foreground">Verified accounts can accept online payments</p>
+                  <p className="font-medium text-foreground">
+                    Current KYC Status
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Verified accounts can accept online payments
+                  </p>
                 </div>
                 <StatusBadge status={account?.kyc_status || "unverified"} />
               </div>
@@ -969,17 +1087,23 @@ export default function Settings() {
               {/* Account Type */}
               <div>
                 <Label htmlFor="accountType">Account Type *</Label>
-                <Select 
-                  value={accountType} 
-                  onValueChange={(v: 'individual' | 'business') => setAccountType(v)}
+                <Select
+                  value={accountType}
+                  onValueChange={(v: "individual" | "business") =>
+                    setAccountType(v)
+                  }
                   disabled={isKYCSubmitted}
                 >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    <SelectItem value="individual">Individual / Personal</SelectItem>
-                    <SelectItem value="business">Business / Organization</SelectItem>
+                    <SelectItem value="individual">
+                      Individual / Personal
+                    </SelectItem>
+                    <SelectItem value="business">
+                      Business / Organization
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -998,16 +1122,20 @@ export default function Settings() {
               </div>
 
               {/* Business Registration (only for business) */}
-              {accountType === 'business' && (
+              {accountType === "business" && (
                 <div>
                   <Label>Business Registration Document *</Label>
-                  <p className="text-xs text-muted-foreground mb-2">Upload PDF of business registration certificate</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Upload PDF of business registration certificate
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
                       ref={businessRegInputRef}
                       accept="application/pdf"
-                      onChange={(e) => handleKYCDocumentChange(e, 'business_reg')}
+                      onChange={(e) =>
+                        handleKYCDocumentChange(e, "business_reg")
+                      }
                       className="hidden"
                       disabled={isKYCSubmitted}
                     />
@@ -1019,7 +1147,11 @@ export default function Settings() {
                       disabled={isKYCSubmitted}
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      {businessRegFile ? businessRegFile.name : kyc?.business_registration_url ? "Change Document" : "Upload PDF"}
+                      {businessRegFile
+                        ? businessRegFile.name
+                        : kyc?.business_registration_url
+                          ? "Change Document"
+                          : "Upload PDF"}
                     </Button>
                     {kyc?.business_registration_url && (
                       <Button
@@ -1029,10 +1161,13 @@ export default function Settings() {
                           // Generate a fresh signed URL for viewing
                           // The stored value is the file path
                           const { data } = await supabase.storage
-                            .from('kyc-documents')
-                            .createSignedUrl(kyc.business_registration_url!, 3600);
+                            .from("kyc-documents")
+                            .createSignedUrl(
+                              kyc.business_registration_url!,
+                              3600,
+                            );
                           if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
+                            window.open(data.signedUrl, "_blank");
                           }
                         }}
                       >
@@ -1044,16 +1179,18 @@ export default function Settings() {
               )}
 
               {/* Passport Photo (only for individual) */}
-              {accountType === 'individual' && (
+              {accountType === "individual" && (
                 <div>
                   <Label>Passport Photo *</Label>
-                  <p className="text-xs text-muted-foreground mb-2">Upload passport-sized photo</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Upload passport-sized photo
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
                       ref={passportPhotoInputRef}
                       accept="image/*"
-                      onChange={(e) => handleKYCDocumentChange(e, 'passport')}
+                      onChange={(e) => handleKYCDocumentChange(e, "passport")}
                       className="hidden"
                       disabled={isKYCSubmitted}
                     />
@@ -1065,13 +1202,19 @@ export default function Settings() {
                       disabled={isKYCSubmitted}
                     >
                       <ImageIcon className="h-4 w-4 mr-2" />
-                      {passportPhotoFile ? passportPhotoFile.name : kyc?.passport_photo_url ? "Change Photo" : "Upload Photo"}
+                      {passportPhotoFile
+                        ? passportPhotoFile.name
+                        : kyc?.passport_photo_url
+                          ? "Change Photo"
+                          : "Upload Photo"}
                     </Button>
                     {kyc?.passport_photo_url && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.open(kyc.passport_photo_url!, '_blank')}
+                        onClick={() =>
+                          window.open(kyc.passport_photo_url!, "_blank")
+                        }
                       >
                         View
                       </Button>
@@ -1083,13 +1226,15 @@ export default function Settings() {
               {/* National ID */}
               <div>
                 <Label>National ID Document *</Label>
-                <p className="text-xs text-muted-foreground mb-2">Upload PDF with front and back of National ID combined</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload PDF with front and back of National ID combined
+                </p>
                 <div className="flex items-center gap-2">
                   <input
                     type="file"
                     ref={nationalIdInputRef}
                     accept="application/pdf"
-                    onChange={(e) => handleKYCDocumentChange(e, 'national_id')}
+                    onChange={(e) => handleKYCDocumentChange(e, "national_id")}
                     className="hidden"
                     disabled={isKYCSubmitted}
                   />
@@ -1101,7 +1246,11 @@ export default function Settings() {
                     disabled={isKYCSubmitted}
                   >
                     <FileText className="h-4 w-4 mr-2" />
-                    {nationalIdFile ? nationalIdFile.name : kyc?.national_id_url ? "Change Document" : "Upload PDF"}
+                    {nationalIdFile
+                      ? nationalIdFile.name
+                      : kyc?.national_id_url
+                        ? "Change Document"
+                        : "Upload PDF"}
                   </Button>
                   {kyc?.national_id_url && (
                     <Button
@@ -1111,10 +1260,10 @@ export default function Settings() {
                         // Generate a fresh signed URL for viewing
                         // The stored value is the file path
                         const { data } = await supabase.storage
-                          .from('kyc-documents')
+                          .from("kyc-documents")
                           .createSignedUrl(kyc.national_id_url, 3600);
                         if (data?.signedUrl) {
-                          window.open(data.signedUrl, '_blank');
+                          window.open(data.signedUrl, "_blank");
                         }
                       }}
                     >
@@ -1126,9 +1275,9 @@ export default function Settings() {
 
               {/* Submit Button */}
               <div className="flex justify-end pt-2">
-                <Button 
-                  onClick={handleSubmitKYCClick} 
-                  disabled={savingKYC || isKYCSubmitted} 
+                <Button
+                  onClick={handleSubmitKYCClick}
+                  disabled={savingKYC || isKYCSubmitted}
                   size="sm"
                 >
                   {savingKYC ? (
@@ -1148,13 +1297,17 @@ export default function Settings() {
               </div>
 
               {/* Warning Dialog */}
-              <AlertDialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+              <AlertDialog
+                open={showWarningDialog}
+                onOpenChange={setShowWarningDialog}
+              >
                 <AlertDialogContent className="bg-card border-border">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm KYC Submission</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This submission cannot be modified or resubmitted until a decision has been made. 
-                      Are you sure you want to submit your KYC information?
+                      This submission cannot be modified or resubmitted until a
+                      decision has been made. Are you sure you want to submit
+                      your KYC information?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -1181,7 +1334,9 @@ export default function Settings() {
               <Banknote className="h-5 w-5 text-amber" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Settlement Details</h2>
+              <h2 className="font-semibold text-foreground">
+                Settlement Details
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Where online contributions are sent
               </p>
@@ -1196,11 +1351,11 @@ export default function Settings() {
             <div className="space-y-4">
               <div>
                 <Label>Settlement Type *</Label>
-                <Select 
-                  value={settlementType} 
-                  onValueChange={(v: 'bank' | 'mobile_money') => {
+                <Select
+                  value={settlementType}
+                  onValueChange={(v: "bank" | "mobile_money") => {
                     setSettlementType(v);
-                    if (v === 'bank') {
+                    if (v === "bank") {
                       setSettlementProvider("");
                       setSettlementOtherProvider("");
                     } else {
@@ -1219,7 +1374,7 @@ export default function Settings() {
                 </Select>
               </div>
 
-              {settlementType === 'bank' && (
+              {settlementType === "bank" && (
                 <>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
@@ -1227,30 +1382,38 @@ export default function Settings() {
                       <div className="relative">
                         <Input
                           value={settlementAccountName}
-                          onChange={(e) => setSettlementAccountName(e.target.value)}
+                          onChange={(e) =>
+                            setSettlementAccountName(e.target.value)
+                          }
                           placeholder="Name on bank account"
                           className="mt-1.5"
                           disabled={verifyingAccount}
                         />
-                        {verificationStatus === 'success' && (
+                        {verificationStatus === "success" && (
                           <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
                         )}
-                        {verificationStatus === 'error' && (
+                        {verificationStatus === "error" && (
                           <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
                         )}
                       </div>
-                      {verificationStatus === 'success' && (
-                        <p className="text-xs text-green-600 mt-1">Account verified successfully</p>
+                      {verificationStatus === "success" && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Account verified successfully
+                        </p>
                       )}
                       {verificationError && (
-                        <p className="text-xs text-red-500 mt-1">{verificationError}</p>
+                        <p className="text-xs text-red-500 mt-1">
+                          {verificationError}
+                        </p>
                       )}
                     </div>
                     <div>
                       <Label>Account Number *</Label>
                       <Input
                         value={settlementAccountNumber}
-                        onChange={(e) => handleAccountNumberChange(e.target.value)}
+                        onChange={(e) =>
+                          handleAccountNumberChange(e.target.value)
+                        }
                         placeholder="Bank account number"
                         className="mt-1.5"
                         disabled={verifyingAccount}
@@ -1270,19 +1433,31 @@ export default function Settings() {
                         value={settlementBankCode}
                         onValueChange={async (value) => {
                           setSettlementBankCode(value);
-                          const selectedBank = banks.find(b => b.code === value);
+                          const selectedBank = banks.find(
+                            (b) => b.code === value,
+                          );
                           if (selectedBank) {
                             setSettlementBankName(selectedBank.name);
                             // Auto-verify when bank is selected and account number is entered
-                            if (settlementAccountNumber.trim().replace(/\D/g, '').length >= 10) {
-                              await verifyBankAccount(settlementAccountNumber, value);
+                            if (
+                              settlementAccountNumber.trim().replace(/\D/g, "")
+                                .length >= 10
+                            ) {
+                              await verifyBankAccount(
+                                settlementAccountNumber,
+                                value,
+                              );
                             }
                           }
                         }}
                         disabled={loadingBanks}
                       >
                         <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder={loadingBanks ? "Loading banks..." : "Select bank"} />
+                          <SelectValue
+                            placeholder={
+                              loadingBanks ? "Loading banks..." : "Select bank"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border max-h-[300px]">
                           {banks.map((bank) => (
@@ -1292,15 +1467,17 @@ export default function Settings() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {settlementType === 'bank' && banks.length === 0 && (
+                      {settlementType === "bank" && banks.length === 0 && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="mt-2"
-                          onClick={() => loadBanks().catch((err) => {
-                            console.error("Load banks error:", err);
-                          })}
+                          onClick={() =>
+                            loadBanks().catch((err) => {
+                              console.error("Load banks error:", err);
+                            })
+                          }
                           disabled={loadingBanks}
                         >
                           {loadingBanks ? (
@@ -1318,7 +1495,9 @@ export default function Settings() {
                       <Label>Bank Branch</Label>
                       <Input
                         value={settlementBankBranch}
-                        onChange={(e) => setSettlementBankBranch(e.target.value)}
+                        onChange={(e) =>
+                          setSettlementBankBranch(e.target.value)
+                        }
                         placeholder="Bank branch (optional)"
                         className="mt-1.5"
                       />
@@ -1327,12 +1506,12 @@ export default function Settings() {
                 </>
               )}
 
-              {settlementType === 'mobile_money' && (
+              {settlementType === "mobile_money" && (
                 <>
                   <div>
                     <Label>Mobile Money Service *</Label>
-                    <Select 
-                      value={settlementProvider} 
+                    <Select
+                      value={settlementProvider}
                       onValueChange={(value) => {
                         setSettlementProvider(value);
                         if (value !== "Other") {
@@ -1344,9 +1523,15 @@ export default function Settings() {
                         <SelectValue placeholder="Select service provider" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
-                        <SelectItem value="MTN Mobile Money">MTN Mobile Money</SelectItem>
-                        <SelectItem value="Vodafone Cash">Vodafone Cash</SelectItem>
-                        <SelectItem value="AirtelTigo Money">AirtelTigo Money</SelectItem>
+                        <SelectItem value="MTN Mobile Money">
+                          MTN Mobile Money
+                        </SelectItem>
+                        <SelectItem value="Vodafone Cash">
+                          Vodafone Cash
+                        </SelectItem>
+                        <SelectItem value="AirtelTigo Money">
+                          AirtelTigo Money
+                        </SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1356,7 +1541,9 @@ export default function Settings() {
                       <Label>Provider Name *</Label>
                       <Input
                         value={settlementOtherProvider}
-                        onChange={(e) => setSettlementOtherProvider(e.target.value)}
+                        onChange={(e) =>
+                          setSettlementOtherProvider(e.target.value)
+                        }
                         placeholder="Enter mobile money provider name"
                         className="mt-1.5"
                       />
@@ -1367,7 +1554,9 @@ export default function Settings() {
                       <Label>Name on MoMo *</Label>
                       <Input
                         value={settlementAccountName}
-                        onChange={(e) => setSettlementAccountName(e.target.value)}
+                        onChange={(e) =>
+                          setSettlementAccountName(e.target.value)
+                        }
                         placeholder="Name registered on MoMo"
                         className="mt-1.5"
                       />
@@ -1376,7 +1565,9 @@ export default function Settings() {
                       <Label>MoMo Number *</Label>
                       <Input
                         value={settlementAccountNumber}
-                        onChange={(e) => setSettlementAccountNumber(e.target.value)}
+                        onChange={(e) =>
+                          setSettlementAccountNumber(e.target.value)
+                        }
                         placeholder="Mobile money number (10 digits)"
                         maxLength={10}
                         className="mt-1.5"
@@ -1388,17 +1579,25 @@ export default function Settings() {
 
               <div className="flex items-center justify-between pt-2">
                 <div>
-                  <p className="font-medium text-foreground">Active Settlement Account</p>
-                  <p className="text-sm text-muted-foreground">Funds will be sent to this account</p>
+                  <p className="font-medium text-foreground">
+                    Active Settlement Account
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Funds will be sent to this account
+                  </p>
                 </div>
-                <Switch 
+                <Switch
                   checked={settlementIsActive}
                   onCheckedChange={setSettlementIsActive}
                 />
               </div>
 
               <div className="flex justify-end pt-2">
-                <Button onClick={handleSaveSettlementDetails} disabled={savingSettlement} size="sm">
+                <Button
+                  onClick={handleSaveSettlementDetails}
+                  disabled={savingSettlement}
+                  size="sm"
+                >
                   {savingSettlement ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1433,6 +1632,35 @@ export default function Settings() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Theme */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-foreground">Theme</p>
+                  <p className="text-sm text-muted-foreground">
+                    Switch between light and dark mode for your dashboard
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {isDarkTheme ? (
+                      <Moon className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Sun className="h-4 w-4 text-primary" />
+                    )}
+                    <span>{isDarkTheme ? "Dark" : "Light"}</span>
+                  </div>
+                  <Switch
+                    checked={isDarkTheme}
+                    onCheckedChange={(checked) =>
+                      setTheme(checked ? "dark" : "light")
+                    }
+                    aria-label="Toggle dark mode"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Currency */}
               <div>
                 <Label>Currency</Label>
@@ -1449,7 +1677,8 @@ export default function Settings() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  This controls how amounts are labelled and formatted. No currency conversion is performed.
+                  This controls how amounts are labelled and formatted. No
+                  currency conversion is performed.
                 </p>
               </div>
 
@@ -1458,9 +1687,11 @@ export default function Settings() {
               {/* Default Notification Channel */}
               <div>
                 <Label>Default Notification Channel</Label>
-                <Select 
+                <Select
                   value={defaultNotificationChannel}
-                  onValueChange={(value: NotificationChannel) => setDefaultNotificationChannel(value)}
+                  onValueChange={(value: NotificationChannel) =>
+                    setDefaultNotificationChannel(value)
+                  }
                 >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue />
@@ -1478,12 +1709,14 @@ export default function Settings() {
               {/* Birthday Messages */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-foreground">Birthday Messages</p>
+                  <p className="font-medium text-foreground">
+                    Birthday Messages
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Send birthday greetings to members
                   </p>
                 </div>
-                <Switch 
+                <Switch
                   checked={birthdayMessagesEnabled}
                   onCheckedChange={setBirthdayMessagesEnabled}
                 />
@@ -1496,7 +1729,9 @@ export default function Settings() {
                 <Label>Payment Integration ID</Label>
                 <Input
                   value={paymentIntegrationId || ""}
-                  onChange={(e) => setPaymentIntegrationId(e.target.value || null)}
+                  onChange={(e) =>
+                    setPaymentIntegrationId(e.target.value || null)
+                  }
                   className="mt-1.5"
                   placeholder="Payment integration identifier"
                 />
@@ -1534,10 +1769,7 @@ export default function Settings() {
                       Enable member transparency portal (always enabled)
                     </p>
                   </div>
-                  <Switch 
-                    checked={true}
-                    disabled
-                  />
+                  <Switch checked={true} disabled />
                 </div>
 
                 <Separator />
@@ -1549,7 +1781,9 @@ export default function Settings() {
                       <Label>Default Email Sender ID</Label>
                       <Input
                         value={defaultEmailSenderId || ""}
-                        onChange={(e) => setDefaultEmailSenderId(e.target.value || null)}
+                        onChange={(e) =>
+                          setDefaultEmailSenderId(e.target.value || null)
+                        }
                         className="mt-1.5"
                         placeholder="Email sender ID"
                       />
@@ -1638,7 +1872,10 @@ export default function Settings() {
                         } catch (error) {
                           toast({
                             title: "Error",
-                            description: error instanceof Error ? error.message : "Failed to send test email",
+                            description:
+                              error instanceof Error
+                                ? error.message
+                                : "Failed to send test email",
                             variant: "destructive",
                           });
                         } finally {
@@ -1670,8 +1907,8 @@ export default function Settings() {
         )}
 
         <div className="flex justify-end">
-          <Button 
-            onClick={handleSaveConfig} 
+          <Button
+            onClick={handleSaveConfig}
             disabled={savingConfig || loadingConfig}
           >
             {savingConfig ? (

@@ -4,64 +4,109 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
-import { Wallet, Receipt, CheckCircle2, Loader2, Send, Lock, Search, Filter, CalendarIcon, LogOut } from "lucide-react";
+import {
+  Wallet,
+  Receipt,
+  CheckCircle2,
+  Loader2,
+  Send,
+  Lock,
+  Search,
+  Filter,
+  CalendarIcon,
+  LogOut,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fundApi, Fund } from "@/services/fund.api";
-import { contributionApi, Contribution, ContributionWithDetails } from "@/services/contribution.api";
+import {
+  contributionApi,
+  Contribution,
+  ContributionWithDetails,
+} from "@/services/contribution.api";
 import { expenseApi, Expense } from "@/services/expense.api";
 import { useToast } from "@/hooks/use-toast";
 import { accountApi, Account } from "@/services/account.api";
 import { memberApi } from "@/services/member.api";
 import { configApi, ExpenseVisibilityLevel } from "@/services/config.api";
-import { accountPublicPageApi, AccountPublicPage } from "@/services/account-public-page.api";
+import {
+  accountPublicPageApi,
+  AccountPublicPage,
+} from "@/services/account-public-page.api";
 import { ContributeConfirmationModal } from "@/components/modals/ContributeConfirmationModal";
 import { PaystackPaymentModal } from "@/components/modals/PaystackPaymentModal";
+import { BrandSymbol } from "@/components/ui/brand";
 
 const categoryColors: Record<string, string> = {
-  "Operations": "bg-amber/10 text-amber-dark",
-  "Events": "bg-gold/20 text-charcoal",
-  "Utilities": "bg-muted text-muted-foreground",
-  "Maintenance": "bg-charcoal/10 text-charcoal",
+  Operations: "bg-amber/10 text-amber-dark",
+  Events: "bg-gold/20 text-charcoal",
+  Utilities: "bg-muted text-muted-foreground",
+  Maintenance: "bg-charcoal/10 text-charcoal",
 };
 
 const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-const SESSION_STORAGE_KEY = 'public_group_session';
+const SESSION_STORAGE_KEY = "public_group_session";
 
 export default function PublicGroupPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  
+
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<Account | null>(null);
   const [publicFunds, setPublicFunds] = useState<Fund[]>([]);
-  const [fundStats, setFundStats] = useState<Record<string, { totalCollected: number; contributorCount: number }>>({});
+  const [fundStats, setFundStats] = useState<
+    Record<string, { totalCollected: number; contributorCount: number }>
+  >({});
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [contributions, setContributions] = useState<(Contribution | ContributionWithDetails)[]>([]);
+  const [contributions, setContributions] = useState<
+    (Contribution | ContributionWithDetails)[]
+  >([]);
   const [activeTab, setActiveTab] = useState("funds");
-  const [expenseVisibilityLevel, setExpenseVisibilityLevel] = useState<ExpenseVisibilityLevel>('summary');
+  const [expenseVisibilityLevel, setExpenseVisibilityLevel] =
+    useState<ExpenseVisibilityLevel>("summary");
   const [publicPage, setPublicPage] = useState<AccountPublicPage | null>(null);
-  const [currencyCode, setCurrencyCode] = useState<string>('GHS');
-  
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
   // Filter states for contributions
   const [contributionSearch, setContributionSearch] = useState("");
   const [contributionFundFilter, setContributionFundFilter] = useState("all");
-  const [contributionStatusFilter, setContributionStatusFilter] = useState("all");
-  const [contributionStartDate, setContributionStartDate] = useState<Date | undefined>(undefined);
-  const [contributionEndDate, setContributionEndDate] = useState<Date | undefined>(undefined);
-  
+  const [contributionStatusFilter, setContributionStatusFilter] =
+    useState("all");
+  const [contributionStartDate, setContributionStartDate] = useState<
+    Date | undefined
+  >(undefined);
+  const [contributionEndDate, setContributionEndDate] = useState<
+    Date | undefined
+  >(undefined);
+
   // Filter states for expenses
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("all");
-  
+
   // OTP verification states
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [phone, setPhone] = useState("");
@@ -84,7 +129,7 @@ export default function PublicGroupPage() {
       memberId,
       memberName,
       phone,
-      accountId: accountId || '',
+      accountId: accountId || "",
       expiresAt: Date.now() + SESSION_DURATION,
     };
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
@@ -94,23 +139,23 @@ export default function PublicGroupPage() {
     try {
       const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
       if (!sessionData) return null;
-      
+
       const session = JSON.parse(sessionData);
-      
+
       // Check if session is expired
       if (Date.now() > session.expiresAt) {
         localStorage.removeItem(SESSION_STORAGE_KEY);
         return null;
       }
-      
+
       // Check if session is for the current account
       if (session.accountId !== accountId) {
         return null;
       }
-      
+
       return session;
     } catch (error) {
-      console.error('Error loading session:', error);
+      console.error("Error loading session:", error);
       localStorage.removeItem(SESSION_STORAGE_KEY);
       return null;
     }
@@ -130,7 +175,7 @@ export default function PublicGroupPage() {
   useEffect(() => {
     if (accountId) {
       loadData();
-      
+
       // Restore session on mount
       const session = loadSession();
       if (session) {
@@ -140,35 +185,36 @@ export default function PublicGroupPage() {
         setIsVerified(true);
         loadMemberData(session.memberId);
       }
-      
+
       // Check session timeout every 30 seconds (only for public page, not admin)
       const timeoutInterval = setInterval(() => {
         // Only check if we're still on the public page
-        if (window.location.pathname.startsWith('/group')) {
+        if (window.location.pathname.startsWith("/group")) {
           const currentSession = loadSession();
           if (!currentSession && isVerified) {
             clearSession();
             toast({
               title: "Session Expired",
-              description: "Your session has expired. Please verify again to continue.",
+              description:
+                "Your session has expired. Please verify again to continue.",
               variant: "destructive",
             });
           }
         }
       }, 30000);
-      
+
       return () => clearInterval(timeoutInterval);
     }
   }, [accountId, isVerified, toast]);
 
   // Read tab query parameter and set active tab
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['funds', 'contributions', 'expenses'].includes(tabParam)) {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["funds", "contributions", "expenses"].includes(tabParam)) {
       setActiveTab(tabParam);
       // Remove tab from URL after setting it
       const newSearchParams = new URLSearchParams(searchParams);
-      newSearchParams.delete('tab');
+      newSearchParams.delete("tab");
       setSearchParams(newSearchParams, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,19 +230,25 @@ export default function PublicGroupPage() {
 
   // Reload contributions when switching to contributions tab and user is verified
   useEffect(() => {
-    if (activeTab === 'contributions' && isVerified && memberId) {
+    if (activeTab === "contributions" && isVerified && memberId) {
       // Check if we just completed a payment and need to force reload
-      const paymentCompleted = localStorage.getItem('payment_completed_reload');
+      const paymentCompleted = localStorage.getItem("payment_completed_reload");
       if (paymentCompleted) {
-        localStorage.removeItem('payment_completed_reload');
+        localStorage.removeItem("payment_completed_reload");
         // Wait a bit longer for webhook to process, then reload
         setTimeout(async () => {
-          console.log('[PublicGroupPage] Reloading contributions after payment, memberId:', memberId);
+          console.log(
+            "[PublicGroupPage] Reloading contributions after payment, memberId:",
+            memberId,
+          );
           await loadMemberData(memberId);
           await reloadFundStats();
         }, 2000);
       } else {
-        console.log('[PublicGroupPage] Reloading contributions for tab switch, memberId:', memberId);
+        console.log(
+          "[PublicGroupPage] Reloading contributions for tab switch, memberId:",
+          memberId,
+        );
         loadMemberData(memberId);
       }
     }
@@ -205,7 +257,7 @@ export default function PublicGroupPage() {
 
   // Switch to funds tab if expenses tab is hidden and user is on expenses tab
   useEffect(() => {
-    if (activeTab === "expenses" && expenseVisibilityLevel === 'none') {
+    if (activeTab === "expenses" && expenseVisibilityLevel === "none") {
       setActiveTab("funds");
     }
   }, [expenseVisibilityLevel, activeTab]);
@@ -214,19 +266,25 @@ export default function PublicGroupPage() {
     if (!accountId) return;
     try {
       setLoading(true);
-      console.log('[PublicGroupPage] Loading group:', accountId);
-      
+      console.log("[PublicGroupPage] Loading group:", accountId);
+
       // Parallelize data loading for better performance
-      const [accountResult, fundsResult, expensesResult, configResult, publicPageResult] = await Promise.allSettled([
+      const [
+        accountResult,
+        fundsResult,
+        expensesResult,
+        configResult,
+        publicPageResult,
+      ] = await Promise.allSettled([
         accountApi.getPublic(accountId),
         fundApi.getPublicByAccount(accountId),
         expenseApi.getPublicByAccount(accountId),
         configApi.getPublicConfig(accountId),
         accountPublicPageApi.getPublicPage(accountId),
       ]);
-      
+
       // Handle account data
-      if (accountResult.status === 'fulfilled') {
+      if (accountResult.status === "fulfilled") {
         setAccount(accountResult.value);
       } else {
         console.error("Failed to load account:", accountResult.reason);
@@ -237,87 +295,110 @@ export default function PublicGroupPage() {
         });
         return;
       }
-      
+
       // Handle funds data
-      if (fundsResult.status === 'fulfilled') {
+      if (fundsResult.status === "fulfilled") {
         const funds = fundsResult.value;
         setPublicFunds(funds);
-        
+
         // Fetch stats for each fund
-        const statsMap: Record<string, { totalCollected: number; contributorCount: number }> = {};
+        const statsMap: Record<
+          string,
+          { totalCollected: number; contributorCount: number }
+        > = {};
         await Promise.all(
           funds.map(async (fund) => {
             try {
-              const statsResponse = await contributionApi.getFundStats(fund.fund_id);
+              const statsResponse = await contributionApi.getFundStats(
+                fund.fund_id,
+              );
               if (statsResponse.success && statsResponse.data) {
                 statsMap[fund.fund_id] = {
                   totalCollected: statsResponse.data.totalCollected || 0,
                   contributorCount: statsResponse.data.contributorCount || 0,
                 };
               } else {
-                statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+                statsMap[fund.fund_id] = {
+                  totalCollected: 0,
+                  contributorCount: 0,
+                };
               }
             } catch (error) {
-              console.error(`Failed to load stats for fund ${fund.fund_id}:`, error);
-              statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+              console.error(
+                `Failed to load stats for fund ${fund.fund_id}:`,
+                error,
+              );
+              statsMap[fund.fund_id] = {
+                totalCollected: 0,
+                contributorCount: 0,
+              };
             }
-          })
+          }),
         );
         setFundStats(statsMap);
-        
+
         // Debug: Log fund_goal values
-        console.log("Public funds loaded with fund_goal values:", funds.map(f => {
-          const goalValue = f.fund_goal;
-          let numericValue = null;
-          if (goalValue != null) {
-            if (typeof goalValue === 'number') {
-              numericValue = goalValue;
-            } else if (typeof goalValue === 'string') {
-              numericValue = parseFloat(goalValue);
-          } else if (typeof goalValue === 'object' && goalValue !== null) {
-            // Handle Decimal/object types - try to extract numeric value
-            const obj = goalValue as { valueOf?: () => unknown };
-            numericValue = obj.valueOf ? Number(obj.valueOf()) : Number(goalValue);
-          }
-          }
-          return {
-            name: f.fund_name,
-            fund_goal: goalValue,
-            fund_goal_type: typeof goalValue,
-            fund_goal_value: numericValue,
-            hasGoal: goalValue != null && numericValue != null && !isNaN(numericValue)
-          };
-        }));
+        console.log(
+          "Public funds loaded with fund_goal values:",
+          funds.map((f) => {
+            const goalValue = f.fund_goal;
+            let numericValue = null;
+            if (goalValue != null) {
+              if (typeof goalValue === "number") {
+                numericValue = goalValue;
+              } else if (typeof goalValue === "string") {
+                numericValue = parseFloat(goalValue);
+              } else if (typeof goalValue === "object" && goalValue !== null) {
+                // Handle Decimal/object types - try to extract numeric value
+                const obj = goalValue as { valueOf?: () => unknown };
+                numericValue = obj.valueOf
+                  ? Number(obj.valueOf())
+                  : Number(goalValue);
+              }
+            }
+            return {
+              name: f.fund_name,
+              fund_goal: goalValue,
+              fund_goal_type: typeof goalValue,
+              fund_goal_value: numericValue,
+              hasGoal:
+                goalValue != null &&
+                numericValue != null &&
+                !isNaN(numericValue),
+            };
+          }),
+        );
       } else {
         console.error("Failed to load funds:", fundsResult.reason);
       }
-      
+
       // Handle expenses data
-      if (expensesResult.status === 'fulfilled') {
-        setExpenses(expensesResult.value.filter(e => e.member_visible));
+      if (expensesResult.status === "fulfilled") {
+        setExpenses(expensesResult.value.filter((e) => e.member_visible));
       } else {
         console.error("Failed to load expenses:", expensesResult.reason);
       }
-      
+
       // Handle config data
-      if (configResult.status === 'fulfilled') {
+      if (configResult.status === "fulfilled") {
         setExpenseVisibilityLevel(configResult.value.expense_visibility_level);
-        setCurrencyCode(configResult.value.currency_code || 'GHS');
+        setCurrencyCode(configResult.value.currency_code || "GHS");
       } else {
         console.error("Failed to load config:", configResult.reason);
         // Default to 'summary' if config fails to load
-        setExpenseVisibilityLevel('summary');
+        setExpenseVisibilityLevel("summary");
       }
-      
+
       // Handle public page data
-      if (publicPageResult.status === 'fulfilled') {
+      if (publicPageResult.status === "fulfilled") {
         setPublicPage(publicPageResult.value);
       } else {
         console.error("Failed to load public page:", publicPageResult.reason);
       }
     } catch (error) {
-      console.error('[PublicGroupPage] Error loading group:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Group not found';
+      console.error("[PublicGroupPage] Error loading group:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Group not found";
       toast({
         title: "Error",
         description: errorMessage,
@@ -330,19 +411,29 @@ export default function PublicGroupPage() {
 
   const loadMemberData = async (memberId: string) => {
     try {
-      console.log('[PublicGroupPage] Loading contributions for member:', memberId);
+      console.log(
+        "[PublicGroupPage] Loading contributions for member:",
+        memberId,
+      );
       const contributionsData = await contributionApi.getByMember(memberId);
-      console.log('[PublicGroupPage] Contributions API response:', {
+      console.log("[PublicGroupPage] Contributions API response:", {
         success: contributionsData.success,
         dataLength: contributionsData.data?.length || 0,
         error: contributionsData.error,
         sampleData: contributionsData.data?.[0] || null,
       });
       if (contributionsData.success && contributionsData.data) {
-        console.log('[PublicGroupPage] Setting contributions:', contributionsData.data.length, 'contributions');
+        console.log(
+          "[PublicGroupPage] Setting contributions:",
+          contributionsData.data.length,
+          "contributions",
+        );
         setContributions(contributionsData.data);
       } else {
-        console.log('[PublicGroupPage] No contributions found or error:', contributionsData.error);
+        console.log(
+          "[PublicGroupPage] No contributions found or error:",
+          contributionsData.error,
+        );
         setContributions([]);
       }
     } catch (error) {
@@ -353,27 +444,38 @@ export default function PublicGroupPage() {
 
   const reloadFundStats = async () => {
     if (!publicFunds.length) return;
-    
+
     try {
-      console.log('[PublicGroupPage] Reloading fund stats');
-      const statsMap: Record<string, { totalCollected: number; contributorCount: number }> = {};
+      console.log("[PublicGroupPage] Reloading fund stats");
+      const statsMap: Record<
+        string,
+        { totalCollected: number; contributorCount: number }
+      > = {};
       await Promise.all(
         publicFunds.map(async (fund) => {
           try {
-            const statsResponse = await contributionApi.getFundStats(fund.fund_id);
+            const statsResponse = await contributionApi.getFundStats(
+              fund.fund_id,
+            );
             if (statsResponse.success && statsResponse.data) {
               statsMap[fund.fund_id] = {
                 totalCollected: statsResponse.data.totalCollected || 0,
                 contributorCount: statsResponse.data.contributorCount || 0,
               };
             } else {
-              statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
+              statsMap[fund.fund_id] = {
+                totalCollected: 0,
+                contributorCount: 0,
+              };
             }
           } catch (error) {
-            console.error(`Failed to reload stats for fund ${fund.fund_id}:`, error);
+            console.error(
+              `Failed to reload stats for fund ${fund.fund_id}:`,
+              error,
+            );
             statsMap[fund.fund_id] = { totalCollected: 0, contributorCount: 0 };
           }
-        })
+        }),
       );
       setFundStats(statsMap);
     } catch (error) {
@@ -399,7 +501,7 @@ export default function PublicGroupPage() {
       });
       return;
     }
-    
+
     setSendingOtp(true);
     try {
       const response = await memberApi.sendOTP(phone, account.account_id);
@@ -410,12 +512,13 @@ export default function PublicGroupPage() {
           description: `Verification code sent to ${phone}`,
         });
       } else {
-        throw new Error(response.error || 'Failed to send OTP');
+        throw new Error(response.error || "Failed to send OTP");
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send OTP",
+        description:
+          error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
     } finally {
@@ -441,42 +544,49 @@ export default function PublicGroupPage() {
       });
       return;
     }
-    
+
     setVerifying(true);
     try {
-      const response = await memberApi.verifyOTP(phone, otp, account.account_id);
+      const response = await memberApi.verifyOTP(
+        phone,
+        otp,
+        account.account_id,
+      );
       if (response.success && response.data) {
         const memberId = response.data.member_id;
         const memberName = response.data.full_name;
-        
+
         setMemberId(memberId);
         setMemberName(memberName);
         setIsVerified(true);
         setShowOtpVerification(false);
-        
+
         // Save session to localStorage
         saveSession(memberId, memberName, phone);
-        
+
         // Load member data (contributions)
         await loadMemberData(memberId);
-        
+
         // Reload fund stats to update progress bars
         await reloadFundStats();
-        
+
         // Set contributions tab as default after verification
         setActiveTab("contributions");
-        
+
         toast({
           title: `Welcome, ${memberName}!`,
           description: "You now have access to view your contributions",
         });
       } else {
-        throw new Error(response.error || 'Invalid OTP');
+        throw new Error(response.error || "Invalid OTP");
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Invalid OTP. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Invalid OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -505,30 +615,37 @@ export default function PublicGroupPage() {
 
   // Get unique funds and categories for filters
   const uniqueFunds = useMemo(() => {
-    const fundMap = new Map(publicFunds.map(f => [f.fund_id, f.fund_name]));
+    const fundMap = new Map(publicFunds.map((f) => [f.fund_id, f.fund_name]));
     const fundNames = contributions
-      .map(c => fundMap.get(c.fund_id) || c.fund_id)
+      .map((c) => fundMap.get(c.fund_id) || c.fund_id)
       .filter((name, index, self) => self.indexOf(name) === index);
     return fundNames;
   }, [contributions, publicFunds]);
 
   const uniqueCategories = useMemo(() => {
-    const categories = new Set(expenses.map(e => e.expense_category));
+    const categories = new Set(expenses.map((e) => e.expense_category));
     return Array.from(categories);
   }, [expenses]);
 
   // Filter contributions
   const filteredContributions = useMemo(() => {
     return contributions.filter((contribution) => {
-      const fundName = (contribution as ContributionWithDetails).fund_name 
-        || publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name 
-        || contribution.fund_id;
-      const matchesSearch = 
+      const fundName =
+        (contribution as ContributionWithDetails).fund_name ||
+        publicFunds.find((f) => f.fund_id === contribution.fund_id)
+          ?.fund_name ||
+        contribution.fund_id;
+      const matchesSearch =
         fundName.toLowerCase().includes(contributionSearch.toLowerCase()) ||
-        contribution.amount.toString().includes(contributionSearch.toLowerCase());
-      const matchesFund = contributionFundFilter === "all" || fundName === contributionFundFilter;
-      const matchesStatus = contributionStatusFilter === "all" || contribution.status === contributionStatusFilter;
-      
+        contribution.amount
+          .toString()
+          .includes(contributionSearch.toLowerCase());
+      const matchesFund =
+        contributionFundFilter === "all" || fundName === contributionFundFilter;
+      const matchesStatus =
+        contributionStatusFilter === "all" ||
+        contribution.status === contributionStatusFilter;
+
       // Date filtering
       let matchesDate = true;
       if (contributionStartDate || contributionEndDate) {
@@ -544,156 +661,187 @@ export default function PublicGroupPage() {
           if (contributionDate > end) matchesDate = false;
         }
       }
-      
+
       return matchesSearch && matchesFund && matchesStatus && matchesDate;
     });
-  }, [contributions, contributionSearch, contributionFundFilter, contributionStatusFilter, contributionStartDate, contributionEndDate, publicFunds]);
+  }, [
+    contributions,
+    contributionSearch,
+    contributionFundFilter,
+    contributionStatusFilter,
+    contributionStartDate,
+    contributionEndDate,
+    publicFunds,
+  ]);
 
   // Filter expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
-      const matchesSearch = 
-        expense.expense_name.toLowerCase().includes(expenseSearch.toLowerCase()) ||
-        expense.expense_category.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+      const matchesSearch =
+        expense.expense_name
+          .toLowerCase()
+          .includes(expenseSearch.toLowerCase()) ||
+        expense.expense_category
+          .toLowerCase()
+          .includes(expenseSearch.toLowerCase()) ||
         expense.amount.toString().includes(expenseSearch.toLowerCase());
-      const matchesCategory = expenseCategoryFilter === "all" || expense.expense_category === expenseCategoryFilter;
+      const matchesCategory =
+        expenseCategoryFilter === "all" ||
+        expense.expense_category === expenseCategoryFilter;
       return matchesSearch && matchesCategory;
     });
   }, [expenses, expenseSearch, expenseCategoryFilter]);
 
   // Contribution table columns
-  const contributionColumns = useMemo(() => [
-    {
-      key: "date",
-      header: "Date",
-      className: "text-muted-foreground",
-      render: (item: Record<string, unknown>) => {
-        const contribution = item as unknown as Contribution;
-        return format(new Date(contribution.date_received), "MMM d, yyyy");
+  const contributionColumns = useMemo(
+    () => [
+      {
+        key: "date",
+        header: "Date",
+        className: "text-muted-foreground",
+        render: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as Contribution;
+          return format(new Date(contribution.date_received), "MMM d, yyyy");
+        },
       },
-    },
-    {
-      key: "fund",
-      header: "Fund",
-      render: (item: Record<string, unknown>) => {
-        const contribution = item as unknown as Contribution | ContributionWithDetails;
-        // Use fund_name from API if available, otherwise lookup in publicFunds, fallback to fund_id
-        const fundName = (contribution as ContributionWithDetails).fund_name 
-          || publicFunds.find(f => f.fund_id === contribution.fund_id)?.fund_name 
-          || contribution.fund_id;
-        return <span className="font-medium text-foreground">{fundName}</span>;
+      {
+        key: "fund",
+        header: "Fund",
+        render: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as
+            | Contribution
+            | ContributionWithDetails;
+          // Use fund_name from API if available, otherwise lookup in publicFunds, fallback to fund_id
+          const fundName =
+            (contribution as ContributionWithDetails).fund_name ||
+            publicFunds.find((f) => f.fund_id === contribution.fund_id)
+              ?.fund_name ||
+            contribution.fund_id;
+          return (
+            <span className="font-medium text-foreground">{fundName}</span>
+          );
+        },
       },
-    },
-    {
-      key: "amount",
-      header: "Amount",
-      className: "text-right font-semibold",
-      render: (item: Record<string, unknown>) => {
-        const contribution = item as unknown as Contribution;
-        const prefix = currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `;
-        return (
-          <span className="text-foreground">
-            {prefix}
-            {contribution.amount.toFixed(2)}
-          </span>
-        );
+      {
+        key: "amount",
+        header: "Amount",
+        className: "text-right font-semibold",
+        render: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as Contribution;
+          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          return (
+            <span className="text-foreground">
+              {prefix}
+              {contribution.amount.toFixed(2)}
+            </span>
+          );
+        },
       },
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (item: Record<string, unknown>) => {
-        const contribution = item as unknown as Contribution;
-        const status = contribution.status as string;
-        const isPending = status === "pending";
-        const isConfirmed = status === "confirmed";
-        const isFailed = status === "failed";
-        const isReversed = status === "reversed";
-        const isPledge = status === "pledge";
-        
-        let iconColor = "text-success";
-        let textColor = "text-success";
-        
-        if (isPending) {
-          iconColor = "text-amber";
-          textColor = "text-amber";
-        } else if (isPledge) {
-          iconColor = "text-blue-500";
-          textColor = "text-blue-500";
-        } else if (isFailed || isReversed) {
-          iconColor = "text-destructive";
-          textColor = "text-destructive";
-        }
-        
-        return (
-          <div className="flex items-center gap-1">
-            {isPending ? (
-              <Loader2 className="h-3.5 w-3.5 text-amber animate-spin" />
-            ) : isConfirmed ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-            ) : (
-              <CheckCircle2 className={`h-3.5 w-3.5 ${iconColor}`} />
-            )}
-            <span className={`text-xs ${textColor} capitalize`}>{contribution.status}</span>
-          </div>
-        );
+      {
+        key: "status",
+        header: "Status",
+        render: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as Contribution;
+          const status = contribution.status as string;
+          const isPending = status === "pending";
+          const isConfirmed = status === "confirmed";
+          const isFailed = status === "failed";
+          const isReversed = status === "reversed";
+          const isPledge = status === "pledge";
+
+          let iconColor = "text-success";
+          let textColor = "text-success";
+
+          if (isPending) {
+            iconColor = "text-amber";
+            textColor = "text-amber";
+          } else if (isPledge) {
+            iconColor = "text-blue-500";
+            textColor = "text-blue-500";
+          } else if (isFailed || isReversed) {
+            iconColor = "text-destructive";
+            textColor = "text-destructive";
+          }
+
+          return (
+            <div className="flex items-center gap-1">
+              {isPending ? (
+                <Loader2 className="h-3.5 w-3.5 text-amber animate-spin" />
+              ) : isConfirmed ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+              ) : (
+                <CheckCircle2 className={`h-3.5 w-3.5 ${iconColor}`} />
+              )}
+              <span className={`text-xs ${textColor} capitalize`}>
+                {contribution.status}
+              </span>
+            </div>
+          );
+        },
       },
-    },
-  ], [publicFunds, currencyCode]);
+    ],
+    [publicFunds, currencyCode],
+  );
 
   // Expense table columns
-  const expenseColumns = useMemo(() => [
-    {
-      key: "date",
-      header: "Date",
-      className: "text-muted-foreground",
-      render: (item: Record<string, unknown>) => {
-        const expense = item as unknown as Expense;
-        const dateValue = expense.date ? new Date(expense.date) : new Date();
-        return format(dateValue, "MMM d, yyyy");
+  const expenseColumns = useMemo(
+    () => [
+      {
+        key: "date",
+        header: "Date",
+        className: "text-muted-foreground",
+        render: (item: Record<string, unknown>) => {
+          const expense = item as unknown as Expense;
+          const dateValue = expense.date ? new Date(expense.date) : new Date();
+          return format(dateValue, "MMM d, yyyy");
+        },
       },
-    },
-    {
-      key: "category",
-      header: "Category",
-      render: (item: Record<string, unknown>) => {
-        const expense = item as unknown as Expense;
-        return (
-          <span
-            className={cn(
-              "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
-              categoryColors[expense.expense_category] || "bg-secondary text-secondary-foreground"
-            )}
-          >
-            {expense.expense_category}
-          </span>
-        );
+      {
+        key: "category",
+        header: "Category",
+        render: (item: Record<string, unknown>) => {
+          const expense = item as unknown as Expense;
+          return (
+            <span
+              className={cn(
+                "inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full",
+                categoryColors[expense.expense_category] ||
+                  "bg-secondary text-secondary-foreground",
+              )}
+            >
+              {expense.expense_category}
+            </span>
+          );
+        },
       },
-    },
-    {
-      key: "description",
-      header: "Description",
-      render: (item: Record<string, unknown>) => {
-        const expense = item as unknown as Expense;
-        return <span className="text-foreground">{expense.expense_name}</span>;
+      {
+        key: "description",
+        header: "Description",
+        render: (item: Record<string, unknown>) => {
+          const expense = item as unknown as Expense;
+          return (
+            <span className="text-foreground">{expense.expense_name}</span>
+          );
+        },
       },
-    },
-    {
-      key: "amount",
-      header: "Amount",
-      className: "text-right font-semibold",
-      render: (item: Record<string, unknown>) => {
-        const expense = item as unknown as Expense;
-        const prefix = currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `;
-        return (
-          <span className="text-foreground">
-            {prefix}
-            {Number(expense.amount).toFixed(2)}
-          </span>
-        );
+      {
+        key: "amount",
+        header: "Amount",
+        className: "text-right font-semibold",
+        render: (item: Record<string, unknown>) => {
+          const expense = item as unknown as Expense;
+          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          return (
+            <span className="text-foreground">
+              {prefix}
+              {Number(expense.amount).toFixed(2)}
+            </span>
+          );
+        },
       },
-    },
-  ], [currencyCode]);
+    ],
+    [currencyCode],
+  );
 
   if (loading) {
     return (
@@ -719,7 +867,7 @@ export default function PublicGroupPage() {
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen"
       style={{ backgroundColor, color: foregroundColor }}
     >
@@ -762,7 +910,7 @@ export default function PublicGroupPage() {
                   )}
                 </div>
               </div>
-              
+
               {otpSent && (
                 <div className="space-y-2">
                   <Label htmlFor="otp">Enter OTP Code</Label>
@@ -771,7 +919,9 @@ export default function PublicGroupPage() {
                       id="otp"
                       placeholder="000000"
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setOtp(e.target.value.replace(/\D/g, ""))
+                      }
                       maxLength={6}
                       className="text-center text-2xl tracking-widest font-mono"
                     />
@@ -789,7 +939,7 @@ export default function PublicGroupPage() {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex gap-2 pt-4">
                 <Button
                   type="button"
@@ -817,53 +967,51 @@ export default function PublicGroupPage() {
           {/* Logo on Left */}
           <div className="flex-shrink-0">
             {account?.account_logo ? (
-              <img 
-                src={account.account_logo} 
-                alt={account.account_name || "Logo"} 
+              <img
+                src={account.account_logo}
+                alt={account.account_name || "Logo"}
                 className="h-20 w-20 rounded-xl object-cover shadow-lg border-2"
                 style={{ borderColor: foregroundColor + "20" }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
-              <div 
-                className="h-20 w-20 rounded-xl flex items-center justify-center shadow-lg border-2"
-                style={{ 
-                  backgroundColor: foregroundColor + "10",
+              <div
+                className="h-20 w-20 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card"
+                style={{
                   borderColor: foregroundColor + "20",
-                  color: foregroundColor
                 }}
               >
-                <span className="text-2xl font-bold">
-                  {(account?.account_name || "CG").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                </span>
+                <BrandSymbol className="h-10 w-10" alt="Pollean" />
               </div>
             )}
           </div>
-          
+
           {/* Title and Description */}
           <div className="flex-1">
-            <h1 
+            <h1
               className="text-3xl font-bold mb-2"
               style={{ color: foregroundColor }}
             >
               {account?.account_name || "Community Group"}
             </h1>
-            <p 
-              className="opacity-80 mb-4"
-              style={{ color: foregroundColor }}
-            >
-              {isVerified && memberName 
-                ? <>Welcome back, <strong className="uppercase">{memberName}</strong>! Support our community by contributing to our active groups.</>
-                : "Support our community by contributing to our active funds"
-              }
+            <p className="opacity-80 mb-4" style={{ color: foregroundColor }}>
+              {isVerified && memberName ? (
+                <>
+                  Welcome back,{" "}
+                  <strong className="uppercase">{memberName}</strong>! Support
+                  our community by contributing to our active groups.
+                </>
+              ) : (
+                "Support our community by contributing to our active funds"
+              )}
             </p>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-start gap-3">
               {!isVerified ? (
-                <Button 
-                  onClick={handleRequestAccess} 
+                <Button
+                  onClick={handleRequestAccess}
                   size="lg"
                   className="w-full sm:w-auto"
                 >
@@ -871,8 +1019,8 @@ export default function PublicGroupPage() {
                   View My Contributions
                 </Button>
               ) : (
-                <Button 
-                  onClick={handleLogout} 
+                <Button
+                  onClick={handleLogout}
                   size="lg"
                   variant="outline"
                   className="w-full sm:w-auto"
@@ -887,7 +1035,10 @@ export default function PublicGroupPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="w-full" style={{ backgroundColor: secondaryColor + '80' }}>
+          <TabsList
+            className="w-full"
+            style={{ backgroundColor: secondaryColor + "80" }}
+          >
             {isVerified ? (
               <>
                 <TabsTrigger value="contributions" className="flex-1">
@@ -898,7 +1049,7 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                {expenseVisibilityLevel !== 'none' && (
+                {expenseVisibilityLevel !== "none" && (
                   <TabsTrigger value="expenses" className="flex-1">
                     <Receipt className="h-4 w-4 mr-2" />
                     Expenses
@@ -915,7 +1066,7 @@ export default function PublicGroupPage() {
                   <Wallet className="h-4 w-4 mr-2" />
                   Contribute
                 </TabsTrigger>
-                {expenseVisibilityLevel !== 'none' && (
+                {expenseVisibilityLevel !== "none" && (
                   <TabsTrigger value="expenses" className="flex-1">
                     <Receipt className="h-4 w-4 mr-2" />
                     Expenses
@@ -931,7 +1082,9 @@ export default function PublicGroupPage() {
               <Card>
                 <CardContent className="pt-6 text-center">
                   <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">Verify to contribute</p>
+                  <p className="text-muted-foreground mb-4">
+                    Verify to contribute
+                  </p>
                   <Button onClick={handleRequestAccess}>
                     <Lock className="h-4 w-4 mr-2" />
                     Verify
@@ -939,102 +1092,134 @@ export default function PublicGroupPage() {
                 </CardContent>
               </Card>
             ) : (
-            <div className="space-y-4">
-              {publicFunds.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <p className="text-center text-muted-foreground">No Funds available</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                publicFunds.map((f) => {
-                  const stats = fundStats[f.fund_id] || { totalCollected: 0, contributorCount: 0 };
-                  
-                  // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
-                  let fundGoal: number | null = null;
-                  if (f.fund_goal != null) {
-                    if (typeof f.fund_goal === 'number') {
-                      fundGoal = f.fund_goal;
-                    } else if (typeof f.fund_goal === 'string') {
-                      fundGoal = parseFloat(f.fund_goal);
-                    } else if (typeof f.fund_goal === 'object') {
-                      // Handle Decimal/object types from database - try multiple extraction methods
-                      const obj = f.fund_goal as { valueOf?: () => unknown; toString?: () => string; [key: string]: unknown };
-                      if (obj.valueOf) {
-                        const value = obj.valueOf();
-                        fundGoal = typeof value === 'number' ? value : Number(value);
-                      } else if (obj.toString) {
-                        fundGoal = parseFloat(obj.toString());
-                      } else {
-                        // Try direct conversion
-                        fundGoal = Number(f.fund_goal);
+              <div className="space-y-4">
+                {publicFunds.length === 0 ? (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-center text-muted-foreground">
+                        No Funds available
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  publicFunds.map((f) => {
+                    const stats = fundStats[f.fund_id] || {
+                      totalCollected: 0,
+                      contributorCount: 0,
+                    };
+
+                    // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
+                    let fundGoal: number | null = null;
+                    if (f.fund_goal != null) {
+                      if (typeof f.fund_goal === "number") {
+                        fundGoal = f.fund_goal;
+                      } else if (typeof f.fund_goal === "string") {
+                        fundGoal = parseFloat(f.fund_goal);
+                      } else if (typeof f.fund_goal === "object") {
+                        // Handle Decimal/object types from database - try multiple extraction methods
+                        const obj = f.fund_goal as {
+                          valueOf?: () => unknown;
+                          toString?: () => string;
+                          [key: string]: unknown;
+                        };
+                        if (obj.valueOf) {
+                          const value = obj.valueOf();
+                          fundGoal =
+                            typeof value === "number" ? value : Number(value);
+                        } else if (obj.toString) {
+                          fundGoal = parseFloat(obj.toString());
+                        } else {
+                          // Try direct conversion
+                          fundGoal = Number(f.fund_goal);
+                        }
                       }
                     }
-                  }
-                  
-                  // Debug log for fund calculation
-                  if (f.fund_goal != null) {
-                    console.log(`[Fund Calculation] ${f.fund_name}:`, {
-                      fund_goal_raw: f.fund_goal,
-                      fund_goal_type: typeof f.fund_goal,
-                      fund_goal_extracted: fundGoal,
-                      totalCollected: stats.totalCollected,
-                      hasGoal: fundGoal != null && !isNaN(fundGoal) && fundGoal > 0
-                    });
-                  }
-                  
-                  const hasGoal = fundGoal != null && !isNaN(fundGoal) && fundGoal > 0;
-                  const totalCollected = stats.totalCollected || 0;
-                  const progress = hasGoal 
-                    ? Math.min((totalCollected / fundGoal!) * 100, 100) 
-                    : null;
-                  
-                  return (
-                    <Card key={f.fund_id} style={{ borderColor: 'transparent' }} className="hover:border-opacity-50 transition-colors" onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor + '50'} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <Wallet className="h-5 w-5" style={{ color: primaryColor }} />
-                            <span className="font-medium">{f.fund_name}</span>
-                          </div>
-                          {account && account.kyc_status === 'verified' && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedFund(f);
-                                setShowConfirmationDialog(true);
-                              }}
-                              style={{ backgroundColor: primaryColor, color: secondaryColor }}
-                            >
-                              Contribute →
-                            </Button>
-                          )}
-                        </div>
-                        {f.description && (
-                          <p className="text-sm text-muted-foreground mb-3">{f.description}</p>
-                        )}
-                        {hasGoal && (
-                          <div className="mt-3">
-                            <div className="relative h-2 mb-1 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full rounded-full transition-all"
-                                style={{ 
-                                  width: `${progress || 0}%`,
-                                  backgroundColor: primaryColor
-                                }}
+
+                    // Debug log for fund calculation
+                    if (f.fund_goal != null) {
+                      console.log(`[Fund Calculation] ${f.fund_name}:`, {
+                        fund_goal_raw: f.fund_goal,
+                        fund_goal_type: typeof f.fund_goal,
+                        fund_goal_extracted: fundGoal,
+                        totalCollected: stats.totalCollected,
+                        hasGoal:
+                          fundGoal != null && !isNaN(fundGoal) && fundGoal > 0,
+                      });
+                    }
+
+                    const hasGoal =
+                      fundGoal != null && !isNaN(fundGoal) && fundGoal > 0;
+                    const totalCollected = stats.totalCollected || 0;
+                    const progress = hasGoal
+                      ? Math.min((totalCollected / fundGoal!) * 100, 100)
+                      : null;
+
+                    return (
+                      <Card
+                        key={f.fund_id}
+                        style={{ borderColor: "transparent" }}
+                        className="hover:border-opacity-50 transition-colors"
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.borderColor =
+                            primaryColor + "50")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.borderColor = "transparent")
+                        }
+                      >
+                        <CardContent className="pt-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <Wallet
+                                className="h-5 w-5"
+                                style={{ color: primaryColor }}
                               />
+                              <span className="font-medium">{f.fund_name}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground text-right">
-                              {progress !== null ? progress.toFixed(0) : 0}% of goal reached
-                            </p>
+                            {account && account.kyc_status === "verified" && (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedFund(f);
+                                  setShowConfirmationDialog(true);
+                                }}
+                                style={{
+                                  backgroundColor: primaryColor,
+                                  color: secondaryColor,
+                                }}
+                              >
+                                Contribute →
+                              </Button>
+                            )}
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
+                          {f.description && (
+                            <p className="text-sm text-muted-foreground mb-3">
+                              {f.description}
+                            </p>
+                          )}
+                          {hasGoal && (
+                            <div className="mt-3">
+                              <div className="relative h-2 mb-1 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${progress || 0}%`,
+                                    backgroundColor: primaryColor,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground text-right">
+                                {progress !== null ? progress.toFixed(0) : 0}%
+                                of goal reached
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
             )}
           </TabsContent>
 
@@ -1044,7 +1229,9 @@ export default function PublicGroupPage() {
               <Card>
                 <CardContent className="pt-6 text-center">
                   <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">Verify to see your contributions</p>
+                  <p className="text-muted-foreground mb-4">
+                    Verify to see your contributions
+                  </p>
                   <Button onClick={handleRequestAccess}>
                     <Lock className="h-4 w-4 mr-2" />
                     Verify
@@ -1063,14 +1250,23 @@ export default function PublicGroupPage() {
                       value={contributionSearch}
                       onChange={(e) => setContributionSearch(e.target.value)}
                       className="pl-9"
-                      style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                      style={{
+                        backgroundColor: backgroundColor,
+                        color: foregroundColor,
+                      }}
                     />
                   </div>
-                  
+
                   {/* All Funds and All Status - Side by side */}
                   <div className="flex gap-3">
-                    <Select value={contributionFundFilter} onValueChange={setContributionFundFilter}>
-                      <SelectTrigger className="flex-1" style={{ backgroundColor: backgroundColor }}>
+                    <Select
+                      value={contributionFundFilter}
+                      onValueChange={setContributionFundFilter}
+                    >
+                      <SelectTrigger
+                        className="flex-1"
+                        style={{ backgroundColor: backgroundColor }}
+                      >
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Filter by group" />
                       </SelectTrigger>
@@ -1083,8 +1279,14 @@ export default function PublicGroupPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Select value={contributionStatusFilter} onValueChange={setContributionStatusFilter}>
-                      <SelectTrigger className="flex-1" style={{ backgroundColor: backgroundColor }}>
+                    <Select
+                      value={contributionStatusFilter}
+                      onValueChange={setContributionStatusFilter}
+                    >
+                      <SelectTrigger
+                        className="flex-1"
+                        style={{ backgroundColor: backgroundColor }}
+                      >
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
@@ -1096,7 +1298,7 @@ export default function PublicGroupPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   {/* Start Date and End Date - Side by side */}
                   <div className="flex gap-3">
                     <Popover>
@@ -1106,17 +1308,25 @@ export default function PublicGroupPage() {
                           variant="outline"
                           className={cn(
                             "flex-1 relative font-normal",
-                            !contributionStartDate && "text-muted-foreground"
+                            !contributionStartDate && "text-muted-foreground",
                           )}
-                          style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                          style={{
+                            backgroundColor: backgroundColor,
+                            color: foregroundColor,
+                          }}
                         >
                           <CalendarIcon className="absolute left-3 h-4 w-4" />
                           <span className="text-center w-full">
-                            {contributionStartDate ? format(contributionStartDate, "MMM d, yyyy") : "Start date"}
+                            {contributionStartDate
+                              ? format(contributionStartDate, "MMM d, yyyy")
+                              : "Start date"}
                           </span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+                      <PopoverContent
+                        className="w-auto p-0 bg-card border-border"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={contributionStartDate}
@@ -1126,7 +1336,7 @@ export default function PublicGroupPage() {
                         />
                       </PopoverContent>
                     </Popover>
-                    
+
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -1134,17 +1344,25 @@ export default function PublicGroupPage() {
                           variant="outline"
                           className={cn(
                             "flex-1 relative font-normal",
-                            !contributionEndDate && "text-muted-foreground"
+                            !contributionEndDate && "text-muted-foreground",
                           )}
-                          style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                          style={{
+                            backgroundColor: backgroundColor,
+                            color: foregroundColor,
+                          }}
                         >
                           <CalendarIcon className="absolute left-3 h-4 w-4" />
                           <span className="text-center w-full">
-                            {contributionEndDate ? format(contributionEndDate, "MMM d, yyyy") : "End date"}
+                            {contributionEndDate
+                              ? format(contributionEndDate, "MMM d, yyyy")
+                              : "End date"}
                           </span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+                      <PopoverContent
+                        className="w-auto p-0 bg-card border-border"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={contributionEndDate}
@@ -1155,7 +1373,7 @@ export default function PublicGroupPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  
+
                   {/* Clear dates - Full width row */}
                   {(contributionStartDate || contributionEndDate) && (
                     <Button
@@ -1167,7 +1385,10 @@ export default function PublicGroupPage() {
                         setContributionEndDate(undefined);
                       }}
                       className="w-full"
-                      style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+                      style={{
+                        backgroundColor: backgroundColor,
+                        color: foregroundColor,
+                      }}
                     >
                       Clear dates
                     </Button>
@@ -1177,7 +1398,12 @@ export default function PublicGroupPage() {
                 {/* Table */}
                 <DataTable
                   columns={contributionColumns}
-                  data={filteredContributions as unknown as Record<string, unknown>[]}
+                  data={
+                    filteredContributions as unknown as Record<
+                      string,
+                      unknown
+                    >[]
+                  }
                   emptyMessage="No contributions found"
                 />
               </div>
@@ -1185,99 +1411,146 @@ export default function PublicGroupPage() {
           </TabsContent>
 
           {/* Expenses Tab */}
-          {expenseVisibilityLevel !== 'none' && (
+          {expenseVisibilityLevel !== "none" && (
             <TabsContent value="expenses" className="mt-4">
-            {!isVerified ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">Verify to see expenses</p>
-                  <Button onClick={handleRequestAccess}>
-                    <Lock className="h-4 w-4 mr-2" />
-                    Verify
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : expenseVisibilityLevel === 'summary' ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Expense Summary</CardTitle>
-                  <CardDescription>Total expenses and contributions overview</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <span className="text-muted-foreground">Total Contributions</span>
-                      <span className="text-lg font-semibold text-green-600">
-                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
-                        {Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0).toFixed(2)}
-                      </span>
+              {!isVerified ? (
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">
+                      Verify to see expenses
+                    </p>
+                    <Button onClick={handleRequestAccess}>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Verify
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : expenseVisibilityLevel === "summary" ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Expense Summary</CardTitle>
+                    <CardDescription>
+                      Total expenses and contributions overview
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center p-4 border rounded-lg">
+                        <span className="text-muted-foreground">
+                          Total Contributions
+                        </span>
+                        <span className="text-lg font-semibold text-green-600">
+                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {Object.values(fundStats)
+                            .reduce(
+                              (sum, stats) => sum + stats.totalCollected,
+                              0,
+                            )
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-4 border rounded-lg">
+                        <span className="text-muted-foreground">
+                          Total Expenses
+                        </span>
+                        <span className="text-lg font-semibold text-red-600">
+                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {expenses
+                            .reduce((sum, e) => sum + Number(e.amount), 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-4 border rounded-lg bg-muted">
+                        <span className="font-medium">Net Position</span>
+                        <span
+                          className={`text-lg font-semibold ${
+                            Object.values(fundStats).reduce(
+                              (sum, stats) => sum + stats.totalCollected,
+                              0,
+                            ) -
+                              expenses.reduce(
+                                (sum, e) => sum + Number(e.amount),
+                                0,
+                              ) >=
+                            0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {(
+                            Object.values(fundStats).reduce(
+                              (sum, stats) => sum + stats.totalCollected,
+                              0,
+                            ) -
+                            expenses.reduce(
+                              (sum, e) => sum + Number(e.amount),
+                              0,
+                            )
+                          ).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <span className="text-muted-foreground">Total Expenses</span>
-                      <span className="text-lg font-semibold text-red-600">
-                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
-                        {expenses.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)}
-                      </span>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {/* Filters */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search expenses..."
+                        value={expenseSearch}
+                        onChange={(e) => setExpenseSearch(e.target.value)}
+                        className="pl-9"
+                        style={{
+                          backgroundColor: backgroundColor,
+                          color: foregroundColor,
+                        }}
+                      />
                     </div>
-                    <div className="flex justify-between items-center p-4 border rounded-lg bg-muted">
-                      <span className="font-medium">Net Position</span>
-                      <span className={`text-lg font-semibold ${
-                        (Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
-                         expenses.reduce((sum, e) => sum + Number(e.amount), 0)) >= 0 
-                          ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {(currencyCode === 'GHS' ? 'GH₵' : `${currencyCode} `)}
-                        {(Object.values(fundStats).reduce((sum, stats) => sum + stats.totalCollected, 0) - 
-                            expenses.reduce((sum, e) => sum + Number(e.amount), 0)).toFixed(2)}
-                      </span>
-                    </div>
+                    <Select
+                      value={expenseCategoryFilter}
+                      onValueChange={setExpenseCategoryFilter}
+                    >
+                      <SelectTrigger
+                        className="w-[180px]"
+                        style={{ backgroundColor: backgroundColor }}
+                      >
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Filter by category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {uniqueCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-            <div className="space-y-4">
-              {/* Filters */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search expenses..."
-                    value={expenseSearch}
-                    onChange={(e) => setExpenseSearch(e.target.value)}
-                    className="pl-9"
-                    style={{ backgroundColor: backgroundColor, color: foregroundColor }}
+
+                  {/* Table */}
+                  <DataTable
+                    columns={expenseColumns}
+                    data={
+                      filteredExpenses as unknown as Record<string, unknown>[]
+                    }
+                    emptyMessage="No expenses found"
                   />
                 </div>
-                <Select value={expenseCategoryFilter} onValueChange={setExpenseCategoryFilter}>
-                  <SelectTrigger className="w-[180px]" style={{ backgroundColor: backgroundColor }}>
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Table */}
-              <DataTable
-                columns={expenseColumns}
-                data={filteredExpenses as unknown as Record<string, unknown>[]}
-                emptyMessage="No expenses found"
-              />
-            </div>
-            )}
-          </TabsContent>
+              )}
+            </TabsContent>
           )}
         </Tabs>
 
-        <p className="text-center text-xs opacity-60 mt-8" style={{ color: foregroundColor }}>
+        <p
+          className="text-center text-xs opacity-60 mt-8"
+          style={{ color: foregroundColor }}
+        >
           Powered by Pollean
         </p>
       </div>

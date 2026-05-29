@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import SignIn from "./app/auth/SignIn";
 import SignUp from "./app/auth/SignUp";
 import VerifyOTP from "./app/auth/VerifyOTP";
@@ -99,108 +100,120 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/verify-otp" element={<VerifyOTP />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-          <Route
-            path="/members"
-            element={
-              <ProtectedRoute>
-                <Members />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/funds"
-            element={
-              <ProtectedRoute>
-                <Funds />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/contributions"
-            element={
-              <ProtectedRoute>
-                <Contributions />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/expenses"
-            element={
-              <ProtectedRoute>
-                <Expenses />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/public-settings"
-            element={
-              <AdminRoute>
-                <PublicSettings />
-              </AdminRoute>
-            }
-          />
-          <Route path="/group" element={<PublicGroupLanding />} />
-          <Route path="/group/:accountId" element={<PublicGroupPage />} />
-          <Route path="/group/:accountId/join" element={<JoinGroupPage />} />
-          <Route path="/verify-member-email" element={<VerifyMemberEmail />} />
-          <Route path="/payment/callback" element={<PaymentCallback />} />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute>
-                <Reports />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <AdminRoute>
-                <Settings />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/kyc-verification"
-            element={
-              <SuperAdminRoute>
-                <KYCVerification />
-              </SuperAdminRoute>
-            }
-          />
-          <Route
-            path="/user-profile"
-            element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-      <Analytics />
-    </TooltipProvider>
-  </QueryClientProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem={false}
+        disableTransitionOnChange
+      >
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/verify-otp" element={<VerifyOTP />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/members"
+                element={
+                  <ProtectedRoute>
+                    <Members />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/funds"
+                element={
+                  <ProtectedRoute>
+                    <Funds />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contributions"
+                element={
+                  <ProtectedRoute>
+                    <Contributions />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/expenses"
+                element={
+                  <ProtectedRoute>
+                    <Expenses />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/public-settings"
+                element={
+                  <AdminRoute>
+                    <PublicSettings />
+                  </AdminRoute>
+                }
+              />
+              <Route path="/group" element={<PublicGroupLanding />} />
+              <Route path="/group/:accountId" element={<PublicGroupPage />} />
+              <Route
+                path="/group/:accountId/join"
+                element={<JoinGroupPage />}
+              />
+              <Route
+                path="/verify-member-email"
+                element={<VerifyMemberEmail />}
+              />
+              <Route path="/payment/callback" element={<PaymentCallback />} />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <AdminRoute>
+                    <Settings />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/kyc-verification"
+                element={
+                  <SuperAdminRoute>
+                    <KYCVerification />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
+                path="/user-profile"
+                element={
+                  <ProtectedRoute>
+                    <UserProfile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+          <Analytics />
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 };
 
 export default App;
-

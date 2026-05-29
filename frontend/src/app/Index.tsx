@@ -26,10 +26,14 @@ import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { KycSetupBanner } from "@/components/banners/KycSetupBanner";
+import { BrandSymbol } from "@/components/ui/brand";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { fundApi, Fund } from "@/services";
-import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import {
+  contributionApi,
+  ContributionWithDetails,
+} from "@/services/contribution.api";
 import { reportingApi, DashboardStats } from "@/services/reporting.api";
 import { configApi } from "@/services/config.api";
 import { format } from "date-fns";
@@ -69,11 +73,17 @@ export default function Dashboard() {
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [funds, setFunds] = useState<Fund[]>([]);
-  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
+  const [contributions, setContributions] = useState<ContributionWithDetails[]>(
+    [],
+  );
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { account, getInitials, loading: accountLoading } = useAccount(user?.id);
+  const {
+    account,
+    getInitials,
+    loading: accountLoading,
+  } = useAccount(user?.id);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = (amount: number) => {
@@ -96,7 +106,7 @@ export default function Dashboard() {
 
   const loadContributions = async () => {
     if (!account?.account_id) return;
-    
+
     try {
       const response = await contributionApi.getByAccount(account.account_id);
       if (response.success && response.data) {
@@ -114,8 +124,10 @@ export default function Dashboard() {
         loadFunds(),
         loadContributions(),
         loadStats(),
-        configApi.getMyConfig().then((cfg) => setCurrencyCode(cfg.currency_code || "GHS")),
-      ]).catch(error => {
+        configApi
+          .getMyConfig()
+          .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS")),
+      ]).catch((error) => {
         console.error("Failed to load dashboard data:", error);
         setCurrencyCode("GHS");
       });
@@ -124,10 +136,12 @@ export default function Dashboard() {
 
   const loadStats = async () => {
     if (!account?.account_id) return;
-    
+
     try {
       setLoading(true);
-      const dashboardStats = await reportingApi.getDashboard(account.account_id);
+      const dashboardStats = await reportingApi.getDashboard(
+        account.account_id,
+      );
       setStats(dashboardStats);
     } catch (error) {
       console.error("Failed to load stats:", error);
@@ -139,23 +153,32 @@ export default function Dashboard() {
 
   // Filter to only show active funds in the dropdown (admins can see all funds in stats)
   const activeFunds = useMemo(() => {
-    return funds.filter(f => f.is_active);
+    return funds.filter((f) => f.is_active);
   }, [funds]);
 
   const fundsWithAll = useMemo(() => {
     return [
       { fund_id: "all", fund_name: "All Funds" },
-      ...activeFunds.map(f => ({ fund_id: f.fund_id, fund_name: f.fund_name }))
+      ...activeFunds.map((f) => ({
+        fund_id: f.fund_id,
+        fund_name: f.fund_name,
+      })),
     ];
   }, [activeFunds]);
 
-  const selectedFundName = fundsWithAll.find((f) => f.fund_id === selectedFund)?.fund_name || "All Funds";
+  const selectedFundName =
+    fundsWithAll.find((f) => f.fund_id === selectedFund)?.fund_name ||
+    "All Funds";
 
   const recentContributions: ContributionRow[] = useMemo(() => {
     return contributions
-      .sort((a, b) => new Date(b.date_received).getTime() - new Date(a.date_received).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.date_received).getTime() -
+          new Date(a.date_received).getTime(),
+      )
       .slice(0, 10)
-      .map(c => ({
+      .map((c) => ({
         member: c.member_name || "Anonymous",
         fund: c.fund_name,
         amount: formatAmount(c.amount),
@@ -165,9 +188,10 @@ export default function Dashboard() {
       }));
   }, [contributions]);
 
-  const filteredContributions = selectedFund === "all"
-    ? recentContributions
-    : recentContributions.filter((c) => c.fundId === selectedFund);
+  const filteredContributions =
+    selectedFund === "all"
+      ? recentContributions
+      : recentContributions.filter((c) => c.fundId === selectedFund);
 
   const displayStats = useMemo(() => {
     if (!stats) {
@@ -213,27 +237,29 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           {/* Custom Group Logo */}
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-gold flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
+          <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
             {accountLoading ? (
               <div className="h-full w-full bg-amber/20 animate-pulse" />
             ) : account?.account_logo ? (
-              <img 
-                src={account.account_logo} 
-                alt="Account Logo" 
+              <img
+                src={account.account_logo}
+                alt="Account Logo"
                 className="h-full w-full object-cover"
                 loading="eager"
                 decoding="async"
                 key={`dashboard-${account.account_logo}`}
               />
             ) : (
-              <span className="text-lg font-bold text-white">
-                {account ? getInitials(account.account_name) : "CG"}
-              </span>
+              <BrandSymbol className="h-7 w-7" alt="Pollean" />
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{selectedFundName}</h1>
-            <p className="text-sm text-muted-foreground">Overview of your group's financial activity</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              {selectedFundName}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Overview of your group's financial activity
+            </p>
           </div>
         </div>
 
@@ -254,7 +280,9 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${xlCols} gap-4 mb-8`}>
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${xlCols} gap-4 mb-8`}
+      >
         <StatCard
           title="Total Balance"
           value={loading ? "..." : formatAmount(displayStats.balance)}
@@ -264,7 +292,9 @@ export default function Dashboard() {
         <StatCard
           title="This Month"
           value={loading ? "..." : formatAmount(displayStats.month)}
-          subtitle={loading ? "..." : `${displayStats.monthContributions} contributions`}
+          subtitle={
+            loading ? "..." : `${displayStats.monthContributions} contributions`
+          }
           icon={CalendarDays}
           accentBorder
         />
@@ -272,7 +302,11 @@ export default function Dashboard() {
           <StatCard
             title="Pending"
             value={loading ? "..." : formatAmount(displayStats.pending)}
-            subtitle={loading ? "..." : `${displayStats.pendingCount} awaiting confirmation`}
+            subtitle={
+              loading
+                ? "..."
+                : `${displayStats.pendingCount} awaiting confirmation`
+            }
             icon={Clock}
             accentBorder
           />
@@ -289,7 +323,9 @@ export default function Dashboard() {
         <StatCard
           title="Members"
           value={loading ? "..." : displayStats.members.toString()}
-          subtitle={loading ? "..." : `${displayStats.newMembers} new this month`}
+          subtitle={
+            loading ? "..." : `${displayStats.newMembers} new this month`
+          }
           icon={Users}
           accentBorder
         />
@@ -297,7 +333,7 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-        <button 
+        <button
           onClick={() => setShowRecordContribution(true)}
           className="bg-card border border-border rounded-lg p-5 text-left hover:border-amber/50 hover:shadow-sm transition-all group"
         >
@@ -307,11 +343,13 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-medium text-foreground">Record Contribution</p>
-              <p className="text-sm text-muted-foreground">Log an offline payment</p>
+              <p className="text-sm text-muted-foreground">
+                Log an offline payment
+              </p>
             </div>
           </div>
         </button>
-        <button 
+        <button
           onClick={() => setShowAddMember(true)}
           className="bg-card border border-border rounded-lg p-5 text-left hover:border-amber/50 hover:shadow-sm transition-all group"
         >
@@ -321,11 +359,13 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-medium text-foreground">Add Member</p>
-              <p className="text-sm text-muted-foreground">Register a new member</p>
+              <p className="text-sm text-muted-foreground">
+                Register a new member
+              </p>
             </div>
           </div>
         </button>
-        <button 
+        <button
           onClick={() => setShowCreateFund(true)}
           className="bg-card border border-border rounded-lg p-5 text-left hover:border-amber/50 hover:shadow-sm transition-all group"
         >
@@ -344,8 +384,14 @@ export default function Dashboard() {
       {/* Recent Contributions */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Recent Contributions</h2>
-          <Button variant="ghost" size="sm" className="text-amber-dark hover:text-charcoal">
+          <h2 className="text-lg font-semibold text-foreground">
+            Recent Contributions
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-amber-dark hover:text-charcoal"
+          >
             View all
           </Button>
         </div>
@@ -361,8 +407,8 @@ export default function Dashboard() {
       {/* Modals */}
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} />
       <CreateFundModal open={showCreateFund} onOpenChange={setShowCreateFund} />
-      <RecordContributionModal 
-        open={showRecordContribution} 
+      <RecordContributionModal
+        open={showRecordContribution}
         onOpenChange={setShowRecordContribution}
         onSuccess={() => {
           loadContributions();
