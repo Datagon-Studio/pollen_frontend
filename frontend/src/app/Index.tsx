@@ -26,7 +26,6 @@ import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { KycSetupBanner } from "@/components/banners/KycSetupBanner";
-import { BrandSymbol } from "@/components/ui/brand";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { fundApi, Fund } from "@/services";
@@ -79,11 +78,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const {
-    account,
-    getInitials,
-    loading: accountLoading,
-  } = useAccount(user?.id);
+  const { account } = useAccount(user?.id);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = (amount: number) => {
@@ -235,32 +230,13 @@ export default function Dashboard() {
       <KycSetupBanner />
       {/* Header with Logo and Fund Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          {/* Custom Group Logo */}
-          <div className="h-12 w-12 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 shadow-md overflow-hidden relative">
-            {accountLoading ? (
-              <div className="h-full w-full bg-amber/20 animate-pulse" />
-            ) : account?.account_logo ? (
-              <img
-                src={account.account_logo}
-                alt="Account Logo"
-                className="h-full w-full object-cover"
-                loading="eager"
-                decoding="async"
-                key={`dashboard-${account.account_logo}`}
-              />
-            ) : (
-              <BrandSymbol className="h-7 w-7" alt="Pollean" />
-            )}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {selectedFundName}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Overview of your group's financial activity
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {selectedFundName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Overview of your group's financial activity
+          </p>
         </div>
 
         {/* Fund Selector */}

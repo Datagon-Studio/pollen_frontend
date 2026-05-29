@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { BrandSymbol } from "@/components/ui/brand";
+import { BrandFullLogo, BrandSymbol } from "@/components/ui/brand";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 
@@ -111,7 +111,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (user) {
-      // Load profile image from user metadata
+      // Load profile image from user metadata as an initial fallback
       const profileImageUrl = user.user_metadata?.profile_image_url;
       if (profileImageUrl) {
         setProfileImage(profileImageUrl);
@@ -140,6 +140,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         .then((profile) => {
           userProfileRef.current = profile;
           setUserProfile(profile);
+          if (profile.profile_image_url) {
+            setProfileImage(profile.profile_image_url);
+          }
           setProfileLoading(false);
           userProfileLoadingRef.current = false;
         })
@@ -152,7 +155,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             user_id: user.id,
             email: user.email || "",
             role: "admin",
-            full_name: null,
+            full_name: user.user_metadata?.full_name || null,
+            profile_image_url: user.user_metadata?.profile_image_url || null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -198,7 +202,10 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   // Get display name and initials
   const displayName =
-    userProfile?.full_name || user?.email?.split("@")[0] || "User";
+    userProfile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "User";
   const initials = userProfile?.full_name
     ? userProfile.full_name
         .split(" ")
@@ -210,6 +217,13 @@ export function AppLayout({ children }: AppLayoutProps) {
       ? user.email[0].toUpperCase()
       : "U";
   const isDarkTheme = theme === "dark";
+  const currentNavItem =
+    navItems.find((item) => item.href === location.pathname) ??
+    allNavItems.find((item) => item.href === location.pathname);
+  const currentPageTitle = account?.account_name || "Pollean";
+  const currentPageSubtitle = currentNavItem?.label || "Dashboard";
+  const rawRole = accountRole || userProfile?.role || "admin";
+  const roleLabel = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
   const handleThemeToggle = () => {
     setTheme(isDarkTheme ? "light" : "dark");
@@ -283,39 +297,13 @@ export function AppLayout({ children }: AppLayoutProps) {
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-          {sidebarOpen ? (
-            <Link to="/" className="flex items-center gap-3 min-w-0">
-              {accountLoading ? (
-                <div className="h-10 w-32 rounded-md bg-muted animate-pulse" />
-              ) : account?.account_logo ? (
-                <>
-                  <img
-                    src={account.account_logo}
-                    alt="Account Logo"
-                    className="h-10 w-10 rounded-md object-cover shrink-0"
-                    loading="eager"
-                    decoding="async"
-                    key={`sidebar-${account.account_logo}`}
-                  />
-                  <span className="font-semibold text-foreground truncate">
-                    {account.account_name || "Pollean"}
-                  </span>
-                </>
-              ) : account?.account_name ? (
-                <>
-                  <BrandSymbol className="h-8 w-8 shrink-0" alt="Pollean" />
-                  <span className="font-semibold text-foreground truncate">
-                    {account.account_name}
-                  </span>
-                </>
-              ) : (
-                <BrandSymbol className="h-10 w-10 shrink-0" alt="Pollean" />
-              )}
-            </Link>
-          ) : (
-            <div />
-          )}
+        <div className="h-[101px] flex items-center justify-between px-4 border-b border-border">
+          <Link
+            to="/"
+            className="flex items-center justify-center h-10 w-10 rounded-md"
+          >
+            <BrandSymbol className="h-16 w-16" alt="Pollean" />
+          </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="hidden lg:flex p-1.5 hover:bg-secondary rounded-md"
@@ -362,7 +350,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Footer */}
         {sidebarOpen && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border space-y-3 bg-card">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-card">
             <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
               <div className="flex items-center gap-2 min-w-0">
                 {isDarkTheme ? (
@@ -383,38 +371,6 @@ export function AppLayout({ children }: AppLayoutProps) {
                 aria-label="Toggle theme"
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-secondary transition-colors">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage
-                      src={profileImage || undefined}
-                      alt={displayName}
-                    />
-                    <AvatarFallback className="text-sm font-medium">
-                      {profileLoading ? "..." : initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {profileLoading ? "Loading..." : displayName}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      Admin
-                    </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="text-destructive cursor-pointer"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         )}
         {!sidebarOpen && (
@@ -446,6 +402,74 @@ export function AppLayout({ children }: AppLayoutProps) {
           sidebarOpen ? "lg:ml-64" : "lg:ml-20",
         )}
       >
+        <div className="hidden lg:flex items-center justify-between gap-6 border-b border-border bg-card px-8 py-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="h-12 w-12 rounded-xl bg-background border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+              {accountLoading ? (
+                <div className="h-full w-full bg-muted animate-pulse" />
+              ) : account?.account_logo ? (
+                <img
+                  src={account.account_logo}
+                  alt="Account Logo"
+                  className="h-full w-full object-cover"
+                  loading="eager"
+                  decoding="async"
+                  key={`topbar-${account.account_logo}`}
+                />
+              ) : (
+                <BrandSymbol className="h-7 w-7" alt="Pollean" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-semibold text-foreground truncate">
+                {currentPageTitle}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground truncate">
+                {currentPageSubtitle}
+              </p>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-secondary transition-colors">
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-foreground leading-none">
+                    {profileLoading ? "Loading..." : displayName}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {roleLabel}
+                  </p>
+                </div>
+                <Avatar className="h-11 w-11 border border-border">
+                  <AvatarImage
+                    src={profileImage || undefined}
+                    alt={displayName}
+                  />
+                  <AvatarFallback className="text-sm font-medium">
+                    {profileLoading ? "..." : initials}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {displayName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || roleLabel}
+                </p>
+              </div>
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-destructive cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="p-6 lg:p-8">{children}</div>
       </main>
     </div>
