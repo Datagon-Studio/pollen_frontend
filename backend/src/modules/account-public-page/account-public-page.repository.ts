@@ -47,8 +47,10 @@ export const accountPublicPageRepository = {
         custom_primary_color: input.custom_primary_color ?? null,
         custom_secondary_light_color: input.custom_secondary_light_color ?? null,
         custom_background_light_color: input.custom_background_light_color ?? null,
+        custom_text_color: input.custom_text_color ?? null,
         custom_secondary_dark_color: input.custom_secondary_dark_color ?? null,
         custom_background_dark_color: input.custom_background_dark_color ?? null,
+        custom_text_color_dark: input.custom_text_color_dark ?? null,
       })
       .select()
       .single();
@@ -103,6 +105,12 @@ export const accountPublicPageRepository = {
     }
     if (input.custom_background_dark_color !== undefined) {
       updateData.custom_background_dark_color = input.custom_background_dark_color;
+    }
+    if (input.custom_text_color !== undefined) {
+      updateData.custom_text_color = input.custom_text_color;
+    }
+    if (input.custom_text_color_dark !== undefined) {
+      updateData.custom_text_color_dark = input.custom_text_color_dark;
     }
 
     const { data, error } = await supabase

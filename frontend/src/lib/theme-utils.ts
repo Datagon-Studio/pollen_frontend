@@ -9,16 +9,20 @@ export const THEME_DEFAULTS = {
   primary: "#FFBD59",
   secondaryLight: "#ECE7DF",
   backgroundLight: "#F6F1EA",
+  textColorLight: "#2E2E2E",
   secondaryDark: "#3D3D3D",
   backgroundDark: "#2E2E2E",
+  textColorDark: "#F6F1EA",
 };
 
 export interface ThemeColors {
   primary: string;
   secondaryLight: string;
   backgroundLight: string;
+  textColorLight: string;
   secondaryDark: string;
   backgroundDark: string;
+  textColorDark: string;
 }
 
 export function hexToHsl(hex: string): { h: number; s: number; l: number } {
@@ -90,14 +94,14 @@ export function getThemeColors(publicPage: any): ThemeColors {
   const legacySecondary = publicPage.secondary_color || undefined;
 
   if (!publicPage.use_custom_theme) {
-    // If not using custom theme, but legacy colors were customized, we can fall back to them
-    // to preserve backward compatibility, or just use the site defaults.
     return {
       primary: legacyPrimary || THEME_DEFAULTS.primary,
       secondaryLight: legacySecondary || THEME_DEFAULTS.secondaryLight,
       backgroundLight: THEME_DEFAULTS.backgroundLight,
+      textColorLight: THEME_DEFAULTS.textColorLight,
       secondaryDark: THEME_DEFAULTS.secondaryDark,
       backgroundDark: THEME_DEFAULTS.backgroundDark,
+      textColorDark: THEME_DEFAULTS.textColorDark,
     };
   }
 
@@ -105,8 +109,10 @@ export function getThemeColors(publicPage: any): ThemeColors {
     primary: publicPage.custom_primary_color || legacyPrimary || THEME_DEFAULTS.primary,
     secondaryLight: publicPage.custom_secondary_light_color || legacySecondary || THEME_DEFAULTS.secondaryLight,
     backgroundLight: publicPage.custom_background_light_color || THEME_DEFAULTS.backgroundLight,
+    textColorLight: publicPage.custom_text_color || THEME_DEFAULTS.textColorLight,
     secondaryDark: publicPage.custom_secondary_dark_color || THEME_DEFAULTS.secondaryDark,
     backgroundDark: publicPage.custom_background_dark_color || THEME_DEFAULTS.backgroundDark,
+    textColorDark: publicPage.custom_text_color_dark || THEME_DEFAULTS.textColorDark,
   };
 }
 
@@ -117,22 +123,32 @@ export function getThemeStyles(colors: ThemeColors): string {
   const primaryHsl = hexToTailwindHsl(colors.primary);
   const secondaryLightHsl = hexToTailwindHsl(colors.secondaryLight);
   const backgroundLightHsl = hexToTailwindHsl(colors.backgroundLight);
+  const textLightHsl = hexToTailwindHsl(colors.textColorLight);
   const secondaryDarkHsl = hexToTailwindHsl(colors.secondaryDark);
   const backgroundDarkHsl = hexToTailwindHsl(colors.backgroundDark);
+  const textDarkHsl = hexToTailwindHsl(colors.textColorDark);
 
   return `
     :root {
       --primary: ${primaryHsl};
       --secondary: ${secondaryLightHsl};
       --background: ${backgroundLightHsl};
+      --foreground: ${textLightHsl};
       --card: ${backgroundLightHsl};
+      --card-foreground: ${textLightHsl};
       --popover: ${backgroundLightHsl};
+      --popover-foreground: ${textLightHsl};
+      --muted-foreground: ${textLightHsl};
     }
     .dark {
       --secondary: ${secondaryDarkHsl};
       --background: ${backgroundDarkHsl};
+      --foreground: ${textDarkHsl};
       --card: ${secondaryDarkHsl};
+      --card-foreground: ${textDarkHsl};
       --popover: ${secondaryDarkHsl};
+      --popover-foreground: ${textDarkHsl};
+      --muted-foreground: ${textDarkHsl};
     }
   `;
 }
