@@ -529,7 +529,10 @@ export default function JoinGroupPage() {
           </div>
           <CardTitle className="text-2xl text-center">Join Group</CardTitle>
           <CardDescription className="text-center">
-            Register as a member of {account?.account_name || "this group"}
+            Register as a member of{" "}
+            <span className="font-bold">
+              {account?.account_name || "this group"}
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
