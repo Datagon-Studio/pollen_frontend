@@ -43,6 +43,12 @@ export const accountPublicPageRepository = {
         primary_color: input.primary_color ?? null,
         secondary_color: input.secondary_color ?? null,
         is_published: input.is_published ?? false,
+        use_custom_theme: input.use_custom_theme ?? false,
+        custom_primary_color: input.custom_primary_color ?? null,
+        custom_secondary_light_color: input.custom_secondary_light_color ?? null,
+        custom_background_light_color: input.custom_background_light_color ?? null,
+        custom_secondary_dark_color: input.custom_secondary_dark_color ?? null,
+        custom_background_dark_color: input.custom_background_dark_color ?? null,
       })
       .select()
       .single();
@@ -79,6 +85,24 @@ export const accountPublicPageRepository = {
     }
     if (input.is_published !== undefined) {
       updateData.is_published = input.is_published;
+    }
+    if (input.use_custom_theme !== undefined) {
+      updateData.use_custom_theme = input.use_custom_theme;
+    }
+    if (input.custom_primary_color !== undefined) {
+      updateData.custom_primary_color = input.custom_primary_color;
+    }
+    if (input.custom_secondary_light_color !== undefined) {
+      updateData.custom_secondary_light_color = input.custom_secondary_light_color;
+    }
+    if (input.custom_background_light_color !== undefined) {
+      updateData.custom_background_light_color = input.custom_background_light_color;
+    }
+    if (input.custom_secondary_dark_color !== undefined) {
+      updateData.custom_secondary_dark_color = input.custom_secondary_dark_color;
+    }
+    if (input.custom_background_dark_color !== undefined) {
+      updateData.custom_background_dark_color = input.custom_background_dark_color;
     }
 
     const { data, error } = await supabase

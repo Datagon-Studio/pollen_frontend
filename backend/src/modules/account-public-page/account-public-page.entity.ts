@@ -14,6 +14,12 @@ export interface AccountPublicPage {
   primary_color: string | null;
   secondary_color: string | null;
   is_published: boolean;
+  use_custom_theme: boolean;
+  custom_primary_color: string | null;
+  custom_secondary_light_color: string | null;
+  custom_background_light_color: string | null;
+  custom_secondary_dark_color: string | null;
+  custom_background_dark_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +32,12 @@ export interface CreateAccountPublicPageInput {
   primary_color?: string | null;
   secondary_color?: string | null;
   is_published?: boolean;
+  use_custom_theme?: boolean;
+  custom_primary_color?: string | null;
+  custom_secondary_light_color?: string | null;
+  custom_background_light_color?: string | null;
+  custom_secondary_dark_color?: string | null;
+  custom_background_dark_color?: string | null;
 }
 
 export interface UpdateAccountPublicPageInput {
@@ -35,4 +47,10 @@ export interface UpdateAccountPublicPageInput {
   primary_color?: string | null;
   secondary_color?: string | null;
   is_published?: boolean;
+  use_custom_theme?: boolean;
+  custom_primary_color?: string | null;
+  custom_secondary_light_color?: string | null;
+  custom_background_light_color?: string | null;
+  custom_secondary_dark_color?: string | null;
+  custom_background_dark_color?: string | null;
 }

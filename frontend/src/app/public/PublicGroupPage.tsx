@@ -55,6 +55,7 @@ import {
   accountPublicPageApi,
   AccountPublicPage,
 } from "@/services/account-public-page.api";
+import { getThemeColors, getThemeStyles } from "@/lib/theme-utils";
 import { ContributeConfirmationModal } from "@/components/modals/ContributeConfirmationModal";
 import { PaystackPaymentModal } from "@/components/modals/PaystackPaymentModal";
 import { BrandSymbol } from "@/components/ui/brand";
@@ -70,9 +71,10 @@ const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const SESSION_STORAGE_KEY = "public_group_session";
 
 export default function PublicGroupPage() {
-  const { accountId } = useParams<{ accountId: string }>();
+  const { accountId: pathAccountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const accountId = pathAccountId || searchParams.get("accountId") || searchParams.get("groupId") || "";
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -607,9 +609,12 @@ export default function PublicGroupPage() {
   };
 
   // All hooks must be called before any conditional returns
-  // Use primary_color and secondary_color from account_public_pages, fallback to defaults
-  const primaryColor = publicPage?.primary_color || "#000000";
-  const secondaryColor = publicPage?.secondary_color || "#ffffff";
+  // Use resolved custom theme colors
+  const themeColors = useMemo(() => getThemeColors(publicPage), [publicPage]);
+  const themeStyles = useMemo(() => getThemeStyles(themeColors), [themeColors]);
+
+  const primaryColor = themeColors.primary;
+  const secondaryColor = themeColors.secondaryLight;
   const backgroundColor = secondaryColor;
   const foregroundColor = primaryColor;
 
@@ -871,6 +876,7 @@ export default function PublicGroupPage() {
       className="min-h-screen"
       style={{ backgroundColor, color: foregroundColor }}
     >
+      <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
       {/* OTP Verification Modal */}
       {showOtpVerification && !isVerified && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

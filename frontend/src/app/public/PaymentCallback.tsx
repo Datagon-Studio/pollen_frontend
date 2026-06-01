@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { paymentApi } from "@/services/payment.api";
 import { configApi } from "@/services/config.api";
+import { accountPublicPageApi } from "@/services/account-public-page.api";
+import { getThemeColors, getThemeStyles } from "@/lib/theme-utils";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PaymentCallback() {
@@ -14,6 +16,16 @@ export default function PaymentCallback() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("Verifying payment...");
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+  const [publicPage, setPublicPage] = useState<any>(null);
+
+  useEffect(() => {
+    const storedAccountId = localStorage.getItem('payment_callback_accountId');
+    if (storedAccountId) {
+      accountPublicPageApi.getPublicPage(storedAccountId)
+        .then(setPublicPage)
+        .catch(err => console.error("Error loading public page details:", err));
+    }
+  }, []);
 
   useEffect(() => {
     const reference = searchParams.get("reference");
@@ -91,8 +103,12 @@ export default function PaymentCallback() {
     verifyPayment();
   }, [searchParams, navigate, toast]);
 
+  const themeColors = getThemeColors(publicPage);
+  const themeStyles = getThemeStyles(themeColors);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+      <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center space-y-4">

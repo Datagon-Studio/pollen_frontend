@@ -35,6 +35,7 @@ import { expenseApi, Expense } from "@/services/expense.api";
 import { fundApi, Fund } from "@/services/fund.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { memberApi } from "@/services/member.api";
+import { THEME_DEFAULTS, hexToTailwindHsl } from "@/lib/theme-utils";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { DataTable } from "@/components/ui/data-table";
@@ -78,12 +79,23 @@ export default function PublicSettings() {
   const [memberId, setMemberId] = useState<string | null>(null);
 
   // Color states
-  const [primaryColor, setPrimaryColor] = useState("#000000");
-  const [secondaryColor, setSecondaryColor] = useState("#ffffff");
+  const [useCustomTheme, setUseCustomTheme] = useState(false);
+  const [customPrimaryColor, setCustomPrimaryColor] = useState(THEME_DEFAULTS.primary);
+  const [customSecondaryLightColor, setCustomSecondaryLightColor] = useState(THEME_DEFAULTS.secondaryLight);
+  const [customBackgroundLightColor, setCustomBackgroundLightColor] = useState(THEME_DEFAULTS.backgroundLight);
+  const [customSecondaryDarkColor, setCustomSecondaryDarkColor] = useState(THEME_DEFAULTS.secondaryDark);
+  const [customBackgroundDarkColor, setCustomBackgroundDarkColor] = useState(THEME_DEFAULTS.backgroundDark);
   const [expensesTabVisible, setExpensesTabVisible] = useState(true);
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] =
     useState<ExpenseVisibilityLevel>("summary");
   const [loadingConfig, setLoadingConfig] = useState(false);
+
+  // Derived active colors for preview and general use
+  const primaryColor = useCustomTheme ? customPrimaryColor : THEME_DEFAULTS.primary;
+  const secondaryColor = useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight;
+  const backgroundLightColor = useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight;
+  const secondaryDarkColor = useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark;
+  const backgroundDarkColor = useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark;
 
   // Load account data, config, public page, and expenses
   useEffect(() => {
@@ -98,13 +110,21 @@ export default function PublicSettings() {
   const loadPublicPage = async () => {
     try {
       const publicPage = await accountPublicPageApi.getMyPublicPage();
-      setPrimaryColor(publicPage.primary_color || "#000000");
-      setSecondaryColor(publicPage.secondary_color || "#ffffff");
+      setUseCustomTheme(publicPage.use_custom_theme || false);
+      setCustomPrimaryColor(publicPage.custom_primary_color || publicPage.primary_color || THEME_DEFAULTS.primary);
+      setCustomSecondaryLightColor(publicPage.custom_secondary_light_color || publicPage.secondary_color || THEME_DEFAULTS.secondaryLight);
+      setCustomBackgroundLightColor(publicPage.custom_background_light_color || THEME_DEFAULTS.backgroundLight);
+      setCustomSecondaryDarkColor(publicPage.custom_secondary_dark_color || THEME_DEFAULTS.secondaryDark);
+      setCustomBackgroundDarkColor(publicPage.custom_background_dark_color || THEME_DEFAULTS.backgroundDark);
     } catch (error) {
       console.error("Error loading public page:", error);
       // Fallback to defaults if public page doesn't exist yet
-      setPrimaryColor("#000000");
-      setSecondaryColor("#ffffff");
+      setUseCustomTheme(false);
+      setCustomPrimaryColor(THEME_DEFAULTS.primary);
+      setCustomSecondaryLightColor(THEME_DEFAULTS.secondaryLight);
+      setCustomBackgroundLightColor(THEME_DEFAULTS.backgroundLight);
+      setCustomSecondaryDarkColor(THEME_DEFAULTS.secondaryDark);
+      setCustomBackgroundDarkColor(THEME_DEFAULTS.backgroundDark);
     }
   };
 
@@ -223,6 +243,12 @@ export default function PublicSettings() {
         accountPublicPageApi.updateMyPublicPage({
           primary_color: primaryColor,
           secondary_color: secondaryColor,
+          use_custom_theme: useCustomTheme,
+          custom_primary_color: customPrimaryColor,
+          custom_secondary_light_color: customSecondaryLightColor,
+          custom_background_light_color: customBackgroundLightColor,
+          custom_secondary_dark_color: customSecondaryDarkColor,
+          custom_background_dark_color: customBackgroundDarkColor,
         }),
         configApi.updateMyConfig({
           expense_visibility_level: expenseVisibilityLevel,
@@ -521,8 +547,13 @@ export default function PublicSettings() {
             <div
               className="p-8 min-h-[500px]"
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: backgroundLightColor,
                 color: primaryColor,
+                ["--primary" as any]: hexToTailwindHsl(primaryColor),
+                ["--secondary" as any]: hexToTailwindHsl(secondaryColor),
+                ["--background" as any]: hexToTailwindHsl(backgroundLightColor),
+                ["--card" as any]: hexToTailwindHsl(backgroundLightColor),
+                ["--popover" as any]: hexToTailwindHsl(backgroundLightColor),
               }}
             >
               <div className="max-w-md mx-auto text-center">
@@ -1091,78 +1122,232 @@ export default function PublicSettings() {
 
           {/* Branding */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <h3 className="font-medium text-foreground mb-4">Branding</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium text-foreground">Branding</h3>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="custom-theme-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                  Use Custom Colors
+                </Label>
+                <Switch
+                  id="custom-theme-toggle"
+                  checked={useCustomTheme}
+                  onCheckedChange={setUseCustomTheme}
+                />
+              </div>
+            </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* Primary Color */}
               <div>
-                <Label>Primary Color</Label>
-                <div className="flex gap-2 mt-1.5">
-                  <div
-                    className="rounded-lg overflow-hidden relative"
-                    style={{
-                      backgroundColor: primaryColor,
-                      width: "80px",
-                      height: "40px",
-                    }}
-                  >
-                    <Input
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                <Label className="font-semibold text-sm">Primary Brand Color</Label>
+                <p className="text-xs text-muted-foreground mb-2">Used for buttons, links, and active elements</p>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-2">
+                    <div
+                      className={cn(
+                        "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                        !useCustomTheme && "opacity-60"
+                      )}
                       style={{
-                        border: "none",
-                        outline: "none",
-                        WebkitAppearance: "none",
-                        MozAppearance: "none",
+                        backgroundColor: useCustomTheme ? customPrimaryColor : THEME_DEFAULTS.primary,
+                        width: "80px",
+                        height: "40px",
                       }}
+                    >
+                      <Input
+                        type="color"
+                        value={useCustomTheme ? customPrimaryColor : THEME_DEFAULTS.primary}
+                        onChange={(e) => setCustomPrimaryColor(e.target.value)}
+                        disabled={!useCustomTheme}
+                        className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                        style={{
+                          border: "none",
+                          outline: "none",
+                          WebkitAppearance: "none",
+                          MozAppearance: "none",
+                        }}
+                      />
+                    </div>
+                    <Input
+                      type="text"
+                      value={useCustomTheme ? customPrimaryColor.toUpperCase() : THEME_DEFAULTS.primary}
+                      onChange={(e) => setCustomPrimaryColor(e.target.value.toUpperCase())}
+                      disabled={!useCustomTheme}
+                      placeholder="#FFBD59"
+                      className="w-28 uppercase font-mono"
                     />
                   </div>
-                  <Input
-                    type="text"
-                    value={primaryColor.toUpperCase()}
-                    onChange={(e) =>
-                      setPrimaryColor(e.target.value.toUpperCase())
-                    }
-                    placeholder="#000000"
-                    className="w-24 uppercase"
-                  />
+                  {!useCustomTheme && (
+                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">Default</span>
+                  )}
                 </div>
               </div>
 
-              <div>
-                <Label>Secondary Color</Label>
-                <div className="flex gap-2 mt-1.5">
-                  <div
-                    className="rounded-lg overflow-hidden relative"
-                    style={{
-                      backgroundColor: secondaryColor,
-                      width: "80px",
-                      height: "40px",
-                    }}
-                  >
-                    <Input
-                      type="color"
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
-                      style={{
-                        border: "none",
-                        outline: "none",
-                        WebkitAppearance: "none",
-                        MozAppearance: "none",
-                      }}
-                    />
+              {/* Light Mode Colors */}
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-semibold mb-3">Light Mode Colors</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs">Background - Light</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight}
+                          onChange={(e) => setCustomBackgroundLightColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customBackgroundLightColor.toUpperCase() : THEME_DEFAULTS.backgroundLight}
+                        onChange={(e) => setCustomBackgroundLightColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#F6F1EA"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
                   </div>
-                  <Input
-                    type="text"
-                    value={secondaryColor.toUpperCase()}
-                    onChange={(e) =>
-                      setSecondaryColor(e.target.value.toUpperCase())
-                    }
-                    placeholder="#ffffff"
-                    className="w-24 uppercase"
-                  />
+
+                  <div>
+                    <Label className="text-xs">Secondary - Light</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight}
+                          onChange={(e) => setCustomSecondaryLightColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customSecondaryLightColor.toUpperCase() : THEME_DEFAULTS.secondaryLight}
+                        onChange={(e) => setCustomSecondaryLightColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#ECE7DF"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dark Mode Colors */}
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-semibold mb-3">Dark Mode Colors</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs">Background - Dark</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark}
+                          onChange={(e) => setCustomBackgroundDarkColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customBackgroundDarkColor.toUpperCase() : THEME_DEFAULTS.backgroundDark}
+                        onChange={(e) => setCustomBackgroundDarkColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#2E2E2E"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Secondary - Dark</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark}
+                          onChange={(e) => setCustomSecondaryDarkColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customSecondaryDarkColor.toUpperCase() : THEME_DEFAULTS.secondaryDark}
+                        onChange={(e) => setCustomSecondaryDarkColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#3D3D3D"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

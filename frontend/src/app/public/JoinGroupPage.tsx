@@ -24,6 +24,8 @@ import {
 import type { CaptionProps } from "react-day-picker";
 import { memberApi } from "@/services";
 import { accountApi } from "@/services/account.api";
+import { accountPublicPageApi } from "@/services/account-public-page.api";
+import { getThemeColors, getThemeStyles } from "@/lib/theme-utils";
 import {
   Card,
   CardContent,
@@ -180,6 +182,7 @@ export default function JoinGroupPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<any>(null);
+  const [publicPage, setPublicPage] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -212,9 +215,17 @@ export default function JoinGroupPage() {
     try {
       setLoading(true);
 
-      // Load account info
-      const accountData = await accountApi.getPublic(accountId);
+      // Load account info and public page info in parallel
+      const [accountData, publicPageData] = await Promise.all([
+        accountApi.getPublic(accountId),
+        accountPublicPageApi.getPublicPage(accountId).catch((err) => {
+          console.error("Error loading public page details:", err);
+          return null;
+        }),
+      ]);
+
       setAccount(accountData);
+      setPublicPage(publicPageData);
     } catch (error) {
       console.error("Error loading group:", error);
       // Don't navigate away, just show error
@@ -518,14 +529,29 @@ export default function JoinGroupPage() {
     );
   }
 
+  // Use resolved custom theme colors
+  const themeColors = getThemeColors(publicPage);
+  const themeStyles = getThemeStyles(themeColors);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+      <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <div className="h-16 w-16 rounded-xl bg-card border border-border flex items-center justify-center shadow-md">
-              <BrandSymbol className="h-10 w-10" alt="Pollean" />
-            </div>
+            {account?.account_logo ? (
+              <img
+                src={account.account_logo}
+                alt={account.account_name || "Logo"}
+                className="h-16 w-16 rounded-xl object-cover shadow-md border"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-xl bg-card border border-border flex items-center justify-center shadow-md">
+                <BrandSymbol className="h-10 w-10" alt="Pollean" />
+              </div>
+            )}
           </div>
           <CardTitle className="text-2xl text-center">Join Group</CardTitle>
           <CardDescription className="text-center">

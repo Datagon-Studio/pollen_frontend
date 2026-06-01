@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,14 @@ export default function PublicGroupLanding() {
   const [groupId, setGroupId] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const queryGroupId = searchParams.get("groupId") || searchParams.get("accountId");
+    if (queryGroupId?.trim()) {
+      navigate(`/group/${queryGroupId.trim()}`, { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
