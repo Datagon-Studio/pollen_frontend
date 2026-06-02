@@ -83,19 +83,34 @@ export default function PublicSettings() {
   const [customPrimaryColor, setCustomPrimaryColor] = useState(THEME_DEFAULTS.primary);
   const [customSecondaryLightColor, setCustomSecondaryLightColor] = useState(THEME_DEFAULTS.secondaryLight);
   const [customBackgroundLightColor, setCustomBackgroundLightColor] = useState(THEME_DEFAULTS.backgroundLight);
+  const [customTextColor, setCustomTextColor] = useState(THEME_DEFAULTS.textColorLight);
   const [customSecondaryDarkColor, setCustomSecondaryDarkColor] = useState(THEME_DEFAULTS.secondaryDark);
   const [customBackgroundDarkColor, setCustomBackgroundDarkColor] = useState(THEME_DEFAULTS.backgroundDark);
+  const [customTextColorDark, setCustomTextColorDark] = useState(THEME_DEFAULTS.textColorDark);
   const [expensesTabVisible, setExpensesTabVisible] = useState(true);
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] =
     useState<ExpenseVisibilityLevel>("summary");
   const [loadingConfig, setLoadingConfig] = useState(false);
+  const [previewIsDark, setPreviewIsDark] = useState(false);
 
   // Derived active colors for preview and general use
   const primaryColor = useCustomTheme ? customPrimaryColor : THEME_DEFAULTS.primary;
   const secondaryColor = useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight;
   const backgroundLightColor = useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight;
+  const textColor = useCustomTheme ? customTextColor : THEME_DEFAULTS.textColorLight;
   const secondaryDarkColor = useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark;
   const backgroundDarkColor = useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark;
+  const textColorDark = useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark;
+
+  const previewBgColor = previewIsDark
+    ? (useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark)
+    : (useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight);
+  const previewSecondaryColor = previewIsDark
+    ? (useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark)
+    : (useCustomTheme ? customSecondaryLightColor : THEME_DEFAULTS.secondaryLight);
+  const previewTextColor = previewIsDark
+    ? (useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark)
+    : (useCustomTheme ? customTextColor : THEME_DEFAULTS.textColorLight);
 
   // Load account data, config, public page, and expenses
   useEffect(() => {
@@ -114,8 +129,10 @@ export default function PublicSettings() {
       setCustomPrimaryColor(publicPage.custom_primary_color || publicPage.primary_color || THEME_DEFAULTS.primary);
       setCustomSecondaryLightColor(publicPage.custom_secondary_light_color || publicPage.secondary_color || THEME_DEFAULTS.secondaryLight);
       setCustomBackgroundLightColor(publicPage.custom_background_light_color || THEME_DEFAULTS.backgroundLight);
+      setCustomTextColor(publicPage.custom_text_color || THEME_DEFAULTS.textColorLight);
       setCustomSecondaryDarkColor(publicPage.custom_secondary_dark_color || THEME_DEFAULTS.secondaryDark);
       setCustomBackgroundDarkColor(publicPage.custom_background_dark_color || THEME_DEFAULTS.backgroundDark);
+      setCustomTextColorDark(publicPage.custom_text_color_dark || THEME_DEFAULTS.textColorDark);
     } catch (error) {
       console.error("Error loading public page:", error);
       // Fallback to defaults if public page doesn't exist yet
@@ -123,8 +140,10 @@ export default function PublicSettings() {
       setCustomPrimaryColor(THEME_DEFAULTS.primary);
       setCustomSecondaryLightColor(THEME_DEFAULTS.secondaryLight);
       setCustomBackgroundLightColor(THEME_DEFAULTS.backgroundLight);
+      setCustomTextColor(THEME_DEFAULTS.textColorLight);
       setCustomSecondaryDarkColor(THEME_DEFAULTS.secondaryDark);
       setCustomBackgroundDarkColor(THEME_DEFAULTS.backgroundDark);
+      setCustomTextColorDark(THEME_DEFAULTS.textColorDark);
     }
   };
 
@@ -247,8 +266,10 @@ export default function PublicSettings() {
           custom_primary_color: customPrimaryColor,
           custom_secondary_light_color: customSecondaryLightColor,
           custom_background_light_color: customBackgroundLightColor,
+          custom_text_color: customTextColor,
           custom_secondary_dark_color: customSecondaryDarkColor,
           custom_background_dark_color: customBackgroundDarkColor,
+          custom_text_color_dark: customTextColorDark,
         }),
         configApi.updateMyConfig({
           expense_visibility_level: expenseVisibilityLevel,
@@ -497,6 +518,19 @@ export default function PublicSettings() {
             <h2 className="text-lg font-semibold text-foreground">Preview</h2>
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5">
+                <Label
+                  htmlFor="preview-theme-toggle"
+                  className="text-xs text-muted-foreground cursor-pointer"
+                >
+                  {previewIsDark ? "Dark theme preview" : "Light theme preview"}
+                </Label>
+                <Switch
+                  id="preview-theme-toggle"
+                  checked={previewIsDark}
+                  onCheckedChange={setPreviewIsDark}
+                />
+              </div>
+              <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5">
                 {showVerifiedMemberPreview ? (
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 ) : (
@@ -545,15 +579,31 @@ export default function PublicSettings() {
 
             {/* Preview content */}
             <div
-              className="p-8 min-h-[500px]"
+              className={cn("p-8 min-h-[500px]", previewIsDark && "dark")}
               style={{
-                backgroundColor: backgroundLightColor,
-                color: primaryColor,
+                backgroundColor: previewBgColor,
+                color: previewTextColor,
                 ["--primary" as any]: hexToTailwindHsl(primaryColor),
-                ["--secondary" as any]: hexToTailwindHsl(secondaryColor),
-                ["--background" as any]: hexToTailwindHsl(backgroundLightColor),
-                ["--card" as any]: hexToTailwindHsl(backgroundLightColor),
-                ["--popover" as any]: hexToTailwindHsl(backgroundLightColor),
+                ["--secondary" as any]: hexToTailwindHsl(previewSecondaryColor),
+                ["--background" as any]: hexToTailwindHsl(
+                  previewIsDark
+                    ? (useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark)
+                    : (useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight)
+                ),
+                ["--foreground" as any]: hexToTailwindHsl(previewTextColor),
+                ["--card" as any]: hexToTailwindHsl(
+                  previewIsDark
+                    ? (useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark)
+                    : (useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight)
+                ),
+                ["--card-foreground" as any]: hexToTailwindHsl(previewTextColor),
+                ["--popover" as any]: hexToTailwindHsl(
+                  previewIsDark
+                    ? (useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark)
+                    : (useCustomTheme ? customBackgroundLightColor : THEME_DEFAULTS.backgroundLight)
+                ),
+                ["--popover-foreground" as any]: hexToTailwindHsl(previewTextColor),
+                ["--muted-foreground" as any]: hexToTailwindHsl(previewTextColor),
               }}
             >
               <div className="max-w-md mx-auto text-center">
@@ -572,11 +622,11 @@ export default function PublicSettings() {
 
                 <h1
                   className="text-2xl font-bold mb-2"
-                  style={{ color: "#000000" }}
+                  style={{ color: previewTextColor }}
                 >
                   {account.account_name || "Community Group"}
                 </h1>
-                <p className="mb-6 opacity-80" style={{ color: "#000000" }}>
+                <p className="mb-6 opacity-80" style={{ color: previewTextColor }}>
                   Support our community by contributing to our active funds
                 </p>
 
@@ -1087,7 +1137,7 @@ export default function PublicSettings() {
                     </div>
                   )}
 
-                <p className="text-xs opacity-60" style={{ color: "#000000" }}>
+                <p className="text-xs opacity-60" style={{ color: previewTextColor }}>
                   Powered by Pollean
                 </p>
               </div>
@@ -1186,7 +1236,7 @@ export default function PublicSettings() {
               {/* Light Mode Colors */}
               <div className="border-t border-border pt-4">
                 <h4 className="text-sm font-semibold mb-3">Light Mode Colors</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs">Background - Light</Label>
                     <div className="flex gap-2 mt-1.5">
@@ -1264,13 +1314,52 @@ export default function PublicSettings() {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <Label className="text-xs">Text - Light</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customTextColor : THEME_DEFAULTS.textColorLight,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customTextColor : THEME_DEFAULTS.textColorLight}
+                          onChange={(e) => setCustomTextColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customTextColor.toUpperCase() : THEME_DEFAULTS.textColorLight}
+                        onChange={(e) => setCustomTextColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#2E2E2E"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Dark Mode Colors */}
               <div className="border-t border-border pt-4">
                 <h4 className="text-sm font-semibold mb-3">Dark Mode Colors</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs">Background - Dark</Label>
                     <div className="flex gap-2 mt-1.5">
@@ -1344,6 +1433,45 @@ export default function PublicSettings() {
                         onChange={(e) => setCustomSecondaryDarkColor(e.target.value.toUpperCase())}
                         disabled={!useCustomTheme}
                         placeholder="#3D3D3D"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Text - Dark</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark}
+                          onChange={(e) => setCustomTextColorDark(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customTextColorDark.toUpperCase() : THEME_DEFAULTS.textColorDark}
+                        onChange={(e) => setCustomTextColorDark(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#F6F1EA"
                         className="w-28 uppercase font-mono text-xs"
                       />
                     </div>

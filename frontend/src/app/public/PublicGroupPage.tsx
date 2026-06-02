@@ -35,8 +35,9 @@ import {
   Lock,
   Search,
   Filter,
-  CalendarIcon,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -608,15 +609,32 @@ export default function PublicGroupPage() {
     setShowOtpVerification(true);
   };
 
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved) return saved === "dark";
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return false;
+  });
+
+  const toggleTheme = () => {
+    setIsDark((prev) => {
+      const newVal = !prev;
+      localStorage.setItem("theme", newVal ? "dark" : "light");
+      return newVal;
+    });
+  };
+
   // All hooks must be called before any conditional returns
   // Use resolved custom theme colors
   const themeColors = useMemo(() => getThemeColors(publicPage), [publicPage]);
   const themeStyles = useMemo(() => getThemeStyles(themeColors), [themeColors]);
 
   const primaryColor = themeColors.primary;
-  const secondaryColor = themeColors.secondaryLight;
-  const backgroundColor = secondaryColor;
-  const foregroundColor = primaryColor;
+  const secondaryColor = isDark ? themeColors.secondaryDark : themeColors.secondaryLight;
+  const backgroundColor = isDark ? themeColors.backgroundDark : themeColors.secondaryLight;
+  const foregroundColor = isDark ? themeColors.textColorDark : themeColors.textColorLight;
 
   // Get unique funds and categories for filters
   const uniqueFunds = useMemo(() => {
@@ -873,7 +891,7 @@ export default function PublicGroupPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className={cn("min-h-screen transition-colors duration-200", isDark && "dark")}
       style={{ backgroundColor, color: foregroundColor }}
     >
       <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
@@ -968,6 +986,23 @@ export default function PublicGroupPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6">
+        {/* Theme Toggle */}
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-full h-9 w-9 bg-card border-border text-foreground hover:bg-secondary/50"
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? (
+              <Sun className="h-[1.2rem] w-[1.2rem]" />
+            ) : (
+              <Moon className="h-[1.2rem] w-[1.2rem]" />
+            )}
+          </Button>
+        </div>
+
         {/* Header with Logo on Left */}
         <div className="flex items-start gap-6 mb-8">
           {/* Logo on Left */}
