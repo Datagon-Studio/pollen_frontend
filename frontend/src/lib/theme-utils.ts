@@ -152,6 +152,7 @@ export function getThemeStyles(colors: ThemeColors): string {
       --muted-foreground: ${textLightHsl};
     }
     .dark {
+      --primary: ${primaryHsl};
       --primary-foreground: ${buttonTextDarkHsl};
       --secondary: ${secondaryDarkHsl};
       --background: ${backgroundDarkHsl};

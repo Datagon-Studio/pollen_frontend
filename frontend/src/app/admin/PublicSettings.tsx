@@ -467,18 +467,16 @@ export default function PublicSettings() {
       {
         key: "date",
         header: "Date",
-        render: (item: Contribution) => (
-          <span className="text-sm text-muted-foreground">
-            {format(new Date(item.date_received), "MMM d, yyyy")}
-          </span>
-        ),
+        className: "text-muted-foreground",
+        render: (item: Contribution) =>
+          format(new Date(item.date_received), "MMM d, yyyy"),
       },
       {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
         render: (item: Contribution) => (
-          <span style={{ color: primaryColor }}>
+          <span className="text-foreground">
             ${Number(item.amount).toFixed(2)}
           </span>
         ),
@@ -487,13 +485,13 @@ export default function PublicSettings() {
         key: "status",
         header: "Status",
         render: (item: Contribution) => (
-          <span className="text-xs capitalize" style={{ color: primaryColor }}>
+          <span className="text-xs text-foreground capitalize">
             {item.status}
           </span>
         ),
       },
     ],
-    [primaryColor],
+    [],
   );
 
   if (accountLoading) {
@@ -649,7 +647,10 @@ export default function PublicSettings() {
                   onValueChange={setPreviewTab}
                   className="mb-6"
                 >
-                  <TabsList className="bg-secondary/50 w-full">
+                  <TabsList
+                    className="w-full"
+                    style={{ backgroundColor: `${previewSecondaryColor}80` }}
+                  >
                     <TabsTrigger value="funds" className="flex-1">
                       <Wallet className="h-4 w-4 mr-2" />
                       Funds
@@ -668,15 +669,10 @@ export default function PublicSettings() {
 
                   <TabsContent value="funds" className="mt-4">
                     {!showVerifiedMemberPreview ? (
-                      <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                        <Lock
-                          className="h-12 w-12 mx-auto mb-4 opacity-70"
-                          style={{ color: primaryColor }}
-                        />
-                        <p
-                          className="mb-4 opacity-70"
-                          style={{ color: primaryColor }}
-                        >
+                      <Card>
+                        <CardContent className="pt-6 text-center">
+                        <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">
                           Verify to contribute
                         </p>
                         {isVerified ? (
@@ -690,25 +686,22 @@ export default function PublicSettings() {
                             Verify
                           </Button>
                         )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     ) : (
                       <div className="space-y-4 text-left">
                         {loadingFunds ? (
-                          <p
-                            className="text-sm opacity-70 text-center"
-                            style={{ color: primaryColor }}
-                          >
+                          <p className="text-sm text-muted-foreground text-center">
                             Loading funds...
                           </p>
                         ) : publicFunds.length === 0 ? (
-                          <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                            <p
-                              className="text-sm opacity-70"
-                              style={{ color: primaryColor }}
-                            >
-                              No public funds available
-                            </p>
-                          </div>
+                          <Card>
+                            <CardContent className="pt-6 text-center">
+                              <p className="text-muted-foreground">
+                                No Funds available
+                              </p>
+                            </CardContent>
+                          </Card>
                         ) : (
                           publicFunds.map((fund) => {
                             const stats = fundStats[fund.fund_id] || {
@@ -732,20 +725,15 @@ export default function PublicSettings() {
                               : null;
 
                             return (
-                              <div
-                                key={fund.fund_id}
-                                className="bg-card/50 border border-border/50 rounded-lg p-4"
-                              >
+                              <Card key={fund.fund_id}>
+                                <CardContent className="pt-6">
                                 <div className="flex items-center justify-between gap-3 mb-2">
                                   <div className="flex items-center gap-3 min-w-0">
                                     <Wallet
                                       className="h-5 w-5 shrink-0"
                                       style={{ color: primaryColor }}
                                     />
-                                    <span
-                                      className="font-medium truncate"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="font-medium truncate">
                                       {fund.fund_name}
                                     </span>
                                   </div>
@@ -758,16 +746,13 @@ export default function PublicSettings() {
                                   </Button>
                                 </div>
                                 {fund.description && (
-                                  <p
-                                    className="text-sm opacity-80 mb-3"
-                                    style={{ color: primaryColor }}
-                                  >
+                                  <p className="text-sm text-muted-foreground mb-3">
                                     {fund.description}
                                   </p>
                                 )}
                                 {hasGoal && (
                                   <div className="mt-3">
-                                    <div className="relative h-2 mb-1 bg-secondary/50 rounded-full overflow-hidden">
+                                    <div className="relative h-2 mb-1 bg-muted rounded-full overflow-hidden">
                                       <div
                                         className="h-full rounded-full transition-all"
                                         style={{
@@ -776,24 +761,16 @@ export default function PublicSettings() {
                                         }}
                                       />
                                     </div>
-                                    <div
-                                      className="flex items-center justify-between text-xs opacity-70"
-                                      style={{ color: primaryColor }}
-                                    >
-                                      <span>
-                                        ${stats.totalCollected.toFixed(2)}{" "}
-                                        raised
-                                      </span>
-                                      <span>
-                                        {progress !== null
-                                          ? progress.toFixed(0)
-                                          : 0}
-                                        % of goal
-                                      </span>
-                                    </div>
+                                    <p className="text-xs text-muted-foreground text-right">
+                                      {progress !== null
+                                        ? progress.toFixed(0)
+                                        : 0}
+                                      % of goal reached
+                                    </p>
                                   </div>
                                 )}
-                              </div>
+                                </CardContent>
+                              </Card>
                             );
                           })
                         )}
@@ -804,15 +781,10 @@ export default function PublicSettings() {
                   {expensesTabVisible && (
                     <TabsContent value="expenses" className="mt-4">
                       {!showVerifiedMemberPreview ? (
-                        <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                          <Lock
-                            className="h-12 w-12 mx-auto mb-4 opacity-70"
-                            style={{ color: primaryColor }}
-                          />
-                          <p
-                            className="mb-4 opacity-70"
-                            style={{ color: primaryColor }}
-                          >
+                        <Card>
+                          <CardContent className="pt-6 text-center">
+                          <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <p className="text-muted-foreground mb-4">
                             Verify to see expenses
                           </p>
                           {isVerified ? (
@@ -826,14 +798,12 @@ export default function PublicSettings() {
                               Verify
                             </Button>
                           )}
-                        </div>
+                          </CardContent>
+                        </Card>
                       ) : (
                         <div className="space-y-2 text-left">
                           {expenseVisibilityLevel === "none" ? (
-                            <p
-                              className="text-sm opacity-70 text-center"
-                              style={{ color: primaryColor }}
-                            >
+                            <p className="text-sm text-muted-foreground text-center">
                               Expense information is not available
                             </p>
                           ) : expenseVisibilityLevel === "summary" ? (
@@ -841,16 +811,10 @@ export default function PublicSettings() {
                               <div className="space-y-3">
                                 <div className="bg-card/50 border border-border/50 rounded-lg p-4">
                                   <div className="flex justify-between items-center mb-2">
-                                    <span
-                                      className="text-sm opacity-80"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="text-sm text-muted-foreground">
                                       Total Contributions
                                     </span>
-                                    <span
-                                      className="font-semibold"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="font-semibold text-green-600">
                                       $
                                       {expenseSummary.totalContributions.toFixed(
                                         2,
@@ -858,40 +822,25 @@ export default function PublicSettings() {
                                     </span>
                                   </div>
                                   <div className="flex justify-between items-center mb-2">
-                                    <span
-                                      className="text-sm opacity-80"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="text-sm text-muted-foreground">
                                       Total Expenses
                                     </span>
-                                    <span
-                                      className="font-semibold"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="font-semibold text-red-600">
                                       ${expenseSummary.totalExpenses.toFixed(2)}
                                     </span>
                                   </div>
                                   <div className="border-t border-border/50 pt-2 mt-2">
                                     <div className="flex justify-between items-center">
-                                      <span
-                                        className="text-sm font-medium"
-                                        style={{ color: primaryColor }}
-                                      >
+                                      <span className="text-sm font-medium">
                                         Net Position
                                       </span>
                                       <span
                                         className={cn(
                                           "font-bold",
                                           expenseSummary.netPosition >= 0
-                                            ? "text-success"
-                                            : "text-destructive",
+                                            ? "text-green-600"
+                                            : "text-red-600",
                                         )}
-                                        style={{
-                                          color:
-                                            expenseSummary.netPosition >= 0
-                                              ? undefined
-                                              : primaryColor,
-                                        }}
                                       >
                                         ${expenseSummary.netPosition.toFixed(2)}
                                       </span>
@@ -900,18 +849,12 @@ export default function PublicSettings() {
                                 </div>
                               </div>
                             ) : (
-                              <p
-                                className="text-sm opacity-70 text-center"
-                                style={{ color: primaryColor }}
-                              >
+                              <p className="text-sm text-muted-foreground text-center">
                                 Loading summary...
                               </p>
                             )
                           ) : visibleExpenses.length === 0 ? (
-                            <p
-                              className="text-sm opacity-70 text-center"
-                              style={{ color: primaryColor }}
-                            >
+                            <p className="text-sm text-muted-foreground text-center">
                               No expenses visible
                             </p>
                           ) : (
@@ -936,23 +879,14 @@ export default function PublicSettings() {
                                     >
                                       {expense.expense_category}
                                     </span>
-                                    <span
-                                      className="font-semibold"
-                                      style={{ color: primaryColor }}
-                                    >
+                                    <span className="font-semibold text-foreground">
                                       ${Number(expense.amount).toFixed(2)}
                                     </span>
                                   </div>
-                                  <p
-                                    className="text-sm"
-                                    style={{ color: primaryColor }}
-                                  >
+                                  <p className="text-sm text-foreground">
                                     {expense.expense_name}
                                   </p>
-                                  <p
-                                    className="text-xs opacity-70 mt-1"
-                                    style={{ color: primaryColor }}
-                                  >
+                                  <p className="text-xs text-muted-foreground mt-1">
                                     {format(dateValue, "MMM d, yyyy")}
                                   </p>
                                 </div>
@@ -966,15 +900,10 @@ export default function PublicSettings() {
 
                   <TabsContent value="contributions" className="mt-4">
                     {!showVerifiedMemberPreview ? (
-                      <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                        <Lock
-                          className="h-12 w-12 mx-auto mb-4 opacity-70"
-                          style={{ color: primaryColor }}
-                        />
-                        <p
-                          className="mb-4 opacity-70"
-                          style={{ color: primaryColor }}
-                        >
+                      <Card>
+                        <CardContent className="pt-6 text-center">
+                        <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">
                           Verify to see your contributions
                         </p>
                         {isVerified ? (
@@ -988,19 +917,19 @@ export default function PublicSettings() {
                             Verify
                           </Button>
                         )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     ) : (
                       <div className="space-y-4">
                         {contributions.length === 0 ? (
-                          <div className="bg-card/50 border border-border/50 rounded-lg p-6 text-center">
-                            <p
-                              className="text-sm opacity-70"
-                              style={{ color: primaryColor }}
-                            >
-                              Verified member contributions will appear here
-                              after a member is verified.
-                            </p>
-                          </div>
+                          <Card>
+                            <CardContent className="pt-6 text-center">
+                              <p className="text-sm text-muted-foreground">
+                                Verified member contributions will appear here
+                                after a member is verified.
+                              </p>
+                            </CardContent>
+                          </Card>
                         ) : (
                           <DataTable
                             columns={contributionColumns as any}
