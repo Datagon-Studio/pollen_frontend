@@ -29,6 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Wallet,
   Receipt,
+  CalendarIcon,
   CheckCircle2,
   Loader2,
   Send,
@@ -1223,10 +1224,6 @@ export default function PublicGroupPage() {
                                 onClick={() => {
                                   setSelectedFund(f);
                                   setShowConfirmationDialog(true);
-                                }}
-                                style={{
-                                  backgroundColor: primaryColor,
-                                  color: secondaryColor,
                                 }}
                               >
                                 Contribute →

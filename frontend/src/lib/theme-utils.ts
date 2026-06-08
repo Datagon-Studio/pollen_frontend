@@ -10,9 +10,11 @@ export const THEME_DEFAULTS = {
   secondaryLight: "#ECE7DF",
   backgroundLight: "#F6F1EA",
   textColorLight: "#2E2E2E",
+  buttonTextColorLight: "#2E2E2E",
   secondaryDark: "#3D3D3D",
   backgroundDark: "#2E2E2E",
   textColorDark: "#F6F1EA",
+  buttonTextColorDark: "#2E2E2E",
 };
 
 export interface ThemeColors {
@@ -20,9 +22,11 @@ export interface ThemeColors {
   secondaryLight: string;
   backgroundLight: string;
   textColorLight: string;
+  buttonTextColorLight: string;
   secondaryDark: string;
   backgroundDark: string;
   textColorDark: string;
+  buttonTextColorDark: string;
 }
 
 export function hexToHsl(hex: string): { h: number; s: number; l: number } {
@@ -99,9 +103,11 @@ export function getThemeColors(publicPage: any): ThemeColors {
       secondaryLight: legacySecondary || THEME_DEFAULTS.secondaryLight,
       backgroundLight: THEME_DEFAULTS.backgroundLight,
       textColorLight: THEME_DEFAULTS.textColorLight,
+      buttonTextColorLight: THEME_DEFAULTS.buttonTextColorLight,
       secondaryDark: THEME_DEFAULTS.secondaryDark,
       backgroundDark: THEME_DEFAULTS.backgroundDark,
       textColorDark: THEME_DEFAULTS.textColorDark,
+      buttonTextColorDark: THEME_DEFAULTS.buttonTextColorDark,
     };
   }
 
@@ -110,9 +116,11 @@ export function getThemeColors(publicPage: any): ThemeColors {
     secondaryLight: publicPage.custom_secondary_light_color || legacySecondary || THEME_DEFAULTS.secondaryLight,
     backgroundLight: publicPage.custom_background_light_color || THEME_DEFAULTS.backgroundLight,
     textColorLight: publicPage.custom_text_color || THEME_DEFAULTS.textColorLight,
+    buttonTextColorLight: publicPage.custom_button_text_color || THEME_DEFAULTS.buttonTextColorLight,
     secondaryDark: publicPage.custom_secondary_dark_color || THEME_DEFAULTS.secondaryDark,
     backgroundDark: publicPage.custom_background_dark_color || THEME_DEFAULTS.backgroundDark,
     textColorDark: publicPage.custom_text_color_dark || THEME_DEFAULTS.textColorDark,
+    buttonTextColorDark: publicPage.custom_button_text_color_dark || THEME_DEFAULTS.buttonTextColorDark,
   };
 }
 
@@ -124,13 +132,16 @@ export function getThemeStyles(colors: ThemeColors): string {
   const secondaryLightHsl = hexToTailwindHsl(colors.secondaryLight);
   const backgroundLightHsl = hexToTailwindHsl(colors.backgroundLight);
   const textLightHsl = hexToTailwindHsl(colors.textColorLight);
+  const buttonTextLightHsl = hexToTailwindHsl(colors.buttonTextColorLight);
   const secondaryDarkHsl = hexToTailwindHsl(colors.secondaryDark);
   const backgroundDarkHsl = hexToTailwindHsl(colors.backgroundDark);
   const textDarkHsl = hexToTailwindHsl(colors.textColorDark);
+  const buttonTextDarkHsl = hexToTailwindHsl(colors.buttonTextColorDark);
 
   return `
     :root {
       --primary: ${primaryHsl};
+      --primary-foreground: ${buttonTextLightHsl};
       --secondary: ${secondaryLightHsl};
       --background: ${backgroundLightHsl};
       --foreground: ${textLightHsl};
@@ -141,6 +152,7 @@ export function getThemeStyles(colors: ThemeColors): string {
       --muted-foreground: ${textLightHsl};
     }
     .dark {
+      --primary-foreground: ${buttonTextDarkHsl};
       --secondary: ${secondaryDarkHsl};
       --background: ${backgroundDarkHsl};
       --foreground: ${textDarkHsl};

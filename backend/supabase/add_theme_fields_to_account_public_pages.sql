@@ -12,7 +12,9 @@ ADD COLUMN IF NOT EXISTS custom_background_light_color TEXT NULL,
 ADD COLUMN IF NOT EXISTS custom_text_color TEXT NULL,
 ADD COLUMN IF NOT EXISTS custom_secondary_dark_color TEXT NULL,
 ADD COLUMN IF NOT EXISTS custom_background_dark_color TEXT NULL,
-ADD COLUMN IF NOT EXISTS custom_text_color_dark TEXT NULL;
+ADD COLUMN IF NOT EXISTS custom_text_color_dark TEXT NULL,
+ADD COLUMN IF NOT EXISTS custom_button_text_color TEXT NULL,
+ADD COLUMN IF NOT EXISTS custom_button_text_color_dark TEXT NULL;
 
 -- Add comments for documentation
 COMMENT ON COLUMN account_public_pages.use_custom_theme IS 'Whether to use custom branding colors instead of the site-wide default';
@@ -23,3 +25,5 @@ COMMENT ON COLUMN account_public_pages.custom_text_color IS 'Custom text/foregro
 COMMENT ON COLUMN account_public_pages.custom_secondary_dark_color IS 'Custom secondary color for dark theme (hex)';
 COMMENT ON COLUMN account_public_pages.custom_background_dark_color IS 'Custom background color for dark theme (hex)';
 COMMENT ON COLUMN account_public_pages.custom_text_color_dark IS 'Custom text/foreground color for dark theme (hex)';
+COMMENT ON COLUMN account_public_pages.custom_button_text_color IS 'Custom button text color for light theme (hex)';
+COMMENT ON COLUMN account_public_pages.custom_button_text_color_dark IS 'Custom button text color for dark theme (hex)';

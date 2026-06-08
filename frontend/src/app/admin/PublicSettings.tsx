@@ -87,6 +87,8 @@ export default function PublicSettings() {
   const [customSecondaryDarkColor, setCustomSecondaryDarkColor] = useState(THEME_DEFAULTS.secondaryDark);
   const [customBackgroundDarkColor, setCustomBackgroundDarkColor] = useState(THEME_DEFAULTS.backgroundDark);
   const [customTextColorDark, setCustomTextColorDark] = useState(THEME_DEFAULTS.textColorDark);
+  const [customButtonTextColor, setCustomButtonTextColor] = useState(THEME_DEFAULTS.buttonTextColorLight);
+  const [customButtonTextColorDark, setCustomButtonTextColorDark] = useState(THEME_DEFAULTS.buttonTextColorDark);
   const [expensesTabVisible, setExpensesTabVisible] = useState(true);
   const [expenseVisibilityLevel, setExpenseVisibilityLevel] =
     useState<ExpenseVisibilityLevel>("summary");
@@ -101,6 +103,8 @@ export default function PublicSettings() {
   const secondaryDarkColor = useCustomTheme ? customSecondaryDarkColor : THEME_DEFAULTS.secondaryDark;
   const backgroundDarkColor = useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark;
   const textColorDark = useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark;
+  const buttonTextColor = useCustomTheme ? customButtonTextColor : THEME_DEFAULTS.buttonTextColorLight;
+  const buttonTextColorDark = useCustomTheme ? customButtonTextColorDark : THEME_DEFAULTS.buttonTextColorDark;
 
   const previewBgColor = previewIsDark
     ? (useCustomTheme ? customBackgroundDarkColor : THEME_DEFAULTS.backgroundDark)
@@ -111,6 +115,7 @@ export default function PublicSettings() {
   const previewTextColor = previewIsDark
     ? (useCustomTheme ? customTextColorDark : THEME_DEFAULTS.textColorDark)
     : (useCustomTheme ? customTextColor : THEME_DEFAULTS.textColorLight);
+  const previewButtonTextColor = previewIsDark ? buttonTextColorDark : buttonTextColor;
 
   // Load account data, config, public page, and expenses
   useEffect(() => {
@@ -133,6 +138,8 @@ export default function PublicSettings() {
       setCustomSecondaryDarkColor(publicPage.custom_secondary_dark_color || THEME_DEFAULTS.secondaryDark);
       setCustomBackgroundDarkColor(publicPage.custom_background_dark_color || THEME_DEFAULTS.backgroundDark);
       setCustomTextColorDark(publicPage.custom_text_color_dark || THEME_DEFAULTS.textColorDark);
+      setCustomButtonTextColor(publicPage.custom_button_text_color || THEME_DEFAULTS.buttonTextColorLight);
+      setCustomButtonTextColorDark(publicPage.custom_button_text_color_dark || THEME_DEFAULTS.buttonTextColorDark);
     } catch (error) {
       console.error("Error loading public page:", error);
       // Fallback to defaults if public page doesn't exist yet
@@ -144,6 +151,8 @@ export default function PublicSettings() {
       setCustomSecondaryDarkColor(THEME_DEFAULTS.secondaryDark);
       setCustomBackgroundDarkColor(THEME_DEFAULTS.backgroundDark);
       setCustomTextColorDark(THEME_DEFAULTS.textColorDark);
+      setCustomButtonTextColor(THEME_DEFAULTS.buttonTextColorLight);
+      setCustomButtonTextColorDark(THEME_DEFAULTS.buttonTextColorDark);
     }
   };
 
@@ -270,6 +279,8 @@ export default function PublicSettings() {
           custom_secondary_dark_color: customSecondaryDarkColor,
           custom_background_dark_color: customBackgroundDarkColor,
           custom_text_color_dark: customTextColorDark,
+          custom_button_text_color: customButtonTextColor,
+          custom_button_text_color_dark: customButtonTextColorDark,
         }),
         configApi.updateMyConfig({
           expense_visibility_level: expenseVisibilityLevel,
@@ -282,7 +293,8 @@ export default function PublicSettings() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save settings",
+        description:
+          error instanceof Error ? error.message : "Failed to save settings",
         variant: "destructive",
       });
     } finally {
@@ -584,6 +596,7 @@ export default function PublicSettings() {
                 backgroundColor: previewBgColor,
                 color: previewTextColor,
                 ["--primary" as any]: hexToTailwindHsl(primaryColor),
+                ["--primary-foreground" as any]: hexToTailwindHsl(previewButtonTextColor),
                 ["--secondary" as any]: hexToTailwindHsl(previewSecondaryColor),
                 ["--background" as any]: hexToTailwindHsl(
                   previewIsDark
@@ -667,24 +680,12 @@ export default function PublicSettings() {
                           Verify to contribute
                         </p>
                         {isVerified ? (
-                          <Button
-                            onClick={() => setPreviewVerifiedMemberView(true)}
-                            style={{
-                              backgroundColor: primaryColor,
-                              color: secondaryColor,
-                            }}
-                          >
+                          <Button onClick={() => setPreviewVerifiedMemberView(true)}>
                             <Eye className="h-4 w-4 mr-2" />
                             Switch to verified preview
                           </Button>
                         ) : (
-                          <Button
-                            onClick={handleRequestAccess}
-                            style={{
-                              backgroundColor: primaryColor,
-                              color: secondaryColor,
-                            }}
-                          >
+                          <Button onClick={handleRequestAccess}>
                             <Lock className="h-4 w-4 mr-2" />
                             Verify
                           </Button>
@@ -752,10 +753,6 @@ export default function PublicSettings() {
                                     size="sm"
                                     type="button"
                                     disabled
-                                    style={{
-                                      backgroundColor: primaryColor,
-                                      color: secondaryColor,
-                                    }}
                                   >
                                     Contribute →
                                   </Button>
@@ -819,24 +816,12 @@ export default function PublicSettings() {
                             Verify to see expenses
                           </p>
                           {isVerified ? (
-                            <Button
-                              onClick={() => setPreviewVerifiedMemberView(true)}
-                              style={{
-                                backgroundColor: primaryColor,
-                                color: secondaryColor,
-                              }}
-                            >
+                            <Button onClick={() => setPreviewVerifiedMemberView(true)}>
                               <Eye className="h-4 w-4 mr-2" />
                               Switch to verified preview
                             </Button>
                           ) : (
-                            <Button
-                              onClick={handleRequestAccess}
-                              style={{
-                                backgroundColor: primaryColor,
-                                color: secondaryColor,
-                              }}
-                            >
+                            <Button onClick={handleRequestAccess}>
                               <Lock className="h-4 w-4 mr-2" />
                               Verify
                             </Button>
@@ -993,24 +978,12 @@ export default function PublicSettings() {
                           Verify to see your contributions
                         </p>
                         {isVerified ? (
-                          <Button
-                            onClick={() => setPreviewVerifiedMemberView(true)}
-                            style={{
-                              backgroundColor: primaryColor,
-                              color: secondaryColor,
-                            }}
-                          >
+                          <Button onClick={() => setPreviewVerifiedMemberView(true)}>
                             <Eye className="h-4 w-4 mr-2" />
                             Switch to verified preview
                           </Button>
                         ) : (
-                          <Button
-                            onClick={handleRequestAccess}
-                            style={{
-                              backgroundColor: primaryColor,
-                              color: secondaryColor,
-                            }}
-                          >
+                          <Button onClick={handleRequestAccess}>
                             <Lock className="h-4 w-4 mr-2" />
                             Verify
                           </Button>
@@ -1236,7 +1209,7 @@ export default function PublicSettings() {
               {/* Light Mode Colors */}
               <div className="border-t border-border pt-4">
                 <h4 className="text-sm font-semibold mb-3">Light Mode Colors</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <Label className="text-xs">Background - Light</Label>
                     <div className="flex gap-2 mt-1.5">
@@ -1353,13 +1326,52 @@ export default function PublicSettings() {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <Label className="text-xs">Button Text - Light</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customButtonTextColor : THEME_DEFAULTS.buttonTextColorLight,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customButtonTextColor : THEME_DEFAULTS.buttonTextColorLight}
+                          onChange={(e) => setCustomButtonTextColor(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customButtonTextColor.toUpperCase() : THEME_DEFAULTS.buttonTextColorLight}
+                        onChange={(e) => setCustomButtonTextColor(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#2E2E2E"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Dark Mode Colors */}
               <div className="border-t border-border pt-4">
                 <h4 className="text-sm font-semibold mb-3">Dark Mode Colors</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <Label className="text-xs">Background - Dark</Label>
                     <div className="flex gap-2 mt-1.5">
@@ -1472,6 +1484,45 @@ export default function PublicSettings() {
                         onChange={(e) => setCustomTextColorDark(e.target.value.toUpperCase())}
                         disabled={!useCustomTheme}
                         placeholder="#F6F1EA"
+                        className="w-28 uppercase font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Button Text - Dark</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div
+                        className={cn(
+                          "rounded-lg overflow-hidden relative border border-border shadow-inner transition-opacity",
+                          !useCustomTheme && "opacity-60"
+                        )}
+                        style={{
+                          backgroundColor: useCustomTheme ? customButtonTextColorDark : THEME_DEFAULTS.buttonTextColorDark,
+                          width: "60px",
+                          height: "36px",
+                        }}
+                      >
+                        <Input
+                          type="color"
+                          value={useCustomTheme ? customButtonTextColorDark : THEME_DEFAULTS.buttonTextColorDark}
+                          onChange={(e) => setCustomButtonTextColorDark(e.target.value)}
+                          disabled={!useCustomTheme}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            WebkitAppearance: "none",
+                            MozAppearance: "none",
+                          }}
+                        />
+                      </div>
+                      <Input
+                        type="text"
+                        value={useCustomTheme ? customButtonTextColorDark.toUpperCase() : THEME_DEFAULTS.buttonTextColorDark}
+                        onChange={(e) => setCustomButtonTextColorDark(e.target.value.toUpperCase())}
+                        disabled={!useCustomTheme}
+                        placeholder="#2E2E2E"
                         className="w-28 uppercase font-mono text-xs"
                       />
                     </div>

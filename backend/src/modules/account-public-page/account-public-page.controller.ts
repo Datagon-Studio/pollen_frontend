@@ -125,6 +125,8 @@ export class AccountPublicPageController {
         custom_secondary_dark_color: req.body.custom_secondary_dark_color,
         custom_background_dark_color: req.body.custom_background_dark_color,
         custom_text_color_dark: req.body.custom_text_color_dark,
+        custom_button_text_color: req.body.custom_button_text_color,
+        custom_button_text_color_dark: req.body.custom_button_text_color_dark,
       };
 
       const publicPage = await accountPublicPageService.updatePublicPage(userId, account.account_id, input);
