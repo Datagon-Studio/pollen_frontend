@@ -8,6 +8,10 @@ import { accountKYCRepository } from './account-kyc.repository.js';
 import { accountRepository } from './account.repository.js';
 import { CreateAccountKYCInput, UpdateAccountKYCInput, AccountKYC } from './account-kyc.entity.js';
 import { KYCStatus } from './account.entity.js';
+import { supabase } from '../../shared/supabase/client.js';
+
+const KYC_DOCUMENT_PATH_PATTERN =
+  /^(business-registration|passport-photo|national-id)\/[0-9a-f-]{36}\/\d+\.[a-z0-9]+$/i;
 
 export class AccountKYCService {
   /**
@@ -114,6 +118,25 @@ export class AccountKYCService {
     });
 
     return kyc;
+  }
+
+  /**
+   * Generate a signed URL for a KYC document (admin use only)
+   */
+  async getDocumentSignedUrl(filePath: string, expiresIn = 3600): Promise<string> {
+    if (!KYC_DOCUMENT_PATH_PATTERN.test(filePath)) {
+      throw new Error('Invalid KYC document path');
+    }
+
+    const { data, error } = await supabase.storage
+      .from('kyc-documents')
+      .createSignedUrl(filePath, expiresIn);
+
+    if (error || !data?.signedUrl) {
+      throw new Error(error?.message || 'Failed to generate signed URL');
+    }
+
+    return data.signedUrl;
   }
 
   /**

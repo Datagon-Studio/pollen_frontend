@@ -100,7 +100,7 @@ USING (
     EXISTS (
       SELECT 1 FROM users u
       WHERE u.user_id = (SELECT auth.uid())
-      AND u.role IN ('admin', 'super_admin')
+      AND u.role IN ('admin', 'superadmin')
     )
   )
 );

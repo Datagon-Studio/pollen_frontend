@@ -28,7 +28,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Download,
+  ExternalLink,
   Calendar,
   Search,
   ChevronDown,
@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { kycAdminApi, KYCWithAccount } from "@/services/account.api";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -155,29 +154,15 @@ export default function KYCVerification() {
     }
   };
 
-  const handleDownloadDocument = async (filePath: string, fileName: string) => {
+  const handleViewDocument = async (filePath: string) => {
     try {
-      // Generate a signed URL for downloading
-      const { data } = await supabase.storage
-        .from('kyc-documents')
-        .createSignedUrl(filePath, 3600);
-      
-      if (data?.signedUrl) {
-        // Create a temporary anchor element to trigger download
-        const link = document.createElement('a');
-        link.href = data.signedUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        throw new Error("Failed to generate signed URL");
-      }
+      const signedUrl = await kycAdminApi.getDocumentSignedUrl(filePath);
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
-      console.error("Error downloading document:", error);
+      console.error("Error opening document:", error);
       toast({
         title: "Error",
-        description: "Failed to download document",
+        description: error instanceof Error ? error.message : "Failed to open document",
         variant: "destructive",
       });
     }
@@ -373,13 +358,10 @@ export default function KYCVerification() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleDownloadDocument(
-                                        kyc.business_registration_url!,
-                                        `business-registration-${kyc.account_id}.pdf`
-                                      )}
+                                      onClick={() => handleViewDocument(kyc.business_registration_url!)}
                                     >
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Download
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      View
                                     </Button>
                                   </div>
                                 )}
@@ -397,13 +379,10 @@ export default function KYCVerification() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleDownloadDocument(
-                                        kyc.passport_photo_url!,
-                                        `passport-photo-${kyc.account_id}.jpg`
-                                      )}
+                                      onClick={() => handleViewDocument(kyc.passport_photo_url!)}
                                     >
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Download
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      View
                                     </Button>
                                   </div>
                                 )}
@@ -421,13 +400,10 @@ export default function KYCVerification() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleDownloadDocument(
-                                        kyc.national_id_url,
-                                        `national-id-${kyc.account_id}.pdf`
-                                      )}
+                                      onClick={() => handleViewDocument(kyc.national_id_url)}
                                     >
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Download
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      View
                                     </Button>
                                   </div>
                                 )}

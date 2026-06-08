@@ -91,6 +91,11 @@ accountRoutes.get('/kyc/all', async (req, res) => {
   await accountController.getAllKYC(req, res);
 });
 
+// GET /api/v1/accounts/kyc/document-url - Get signed URL for KYC document (superadmin)
+accountRoutes.get('/kyc/document-url', async (req, res) => {
+  await accountController.getKYCDocumentUrl(req, res);
+});
+
 // POST /api/v1/accounts/:accountId/kyc/verify - Verify KYC (admin)
 accountRoutes.post('/:accountId/kyc/verify', async (req, res) => {
   await accountController.verifyKYC(req, res);

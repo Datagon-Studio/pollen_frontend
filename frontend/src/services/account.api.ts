@@ -185,4 +185,20 @@ export const kycAdminApi = {
       throw new Error(response.error || 'Failed to reject KYC');
     }
   },
+
+  /**
+   * Get a signed URL for a KYC document (superadmin only)
+   */
+  async getDocumentSignedUrl(filePath: string): Promise<string> {
+    const response = await request<{ signedUrl: string }>(
+      `/accounts/kyc/document-url?path=${encodeURIComponent(filePath)}`,
+      { method: 'GET' }
+    );
+
+    if (!response.success || !response.data?.signedUrl) {
+      throw new Error(response.error || 'Failed to generate signed URL');
+    }
+
+    return response.data.signedUrl;
+  },
 };

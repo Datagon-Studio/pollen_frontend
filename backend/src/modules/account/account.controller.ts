@@ -377,6 +377,56 @@ export class AccountController {
   }
 
   /**
+   * GET /api/v1/accounts/kyc/document-url
+   * Generate a signed URL for a KYC document (superadmin only)
+   */
+  async getKYCDocumentUrl(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const userProfile = await userService.getUserProfile(userId);
+      if (!userProfile || userProfile.role !== 'superadmin') {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden: Superadmin access required',
+        });
+        return;
+      }
+
+      const filePath = req.query.path;
+      if (typeof filePath !== 'string' || !filePath.trim()) {
+        res.status(400).json({
+          success: false,
+          error: 'Document path is required',
+        });
+        return;
+      }
+
+      const signedUrl = await accountKYCService.getDocumentSignedUrl(filePath.trim());
+
+      res.status(200).json({
+        success: true,
+        data: { signedUrl },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to generate document URL';
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
    * POST /api/v1/accounts/:accountId/kyc/reject
    * Reject a KYC submission (superadmin only)
    */
