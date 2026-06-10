@@ -173,10 +173,12 @@ export default function SignIn() {
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="username"
                     required
                   />
                 </div>
@@ -184,11 +186,12 @@ export default function SignIn() {
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="off"
+                    autoComplete="current-password"
                     required
                   />
                   <div className="flex justify-end">

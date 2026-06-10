@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { memberApi, Member, UpdateMemberInput, isMemberActive } from "@/services";
+import { useRoles } from "@/hooks/useRoles";
 
 interface EditMemberModalProps {
   open: boolean;
@@ -32,6 +33,7 @@ interface EditMemberModalProps {
 
 export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditMemberModalProps) {
   const { toast } = useToast();
+  const { isOfficer } = useRoles();
   const [saving, setSaving] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isCollector, setIsCollector] = useState(false);
@@ -395,25 +397,27 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
               </div>
             </div>
 
-            {/* Collector Option */}
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="isCollector"
-                  checked={isCollector}
-                  onCheckedChange={(checked) => setIsCollector(checked)}
-                />
-                <Label
-                  htmlFor="isCollector"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  Set as Collector
-                </Label>
+            {/* Collector Option — only admins can assign collector role */}
+            {!isOfficer && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isCollector"
+                    checked={isCollector}
+                    onCheckedChange={(checked) => setIsCollector(checked)}
+                  />
+                  <Label
+                    htmlFor="isCollector"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Set as Collector
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground pl-6">
-                Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
-              </p>
-            </div>
+            )}
 
             {/* Membership Number */}
             <div className="space-y-2">
