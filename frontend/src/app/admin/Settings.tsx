@@ -107,12 +107,15 @@ export default function Settings() {
   const [settlementBankCode, setSettlementBankCode] = useState("");
   const [settlementBankBranch, setSettlementBankBranch] = useState("");
   const [settlementProvider, setSettlementProvider] = useState("");
+  const [settlementProviderCode, setSettlementProviderCode] = useState("");
   const [settlementOtherProvider, setSettlementOtherProvider] = useState("");
   const [settlementIsActive, setSettlementIsActive] = useState(true);
 
   // Bank verification state
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [momoProviders, setMomoProviders] = useState<Bank[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
+  const [loadingMomoProviders, setLoadingMomoProviders] = useState(false);
   const [verifyingAccount, setVerifyingAccount] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<
     "idle" | "success" | "error"
@@ -172,6 +175,16 @@ export default function Settings() {
       setVerificationStatus("idle");
       setVerificationError(null);
       setSettlementBankCode("");
+      setSettlementAccountName("");
+    }
+  }, [settlementType]);
+
+  // Load mobile money providers when settlement type changes to 'mobile_money'
+  useEffect(() => {
+    if (settlementType === "mobile_money") {
+      loadMomoProviders().catch(console.error);
+    } else {
+      setSettlementProviderCode("");
     }
   }, [settlementType]);
 
@@ -247,19 +260,12 @@ export default function Settings() {
         setSettlementBankBranch(active.bank_branch || "");
         const provider = active.provider || "";
         setSettlementProvider(provider);
-        // If provider is not in the standard list, set it as "Other" and store the name
-        if (
-          provider &&
-          !["MTN Mobile Money", "Vodafone Cash", "AirtelTigo Money"].includes(
-            provider,
-          )
-        ) {
-          setSettlementProvider("Other");
-          setSettlementOtherProvider(provider);
-        } else {
-          setSettlementOtherProvider("");
-        }
+        setSettlementOtherProvider("");
         setSettlementIsActive(active.is_active);
+
+        if (active.account_name) {
+          setVerificationStatus("success");
+        }
 
         // Load banks if bank settlement type and try to match bank code
         if (active.settlement_type === "bank" && active.bank_name) {
@@ -270,6 +276,26 @@ export default function Settings() {
               );
               if (bank) {
                 setSettlementBankCode(bank.code);
+              }
+            })
+            .catch(console.error);
+        }
+
+        // Load momo providers and match provider code
+        if (active.settlement_type === "mobile_money" && active.provider) {
+          const savedProvider = active.provider;
+          loadMomoProviders()
+            .then((providers) => {
+              const match = providers.find(
+                (p) => p.name.toLowerCase() === savedProvider.toLowerCase(),
+              );
+              if (match) {
+                setSettlementProviderCode(match.code);
+                setSettlementProvider(match.name);
+                setSettlementOtherProvider("");
+              } else {
+                setSettlementProvider("Other");
+                setSettlementOtherProvider(savedProvider);
               }
             })
             .catch(console.error);
@@ -325,18 +351,42 @@ export default function Settings() {
     }
   };
 
-  const verifyBankAccount = async (accountNumber: string, bankCode: string) => {
+  const loadMomoProviders = async (): Promise<Bank[]> => {
+    if (momoProviders.length > 0) return momoProviders;
+
+    try {
+      setLoadingMomoProviders(true);
+      const providersList = await paystackBankApi.getMobileMoneyProviders("GH");
+      const activeProviders = providersList.filter(
+        (p) => p.active !== false && p.is_deleted !== true,
+      );
+      setMomoProviders(activeProviders);
+      return activeProviders;
+    } catch (error) {
+      console.error("Error loading mobile money providers:", error);
+      return [];
+    } finally {
+      setLoadingMomoProviders(false);
+    }
+  };
+
+  const verifySettlementAccount = async (
+    accountNumber: string,
+    bankCode: string,
+    minDigits = 10,
+  ) => {
     if (!accountNumber.trim() || !bankCode) {
       setVerificationStatus("idle");
       setVerificationError(null);
       return;
     }
 
-    // Only verify if account number is at least 10 digits
+    // Only verify if account number meets minimum digit requirement
     const accountNumberDigits = accountNumber.trim().replace(/\D/g, "");
-    if (accountNumberDigits.length < 10) {
+    if (accountNumberDigits.length < minDigits) {
       setVerificationStatus("idle");
       setVerificationError(null);
+      setSettlementAccountName("");
       return;
     }
 
@@ -354,42 +404,62 @@ export default function Settings() {
       setSettlementAccountName(result.account_name);
       setVerificationStatus("success");
       setVerificationError(null);
-
-      toast({
-        title: "Account Verified",
-        description: `Account name: ${result.account_name}`,
-      });
     } catch (error) {
+      setSettlementAccountName("");
       setVerificationStatus("error");
       const errorMessage =
         error instanceof Error ? error.message : "Failed to verify account";
       setVerificationError(errorMessage);
-      toast({
-        title: "Verification Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
     } finally {
       setVerifyingAccount(false);
     }
+  };
+
+  const applyOtherProviderName = () => {
+    const fallbackName = officialName.trim() || userProfile?.full_name?.trim() || "";
+    setSettlementAccountName(fallbackName);
+    setVerificationStatus(fallbackName ? "success" : "idle");
+    setVerificationError(null);
   };
 
   // Debounced verification
   const verificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleAccountNumberChange = (value: string) => {
     setSettlementAccountNumber(value);
+    setSettlementAccountName("");
+    setVerificationStatus("idle");
+    setVerificationError(null);
 
     if (verificationTimeoutRef.current) {
       clearTimeout(verificationTimeoutRef.current);
     }
 
-    // Debounce verification by 800ms after user stops typing
     verificationTimeoutRef.current = setTimeout(() => {
       if (value.trim().replace(/\D/g, "").length >= 10 && settlementBankCode) {
-        verifyBankAccount(value, settlementBankCode);
-      } else {
-        setVerificationStatus("idle");
-        setVerificationError(null);
+        verifySettlementAccount(value, settlementBankCode);
+      }
+    }, 800);
+  };
+
+  const handleMoMoNumberChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+    setSettlementAccountNumber(digitsOnly);
+    setSettlementAccountName("");
+    setVerificationStatus("idle");
+    setVerificationError(null);
+
+    if (verificationTimeoutRef.current) {
+      clearTimeout(verificationTimeoutRef.current);
+    }
+
+    if (settlementProvider === "Other") {
+      applyOtherProviderName();
+      return;
+    }
+
+    verificationTimeoutRef.current = setTimeout(() => {
+      if (digitsOnly.length === 10 && settlementProviderCode) {
+        verifySettlementAccount(digitsOnly, settlementProviderCode, 10);
       }
     }, 800);
   };
@@ -400,7 +470,32 @@ export default function Settings() {
     if (!settlementAccountName.trim()) {
       toast({
         title: "Validation Error",
-        description: "Account name is required",
+        description:
+          settlementType === "bank"
+            ? "Please enter your bank and account number to verify the account name"
+            : "Please enter your MoMo number to verify the account name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (settlementType === "bank" && verificationStatus !== "success") {
+      toast({
+        title: "Validation Error",
+        description: "Please verify your bank account before saving",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      settlementType === "mobile_money" &&
+      settlementProvider !== "Other" &&
+      verificationStatus !== "success"
+    ) {
+      toast({
+        title: "Validation Error",
+        description: "Please verify your mobile money account before saving",
         variant: "destructive",
       });
       return;
@@ -1355,11 +1450,17 @@ export default function Settings() {
                   value={settlementType}
                   onValueChange={(v: "bank" | "mobile_money") => {
                     setSettlementType(v);
+                    setSettlementAccountName("");
+                    setSettlementAccountNumber("");
+                    setVerificationStatus("idle");
+                    setVerificationError(null);
                     if (v === "bank") {
                       setSettlementProvider("");
+                      setSettlementProviderCode("");
                       setSettlementOtherProvider("");
                     } else {
                       setSettlementBankName("");
+                      setSettlementBankCode("");
                       setSettlementBankBranch("");
                     }
                   }}
@@ -1378,72 +1479,24 @@ export default function Settings() {
                 <>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label>Account Name *</Label>
-                      <div className="relative">
-                        <Input
-                          value={settlementAccountName}
-                          onChange={(e) =>
-                            setSettlementAccountName(e.target.value)
-                          }
-                          placeholder="Name on bank account"
-                          className="mt-1.5"
-                          disabled={verifyingAccount}
-                        />
-                        {verificationStatus === "success" && (
-                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
-                        )}
-                        {verificationStatus === "error" && (
-                          <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                      {verificationStatus === "success" && (
-                        <p className="text-xs text-green-600 mt-1">
-                          Account verified successfully
-                        </p>
-                      )}
-                      {verificationError && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {verificationError}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Account Number *</Label>
-                      <Input
-                        value={settlementAccountNumber}
-                        onChange={(e) =>
-                          handleAccountNumberChange(e.target.value)
-                        }
-                        placeholder="Bank account number"
-                        className="mt-1.5"
-                        disabled={verifyingAccount}
-                      />
-                      {verifyingAccount && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Verifying account...
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
                       <Label>Bank Name *</Label>
                       <Select
                         value={settlementBankCode}
                         onValueChange={async (value) => {
                           setSettlementBankCode(value);
+                          setSettlementAccountName("");
+                          setVerificationStatus("idle");
+                          setVerificationError(null);
                           const selectedBank = banks.find(
                             (b) => b.code === value,
                           );
                           if (selectedBank) {
                             setSettlementBankName(selectedBank.name);
-                            // Auto-verify when bank is selected and account number is entered
                             if (
                               settlementAccountNumber.trim().replace(/\D/g, "")
                                 .length >= 10
                             ) {
-                              await verifyBankAccount(
+                              await verifySettlementAccount(
                                 settlementAccountNumber,
                                 value,
                               );
@@ -1467,7 +1520,7 @@ export default function Settings() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {settlementType === "bank" && banks.length === 0 && (
+                      {banks.length === 0 && (
                         <Button
                           type="button"
                           variant="outline"
@@ -1492,6 +1545,54 @@ export default function Settings() {
                       )}
                     </div>
                     <div>
+                      <Label>Account Number *</Label>
+                      <Input
+                        value={settlementAccountNumber}
+                        onChange={(e) =>
+                          handleAccountNumberChange(e.target.value)
+                        }
+                        placeholder="Bank account number"
+                        className="mt-1.5"
+                        disabled={verifyingAccount}
+                      />
+                      {verifyingAccount && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Verifying account...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Account Name</Label>
+                      <div className="relative">
+                        <Input
+                          value={settlementAccountName}
+                          readOnly
+                          placeholder="Verified automatically"
+                          className="mt-1.5 bg-muted/30 cursor-default focus-visible:ring-0"
+                          tabIndex={-1}
+                        />
+                        {verificationStatus === "success" && (
+                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                        )}
+                        {verificationStatus === "error" && (
+                          <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                      {verificationStatus === "success" && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Account verified successfully
+                        </p>
+                      )}
+                      {verificationError && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {verificationError}
+                        </p>
+                      )}
+                    </div>
+                    <div>
                       <Label>Bank Branch</Label>
                       <Input
                         value={settlementBankBranch}
@@ -1508,33 +1609,80 @@ export default function Settings() {
 
               {settlementType === "mobile_money" && (
                 <>
-                  <div>
-                    <Label>Mobile Money Service *</Label>
-                    <Select
-                      value={settlementProvider}
-                      onValueChange={(value) => {
-                        setSettlementProvider(value);
-                        if (value !== "Other") {
-                          setSettlementOtherProvider("");
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Select service provider" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        <SelectItem value="MTN Mobile Money">
-                          MTN Mobile Money
-                        </SelectItem>
-                        <SelectItem value="Vodafone Cash">
-                          Vodafone Cash
-                        </SelectItem>
-                        <SelectItem value="AirtelTigo Money">
-                          AirtelTigo Money
-                        </SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Mobile Money Service *</Label>
+                      <Select
+                        value={settlementProviderCode || settlementProvider}
+                        onValueChange={(value) => {
+                          if (value === "Other") {
+                            setSettlementProvider("Other");
+                            setSettlementProviderCode("");
+                            setSettlementAccountName("");
+                            setVerificationStatus("idle");
+                            setVerificationError(null);
+                            applyOtherProviderName();
+                            return;
+                          }
+
+                          const selectedProvider = momoProviders.find(
+                            (p) => p.code === value,
+                          );
+                          if (selectedProvider) {
+                            setSettlementProvider(selectedProvider.name);
+                            setSettlementProviderCode(selectedProvider.code);
+                            setSettlementOtherProvider("");
+                            setSettlementAccountName("");
+                            setVerificationStatus("idle");
+                            setVerificationError(null);
+
+                            if (settlementAccountNumber.length === 10) {
+                              verifySettlementAccount(
+                                settlementAccountNumber,
+                                selectedProvider.code,
+                                10,
+                              );
+                            }
+                          }
+                        }}
+                        disabled={loadingMomoProviders}
+                      >
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue
+                            placeholder={
+                              loadingMomoProviders
+                                ? "Loading providers..."
+                                : "Select service provider"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {momoProviders.map((provider) => (
+                            <SelectItem key={provider.code} value={provider.code}>
+                              {provider.name}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>MoMo Number *</Label>
+                      <Input
+                        value={settlementAccountNumber}
+                        onChange={(e) => handleMoMoNumberChange(e.target.value)}
+                        placeholder="Mobile money number (10 digits)"
+                        maxLength={10}
+                        className="mt-1.5"
+                        disabled={verifyingAccount}
+                      />
+                      {verifyingAccount && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Verifying account...
+                        </p>
+                      )}
+                    </div>
                   </div>
                   {settlementProvider === "Other" && (
                     <div>
@@ -1549,30 +1697,33 @@ export default function Settings() {
                       />
                     </div>
                   )}
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Name on MoMo *</Label>
+                  <div>
+                    <Label>Name on MoMo</Label>
+                    <div className="relative sm:max-w-[calc(50%-0.5rem)]">
                       <Input
                         value={settlementAccountName}
-                        onChange={(e) =>
-                          setSettlementAccountName(e.target.value)
-                        }
-                        placeholder="Name registered on MoMo"
-                        className="mt-1.5"
+                        readOnly
+                        placeholder="Verified automatically"
+                        className="mt-1.5 bg-muted/30 cursor-default focus-visible:ring-0"
+                        tabIndex={-1}
                       />
+                      {verificationStatus === "success" && (
+                        <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                      )}
+                      {verificationStatus === "error" && (
+                        <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                      )}
                     </div>
-                    <div>
-                      <Label>MoMo Number *</Label>
-                      <Input
-                        value={settlementAccountNumber}
-                        onChange={(e) =>
-                          setSettlementAccountNumber(e.target.value)
-                        }
-                        placeholder="Mobile money number (10 digits)"
-                        maxLength={10}
-                        className="mt-1.5"
-                      />
-                    </div>
+                    {verificationStatus === "success" && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Account verified successfully
+                      </p>
+                    )}
+                    {verificationError && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {verificationError}
+                      </p>
+                    )}
                   </div>
                 </>
               )}

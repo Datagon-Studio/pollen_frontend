@@ -41,17 +41,24 @@ export const paystackBankService = {
    * Get list of banks supported by Paystack
    * @param country - Country code (default: 'GH' for Ghana, 'NG' for Nigeria)
    */
-  async getBanks(country: 'GH' | 'NG' = 'GH'): Promise<Bank[]> {
+  async getBanks(
+    country: 'GH' | 'NG' = 'GH',
+    options?: { type?: string; currency?: string },
+  ): Promise<Bank[]> {
     if (!PAYSTACK_SECRET_KEY) {
       throw new Error('Paystack secret key is not configured');
     }
     try {
       // Paystack API expects lowercase country name, not country code
       const countryName = country === 'GH' ? 'ghana' : 'nigeria';
-      console.log('Calling Paystack API for banks, country:', countryName);
-      
+      console.log('Calling Paystack API for banks, country:', countryName, options);
+
+      const params: Record<string, string> = { country: countryName };
+      if (options?.type) params.type = options.type;
+      if (options?.currency) params.currency = options.currency;
+
       const response = await axios.get(`${PAYSTACK_BASE_URL}/bank`, {
-        params: { country: countryName },
+        params,
         headers: {
           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
         },

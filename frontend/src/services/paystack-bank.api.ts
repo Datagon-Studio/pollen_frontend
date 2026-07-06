@@ -27,9 +27,16 @@ export const paystackBankApi = {
    * Get list of banks supported by Paystack
    * @param country - Country code ('GH' for Ghana, 'NG' for Nigeria)
    */
-  async getBanks(country: 'GH' | 'NG' = 'GH'): Promise<Bank[]> {
+  async getBanks(
+    country: 'GH' | 'NG' = 'GH',
+    options?: { type?: string; currency?: string },
+  ): Promise<Bank[]> {
     try {
-      const response = await request<Bank[]>(`/payments/banks?country=${country}`, {
+      const params = new URLSearchParams({ country });
+      if (options?.type) params.set('type', options.type);
+      if (options?.currency) params.set('currency', options.currency);
+
+      const response = await request<Bank[]>(`/payments/banks?${params.toString()}`, {
         method: 'GET',
       });
 
@@ -68,5 +75,10 @@ export const paystackBankApi = {
     }
 
     return response.data;
+  },
+
+  async getMobileMoneyProviders(country: 'GH' | 'NG' = 'GH'): Promise<Bank[]> {
+    const currency = country === 'GH' ? 'GHS' : 'NGN';
+    return this.getBanks(country, { type: 'mobile_money', currency });
   },
 };

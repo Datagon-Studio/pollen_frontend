@@ -130,9 +130,11 @@ paymentRoutes.get('/banks', async (req: Request, res: Response) => {
     }
     
     const country = (countryParam as 'GH' | 'NG') || 'GH';
+    const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+    const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
     console.log('Normalized country code:', country);
-    console.log('Fetching banks for country:', country);
-    const banks = await paystackBankService.getBanks(country);
+    console.log('Fetching banks for country:', country, { type, currency });
+    const banks = await paystackBankService.getBanks(country, { type, currency });
     console.log('Banks fetched successfully:', banks.length);
     sendSuccess(res, banks);
   } catch (error) {
