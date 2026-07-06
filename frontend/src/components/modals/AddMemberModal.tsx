@@ -415,15 +415,6 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       return;
     }
 
-    if (!phoneVerified) {
-      toast({
-        title: "Verification Required",
-        description: "Please verify the phone number before adding the member.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (formData.isCollector && !formData.email.trim()) {
       toast({
         title: "Email Required",
@@ -613,7 +604,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
 
             {/* Phone Number */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (with OTP) *</Label>
+              <Label htmlFor="phone">Phone Number *</Label>
               <div className="flex gap-2">
                 <Input
                   id="phone"
