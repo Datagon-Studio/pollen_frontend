@@ -1192,9 +1192,13 @@ export default function PublicGroupPage() {
                     const hasGoal =
                       fundGoal != null && !isNaN(fundGoal) && fundGoal > 0;
                     const totalCollected = stats.totalCollected || 0;
-                    const progress = hasGoal
-                      ? Math.min((totalCollected / fundGoal!) * 100, 100)
+                    const progressPercent = hasGoal
+                      ? (totalCollected / fundGoal!) * 100
                       : null;
+                    const progressBarWidth =
+                      progressPercent !== null
+                        ? Math.min(progressPercent, 100)
+                        : 0;
 
                     return (
                       <Card
@@ -1241,13 +1245,13 @@ export default function PublicGroupPage() {
                                 <div
                                   className="h-full rounded-full transition-all"
                                   style={{
-                                    width: `${progress || 0}%`,
+                                    width: `${progressBarWidth}%`,
                                     backgroundColor: primaryColor,
                                   }}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground text-right">
-                                {progress !== null ? progress.toFixed(0) : 0}%
+                                {progressPercent !== null ? progressPercent.toFixed(0) : 0}%
                                 of goal reached
                               </p>
                             </div>

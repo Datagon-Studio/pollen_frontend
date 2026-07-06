@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -132,40 +133,28 @@ export function EditFundModal({ open, onOpenChange, fund, onSuccess }: EditFundM
             </div>
             <div className="space-y-2">
               <Label htmlFor="default-amount">Default Amount</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
-                </span>
-                <Input
-                  id="default-amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="pl-10"
-                  value={formData.defaultAmount}
-                  onChange={(e) => setFormData({ ...formData, defaultAmount: e.target.value })}
-                />
-              </div>
+              <CurrencyInput
+                id="default-amount"
+                currencyCode={currencyCode}
+                step="0.01"
+                placeholder="0.00"
+                value={formData.defaultAmount}
+                onChange={(e) => setFormData({ ...formData, defaultAmount: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground">
                 Suggested contribution amount for this fund
               </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="fund-goal">Fund Goal</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
-                </span>
-                <Input
-                  id="fund-goal"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="pl-10"
-                  value={formData.fundGoal}
-                  onChange={(e) => setFormData({ ...formData, fundGoal: e.target.value })}
-                />
-              </div>
+              <CurrencyInput
+                id="fund-goal"
+                currencyCode={currencyCode}
+                step="0.01"
+                placeholder="0.00"
+                value={formData.fundGoal}
+                onChange={(e) => setFormData({ ...formData, fundGoal: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground">
                 Target goal amount for this fund (optional)
               </p>

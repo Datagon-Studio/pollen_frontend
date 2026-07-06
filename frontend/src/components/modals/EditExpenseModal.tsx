@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -29,6 +30,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { expenseApi, Expense, UpdateExpenseInput } from "@/services";
 import { expenseCategoryApi, ExpenseCategory } from "@/services/expense-category.api";
+import { configApi } from "@/services/config.api";
 
 interface EditExpenseModalProps {
   open: boolean;
@@ -50,6 +52,16 @@ export function EditExpenseModal({ open, onOpenChange, expense, onSuccess }: Edi
     notes: "",
     memberVisible: true,
   });
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  useEffect(() => {
+    if (open) {
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -213,18 +225,14 @@ export function EditExpenseModal({ open, onOpenChange, expense, onSuccess }: Edi
             {/* Amount */}
             <div className="space-y-2">
               <Label htmlFor="amount">Amount *</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="pl-7"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
+              <CurrencyInput
+                id="amount"
+                currencyCode={currencyCode}
+                step="0.01"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              />
             </div>
 
             {/* Notes */}

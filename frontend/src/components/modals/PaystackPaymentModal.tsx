@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
@@ -207,10 +208,10 @@ export function PaystackPaymentModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (GHS) *</Label>
-            <Input
+            <Label htmlFor="amount">Amount *</Label>
+            <CurrencyInput
               id="amount"
-              type="number"
+              currencyCode="GHS"
               step="0.01"
               min="0.01"
               placeholder={fund.default_amount?.toString() || "0.00"}

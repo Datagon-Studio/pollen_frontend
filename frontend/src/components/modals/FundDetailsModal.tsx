@@ -139,7 +139,7 @@ export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetai
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium text-foreground">{Math.min(progress, 100).toFixed(1)}%</span>
+                <span className="font-medium text-foreground">{progress.toFixed(1)}%</span>
               </div>
               <Progress
                 value={Math.min(progress, 100)}

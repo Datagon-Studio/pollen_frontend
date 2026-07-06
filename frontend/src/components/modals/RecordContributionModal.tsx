@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -427,20 +428,14 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
                   </span>
                 )}
               </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {currencyCode === "GHS" ? "GH₵" : currencyCode}
-                </span>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder={selectedFund ? `${defaultAmount}.00` : "0.00"}
-                  className="pl-10"
-                  min={defaultAmount}
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
+              <CurrencyInput
+                id="amount"
+                currencyCode={currencyCode}
+                placeholder={selectedFund ? `${defaultAmount}.00` : "0.00"}
+                min={defaultAmount}
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              />
             </div>
 
             {/* Date Received */}
