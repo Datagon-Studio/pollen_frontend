@@ -1,10 +1,9 @@
 import * as React from "react";
 
+import { getCurrencySymbol } from "@/lib/currencies";
 import { cn } from "@/lib/utils";
 
-export function getCurrencySymbol(currencyCode: string): string {
-  return currencyCode === "GHS" ? "GH₵" : currencyCode;
-}
+export { getCurrencySymbol };
 
 interface CurrencyInputProps extends Omit<React.ComponentProps<"input">, "type"> {
   currencyCode?: string;

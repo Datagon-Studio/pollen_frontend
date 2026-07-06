@@ -56,6 +56,7 @@ import {
 import { configApi, Config, NotificationChannel } from "@/services/config.api";
 import { userApi, UserProfile } from "@/services/user.api";
 import { paystackBankApi, Bank } from "@/services/paystack-bank.api";
+import { CURRENCY_OPTIONS } from "@/lib/currencies";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, Image as ImageIcon, XCircle } from "lucide-react";
@@ -1822,9 +1823,12 @@ export default function Settings() {
                   <SelectTrigger className="mt-1.5">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="GHS">Ghana Cedi (GHS)</SelectItem>
-                    <SelectItem value="USD">US Dollar (USD)</SelectItem>
+                  <SelectContent className="bg-card border-border max-h-[300px]">
+                    {CURRENCY_OPTIONS.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.code})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
