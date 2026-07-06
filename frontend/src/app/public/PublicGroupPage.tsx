@@ -958,7 +958,7 @@ export default function PublicGroupPage() {
                       {verifying ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        "Verify"
+                        "Login"
                       )}
                     </Button>
                   </div>
@@ -1125,11 +1125,11 @@ export default function PublicGroupPage() {
                 <CardContent className="pt-6 text-center">
                   <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p className="text-muted-foreground mb-4">
-                    Verify to contribute
+                    Login to contribute
                   </p>
                   <Button onClick={handleRequestAccess}>
                     <Lock className="h-4 w-4 mr-2" />
-                    Verify
+                    Login
                   </Button>
                 </CardContent>
               </Card>
@@ -1272,11 +1272,11 @@ export default function PublicGroupPage() {
                 <CardContent className="pt-6 text-center">
                   <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p className="text-muted-foreground mb-4">
-                    Verify to see your contributions
+                    Login to see your contributions
                   </p>
                   <Button onClick={handleRequestAccess}>
                     <Lock className="h-4 w-4 mr-2" />
-                    Verify
+                    Login
                   </Button>
                 </CardContent>
               </Card>
@@ -1460,11 +1460,11 @@ export default function PublicGroupPage() {
                   <CardContent className="pt-6 text-center">
                     <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-muted-foreground mb-4">
-                      Verify to see expenses
+                      Login to see expenses
                     </p>
                     <Button onClick={handleRequestAccess}>
                       <Lock className="h-4 w-4 mr-2" />
-                      Verify
+                      Login
                     </Button>
                   </CardContent>
                 </Card>
