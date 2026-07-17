@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { BrandSymbol } from "@/components/ui/brand";
+import { getAppUrl } from "@/lib/app-url";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
@@ -61,7 +62,7 @@ export default function SignUp() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/signin?verified=true`,
+          emailRedirectTo: `${getAppUrl()}/signin?verified=true`,
         },
       });
 

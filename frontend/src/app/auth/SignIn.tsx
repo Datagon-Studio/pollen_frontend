@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { BrandSymbol } from "@/components/ui/brand";
+import { getAppUrl } from "@/lib/app-url";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -93,7 +94,7 @@ export default function SignIn() {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `${getAppUrl()}/reset-password`,
         },
       );
 

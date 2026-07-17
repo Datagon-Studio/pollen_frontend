@@ -12,6 +12,7 @@ import { postmarkService } from '../../shared/services/postmark.service.js';
 import { accountRepository } from '../account/account.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
 import { env } from '../../env.js';
+import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
 import crypto from 'crypto';
 
 export class MemberService {
@@ -262,16 +263,8 @@ export class MemberService {
       throw new Error('Email is required');
     }
 
-    // Prefer FRONTEND_URL so emails always use the canonical app domain
-    // (e.g. https://app.pollean.com), not whatever Origin the admin browser had.
-    const frontendUrl = env.FRONTEND_URL || baseUrl ||
-                       (env.NODE_ENV === 'development' ? 'http://localhost:5173' : null);
-    
-    if (!frontendUrl) {
-      throw new Error('Frontend URL is not configured. Please set FRONTEND_URL environment variable.');
-    }
-    
-    const resetPasswordUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password`;
+    const frontendUrl = getFrontendUrl(baseUrl);
+    const resetPasswordUrl = `${frontendUrl}/reset-password`;
     console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
     // Generate reset password link using Supabase Admin API
@@ -501,15 +494,8 @@ If you didn't expect this email, please contact the administrator.
     
     const verificationToken = Buffer.from(`${memberId}:${timestamp}:${token}`).toString('base64url');
 
-    // Prefer FRONTEND_URL so emails always use the canonical app domain
-    const frontendUrl = env.FRONTEND_URL || baseUrl ||
-                       (env.NODE_ENV === 'development' ? 'http://localhost:5173' : null);
-    
-    if (!frontendUrl) {
-      throw new Error('Frontend URL is not configured. Please set FRONTEND_URL environment variable.');
-    }
-    
-    const verificationUrl = `${frontendUrl.replace(/\/$/, '')}/verify-member-email?token=${verificationToken}`;
+    const frontendUrl = getFrontendUrl(baseUrl);
+    const verificationUrl = `${frontendUrl}/verify-member-email?token=${verificationToken}`;
 
     // Send email via Postmark
     const emailSubject = 'Verify Your Email - Pollean';

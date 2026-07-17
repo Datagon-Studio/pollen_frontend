@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { BrandSymbol } from "@/components/ui/brand";
+import { getAppUrl } from "@/lib/app-url";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState("");
@@ -108,7 +109,7 @@ export default function VerifyOTP() {
         type: "signup",
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/signin?verified=true`,
+          emailRedirectTo: `${getAppUrl()}/signin?verified=true`,
         },
       });
 
