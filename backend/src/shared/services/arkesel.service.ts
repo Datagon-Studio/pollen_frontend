@@ -38,7 +38,7 @@ class ArkeselService {
     message?: string,
     expiry: number = 5,
     length: number = 6
-  ): Promise<{ success: boolean; code?: string; messageId?: string; error?: string }> {
+  ): Promise<{ success: boolean; ussdCode?: string; error?: string }> {
     console.log('📱 [Arkesel] Sending OTP to:', phone);
     
     if (!this.apiKey) {
@@ -111,7 +111,7 @@ class ArkeselService {
         console.log('OTP sent successfully via Arkesel');
         return {
           success: true,
-          messageId: data.ussd_code,
+          ussdCode: data.ussd_code,
         };
       }
 

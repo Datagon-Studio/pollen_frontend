@@ -412,6 +412,7 @@ memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => 
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
+      ussd_code: result.ussdCode,
     });
   } catch (error) {
     console.error('═══════════════════════════════════════════════════════');

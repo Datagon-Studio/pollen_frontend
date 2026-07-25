@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { memberApi, Member, UpdateMemberInput, isMemberActive } from "@/services";
+import { OtpUssdHint } from "@/components/ui/otp-ussd-hint";
 import { useRoles } from "@/hooks/useRoles";
 
 interface EditMemberModalProps {
@@ -42,6 +43,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
+  const [phoneUssdCode, setPhoneUssdCode] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fullName: "",
     dob: undefined as Date | undefined,
@@ -64,6 +66,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       setPhoneVerified(member.phone_verified);
       setPhoneOtpSent(false);
       setPhoneOtp("");
+      setPhoneUssdCode(null);
     }
   }, [member, open]);
 
@@ -84,6 +87,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       const response = await memberApi.sendPhoneOTP(member.member_id);
       if (response.success) {
         setPhoneOtpSent(true);
+        setPhoneUssdCode(response.ussd_code ?? null);
         toast({
           title: "OTP Sent",
           description: `Verification code sent to ${formData.phone}`,
@@ -291,6 +295,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
                     if (!phoneVerified) {
                       setPhoneOtpSent(false);
                       setPhoneOtp("");
+                      setPhoneUssdCode(null);
                     }
                   }}
                   disabled={phoneVerified}
@@ -325,25 +330,28 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
               
               {/* Phone OTP Input */}
               {phoneOtpSent && !phoneVerified && (
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Enter OTP code"
-                    value={phoneOtp}
-                    onChange={(e) => setPhoneOtp(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleVerifyPhoneOtp}
-                    disabled={phoneVerifying || !phoneOtp.trim()}
-                  >
-                    {phoneVerifying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Verify"
-                    )}
-                  </Button>
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter OTP code"
+                      value={phoneOtp}
+                      onChange={(e) => setPhoneOtp(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleVerifyPhoneOtp}
+                      disabled={phoneVerifying || !phoneOtp.trim()}
+                    >
+                      {phoneVerifying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Verify"
+                      )}
+                    </Button>
+                  </div>
+                  <OtpUssdHint ussdCode={phoneUssdCode} />
                 </div>
               )}
             </div>

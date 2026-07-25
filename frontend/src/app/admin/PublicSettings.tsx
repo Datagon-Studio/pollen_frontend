@@ -39,6 +39,7 @@ import { THEME_DEFAULTS, hexToTailwindHsl } from "@/lib/theme-utils";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { DataTable } from "@/components/ui/data-table";
+import { OtpUssdHint } from "@/components/ui/otp-ussd-hint";
 
 const categoryColors: Record<string, string> = {
   Operations: "bg-amber/10 text-amber-dark",
@@ -73,6 +74,7 @@ export default function PublicSettings() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [phoneUssdCode, setPhoneUssdCode] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -378,6 +380,7 @@ export default function PublicSettings() {
       const response = await memberApi.sendOTP(phone, account.account_id);
       if (response.success) {
         setOtpSent(true);
+        setPhoneUssdCode(response.ussd_code ?? null);
         toast({
           title: "OTP Sent",
           description: `Verification code sent to ${phone}`,
@@ -967,7 +970,10 @@ export default function PublicSettings() {
                                 id="preview-phone"
                                 placeholder="XXX XXX XXXX"
                                 value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
+                                onChange={(e) => {
+                                  setPhone(e.target.value);
+                                  setPhoneUssdCode(null);
+                                }}
                                 disabled={otpSent}
                               />
                               {!otpSent && (
@@ -1017,6 +1023,7 @@ export default function PublicSettings() {
                                   )}
                                 </Button>
                               </div>
+                              <OtpUssdHint ussdCode={phoneUssdCode} />
                             </div>
                           )}
 
@@ -1029,6 +1036,7 @@ export default function PublicSettings() {
                                 setOtpSent(false);
                                 setPhone("");
                                 setOtp("");
+                                setPhoneUssdCode(null);
                               }}
                               className="flex-1"
                             >

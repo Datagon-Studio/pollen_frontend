@@ -14,6 +14,7 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+  ussd_code?: string;
 }
 
 export async function request<T>(

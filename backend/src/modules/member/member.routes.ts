@@ -178,6 +178,7 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
+      ussd_code: result.ussdCode,
     });
   } catch (error) {
     console.error('Exception sending public OTP:', error);
@@ -359,6 +360,7 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
+      ussd_code: result.ussdCode,
     });
   } catch (error) {
     console.error('Exception sending registration OTP:', error);
@@ -929,6 +931,7 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: R
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
+      ussd_code: result.ussdCode,
     });
   } catch (error) {
     console.error('Exception sending OTP for phone verification:', error);

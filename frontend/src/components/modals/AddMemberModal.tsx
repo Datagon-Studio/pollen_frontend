@@ -27,6 +27,7 @@ import { memberApi } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import type { CaptionProps } from "react-day-picker";
+import { OtpUssdHint } from "@/components/ui/otp-ussd-hint";
 
 // DatePicker component with custom caption
 interface DatePickerWithInputsProps {
@@ -185,6 +186,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
+  const [phoneUssdCode, setPhoneUssdCode] = useState<string | null>(null);
 
   // Generate invite link
   const generateInviteLink = () => {
@@ -332,6 +334,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
       }
 
       setPhoneOtpSent(true);
+      setPhoneUssdCode(response.ussd_code ?? null);
       toast({
         title: "OTP Sent",
         description: `Verification code sent to ${formData.phone}`,
@@ -495,6 +498,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     setPhoneOtpSent(false);
     setPhoneOtp("");
     setPhoneVerified(false);
+    setPhoneUssdCode(null);
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -615,6 +619,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                     setPhoneOtpSent(false);
                     setPhoneVerified(false);
                     setPhoneOtp("");
+                    setPhoneUssdCode(null);
                   }}
                   disabled={phoneVerified}
                   className={cn(phoneVerified && "bg-success/10 border-success")}
@@ -648,25 +653,28 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
               
               {/* Phone OTP Input */}
               {phoneOtpSent && !phoneVerified && (
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Enter OTP code"
-                    value={phoneOtp}
-                    onChange={(e) => setPhoneOtp(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleVerifyPhoneOtp}
-                    disabled={phoneVerifying || !phoneOtp.trim()}
-                  >
-                    {phoneVerifying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Verify"
-                    )}
-                  </Button>
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter OTP code"
+                      value={phoneOtp}
+                      onChange={(e) => setPhoneOtp(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleVerifyPhoneOtp}
+                      disabled={phoneVerifying || !phoneOtp.trim()}
+                    >
+                      {phoneVerifying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Verify"
+                      )}
+                    </Button>
+                  </div>
+                  <OtpUssdHint ussdCode={phoneUssdCode} />
                 </div>
               )}
             </div>
