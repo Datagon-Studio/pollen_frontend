@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
@@ -32,14 +32,8 @@ import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
-
-const formatCurrency = (amount: number | null | undefined) => {
-  const value = amount ?? 0;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
-};
+import { configApi } from "@/services/config.api";
+import { getCurrencySymbol } from "@/lib/currencies";
 
 interface MemberActionsProps {
   member: Member;
@@ -81,6 +75,12 @@ export default function Members() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+
+  const formatAmount = useCallback((amount: number | null | undefined) => {
+    const value = amount ?? 0;
+    return `${getCurrencySymbol(currencyCode)}${value.toFixed(2)}`;
+  }, [currencyCode]);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
 
@@ -129,6 +129,10 @@ export default function Members() {
       ]).catch(error => {
         console.error("Failed to load members data:", error);
       });
+
+      configApi.getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
     }
   }, [account?.account_id]);
 
@@ -309,7 +313,7 @@ export default function Members() {
     className: "text-right font-medium",
     render: (item: Member) => {
       const total = memberContributions[item.member_id] ?? 0;
-      return <span>{formatCurrency(total)}</span>;
+      return <span>{formatAmount(total)}</span>;
     },
   },
   {
@@ -333,7 +337,7 @@ export default function Members() {
       />
     ),
   },
-], [memberContributions, selectedIds, setEditingMember, setDeletingMember]);
+], [memberContributions, selectedIds, formatAmount, setEditingMember, setDeletingMember]);
 
   return (
     <AppLayout>
