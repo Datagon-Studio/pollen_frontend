@@ -2,6 +2,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { contributionService } from '../contribution/contribution.service.js';
 import { memberRepository } from '../member/member.repository.js';
+import { fundRepository } from '../fund/fund.repository.js';
 
 import { env } from '../../env.js';
 
@@ -34,6 +35,7 @@ interface VerifyPaymentResult {
   reference: string;
   amount: number;
   contribution_id: string | null;
+  recording_error?: string;
 }
 
 export const paymentService = {
@@ -52,6 +54,25 @@ export const paymentService = {
       };
     }
     try {
+      // Validate against the same rules the contribution record must satisfy, so a payment
+      // is never collected for a contribution that cannot be recorded afterwards.
+      const fund = await fundRepository.findById(input.fund_id);
+      if (!fund || fund.account_id !== input.account_id) {
+        return { success: false, error: 'Fund not found' };
+      }
+      if (!fund.is_active) {
+        return {
+          success: false,
+          error: `Fund "${fund.fund_name}" is not currently accepting contributions`,
+        };
+      }
+      if (fund.default_amount && input.amount < fund.default_amount) {
+        return {
+          success: false,
+          error: `Minimum contribution for ${fund.fund_name} is ${fund.default_amount}`,
+        };
+      }
+
       // Convert amount to kobo (Paystack uses smallest currency unit)
       const amountInKobo = Math.round(input.amount * 100);
 
@@ -239,6 +260,7 @@ export const paymentService = {
 
         // Create or update contribution record
         let contributionId: string | null = null;
+        let recordingError: string | undefined;
 
         try {
           const contributorName = memberId 
@@ -286,7 +308,7 @@ export const paymentService = {
               comment: `Payment via Paystack - ${contributorName}${emailForLookup ? ` (${emailForLookup})` : ''}`,
               payment_reference: reference,
               status: 'confirmed', // Paystack verified = confirmed
-            });
+            }, undefined, { allowBelowFundMinimum: true });
 
             contributionId = contribution?.contribution_id || null;
             if (contribution) {
@@ -298,8 +320,13 @@ export const paymentService = {
             contributionId = existingContribution.contribution_id;
           }
         } catch (error) {
-          console.error('Error creating/updating contribution:', error);
-          // Continue even if contribution creation fails - payment is still verified
+          recordingError = error instanceof Error ? error.message : 'Failed to record contribution';
+          // The money has already been collected, so the payment still verifies as successful.
+          // Surface the failure so the contributor and admins know the record is missing.
+          console.error(
+            `[Payment] ✗ Payment ${reference} verified but contribution was NOT recorded:`,
+            error
+          );
         }
 
         return {
@@ -309,6 +336,7 @@ export const paymentService = {
             reference: reference,
             amount: transaction.amount / 100,
             contribution_id: contributionId,
+            ...(recordingError && { recording_error: recordingError }),
           },
         };
       }
@@ -483,10 +511,13 @@ export const paymentService = {
               comment: `Payment via Paystack - ${contributorName}${customerEmail ? ` (${customerEmail})` : ''}`,
               payment_reference: reference,
               status: 'confirmed',
-            });
+            }, undefined, { allowBelowFundMinimum: true });
           }
         } catch (error) {
-          console.error('Error creating/updating contribution from webhook:', error);
+          console.error(
+            `[Webhook] ✗ Payment ${reference} succeeded but contribution was NOT recorded:`,
+            error
+          );
           // Don't fail webhook - log error but return success
         }
       }

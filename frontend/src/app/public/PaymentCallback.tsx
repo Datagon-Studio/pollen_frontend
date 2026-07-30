@@ -54,13 +54,27 @@ export default function PaymentCallback() {
             }
           }
           const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          const formattedAmount = `${prefix}${result.amount.toFixed(2)}`;
           setStatus("success");
-          setMessage(`Payment of ${prefix}${result.amount.toFixed(2)} verified successfully!`);
-          
-          toast({
-            title: "Payment Successful",
-            description: `Your contribution of ${prefix}${result.amount.toFixed(2)} has been confirmed.`,
-          });
+
+          if (!result.contribution_id) {
+            setMessage(
+              `Payment of ${formattedAmount} was received, but we could not record it against your account. Please contact the group admin with reference ${result.reference}.`
+            );
+            toast({
+              title: "Payment received, but not recorded",
+              description:
+                result.recording_error ||
+                "Your payment went through but could not be saved. Please contact the group admin.",
+              variant: "destructive",
+            });
+          } else {
+            setMessage(`Payment of ${formattedAmount} verified successfully!`);
+            toast({
+              title: "Payment Successful",
+              description: `Your contribution of ${formattedAmount} has been confirmed.`,
+            });
+          }
 
           // Redirect after 3 seconds (give webhook time to process)
           setTimeout(() => {

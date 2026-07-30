@@ -181,7 +181,16 @@ export const contributionService = {
     return contributionRepository.findPendingByAccountId(accountId);
   },
 
-  async createContribution(input: CreateContributionInput, userId?: string): Promise<Contribution | null> {
+  /**
+   * @param options.allowBelowFundMinimum Set for payments already captured by a gateway.
+   * The money has left the contributor's account, so the record must be kept even if the
+   * fund minimum was not met.
+   */
+  async createContribution(
+    input: CreateContributionInput,
+    userId?: string,
+    options: { allowBelowFundMinimum?: boolean } = {}
+  ): Promise<Contribution | null> {
     // Validate required fields
     if (!input.fund_id) {
       throw new Error('Fund ID is required');
@@ -224,7 +233,7 @@ export const contributionService = {
     }
 
     // Check minimum amount if fund has default
-    if (fund.default_amount && input.amount < fund.default_amount) {
+    if (!options.allowBelowFundMinimum && fund.default_amount && input.amount < fund.default_amount) {
       // Use a generic message without hardcoded currency symbol
       throw new Error(`Minimum contribution for ${fund.fund_name} is ${fund.default_amount}`);
     }

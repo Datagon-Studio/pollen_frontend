@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
+import { CurrencyInput, getCurrencySymbol } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
@@ -103,6 +103,15 @@ export function PaystackPaymentModal({
       toast({
         title: "Error",
         description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (fund.default_amount && amountNum < fund.default_amount) {
+      toast({
+        title: "Amount too low",
+        description: `The minimum contribution for ${fund.fund_name} is ${getCurrencySymbol("GHS")}${fund.default_amount.toFixed(2)}.`,
         variant: "destructive",
       });
       return;
@@ -213,7 +222,7 @@ export function PaystackPaymentModal({
               id="amount"
               currencyCode="GHS"
               step="0.01"
-              min="0.01"
+              min={fund.default_amount || 0.01}
               placeholder={fund.default_amount?.toString() || "0.00"}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -222,7 +231,7 @@ export function PaystackPaymentModal({
             />
             {fund.default_amount && (
               <p className="text-xs text-muted-foreground">
-                Suggested: ${fund.default_amount.toFixed(2)}
+                Minimum: {getCurrencySymbol("GHS")}{fund.default_amount.toFixed(2)}
               </p>
             )}
           </div>

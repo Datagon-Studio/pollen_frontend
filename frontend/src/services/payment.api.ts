@@ -21,6 +21,7 @@ export interface VerifyPaymentResult {
   reference: string;
   amount: number;
   contribution_id: string | null;
+  recording_error?: string;
 }
 
 export const paymentApi = {
