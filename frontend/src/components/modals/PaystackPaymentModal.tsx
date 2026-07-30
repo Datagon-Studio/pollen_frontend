@@ -251,11 +251,11 @@ export function PaystackPaymentModal({
                 <span>{currencySymbol}{feeBreakdown.contributionAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Fee</span>
+                <span>Transaction Fee</span>
                 <span>{currencySymbol}{feeBreakdown.feeAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-medium text-foreground pt-1 border-t border-border">
-                <span>You pay</span>
+                <span>Total</span>
                 <span>{currencySymbol}{feeBreakdown.chargedAmount.toFixed(2)}</span>
               </div>
             </div>
