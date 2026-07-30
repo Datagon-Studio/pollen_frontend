@@ -37,6 +37,11 @@ export interface BulkCreateMemberResult {
   failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
 }
 
+export interface BulkDeleteMemberResult {
+  deleted: string[];
+  failed: Array<{ member_id: string; full_name: string; error: string }>;
+}
+
 export const memberApi = {
   async getByAccount(accountId: string) {
     return apiClient.get<Member[]>(`/members?accountId=${accountId}`);
@@ -56,6 +61,12 @@ export const memberApi = {
 
   async bulkCreate(members: BulkCreateMemberRow[]) {
     return apiClient.post<BulkCreateMemberResult>('/members/bulk', { members });
+  },
+
+  async bulkDelete(memberIds: string[]) {
+    return apiClient.post<BulkDeleteMemberResult>('/members/bulk-delete', {
+      member_ids: memberIds,
+    });
   },
 
   async update(id: string, data: UpdateMemberInput) {

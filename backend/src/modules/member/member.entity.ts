@@ -52,4 +52,9 @@ export interface BulkCreateMemberResult {
   failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
 }
 
+export interface BulkDeleteMemberResult {
+  deleted: string[];
+  failed: Array<{ member_id: string; full_name: string; error: string }>;
+}
+
 

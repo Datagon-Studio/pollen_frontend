@@ -200,6 +200,43 @@ export const memberRepository = {
   },
 
   /**
+   * Find members by IDs within an account
+   */
+  async findByIds(memberIds: string[], accountId: string): Promise<Member[]> {
+    if (memberIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .in('member_id', memberIds)
+      .eq('account_id', accountId);
+
+    if (error) {
+      throw new Error(`Failed to find members: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  /**
+   * Delete multiple members within an account
+   */
+  async deleteMany(memberIds: string[], accountId: string): Promise<number> {
+    if (memberIds.length === 0) return 0;
+
+    const { data, error } = await supabase
+      .from('members')
+      .delete()
+      .in('member_id', memberIds)
+      .eq('account_id', accountId)
+      .select('member_id');
+
+    if (error) {
+      throw new Error(`Failed to delete members: ${error.message}`);
+    }
+    return data?.length ?? 0;
+  },
+
+  /**
    * Delete a member
    */
   async delete(memberId: string): Promise<boolean> {

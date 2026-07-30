@@ -13,6 +13,7 @@ import {
   UpdateMemberInput,
   BulkCreateMemberRow,
   BulkCreateMemberResult,
+  BulkDeleteMemberResult,
 } from './member.entity.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { accountRepository } from '../account/account.repository.js';
@@ -519,6 +520,43 @@ If you didn't expect this email, please contact the administrator.
     }
 
     return { created, failed };
+  }
+
+  /**
+   * Bulk delete members by ID
+   */
+  async bulkDeleteMembers(
+    accountId: string,
+    memberIds: string[]
+  ): Promise<BulkDeleteMemberResult> {
+    if (!accountId) {
+      throw new Error('Account ID is required');
+    }
+    if (!memberIds.length) {
+      throw new Error('No members selected for deletion');
+    }
+
+    const uniqueIds = [...new Set(memberIds.map((id) => id.trim()).filter(Boolean))];
+    const members = await memberRepository.findByIds(uniqueIds, accountId);
+    const foundById = new Map(members.map((member) => [member.member_id, member]));
+
+    const failed: BulkDeleteMemberResult['failed'] = uniqueIds
+      .filter((id) => !foundById.has(id))
+      .map((id) => ({
+        member_id: id,
+        full_name: '',
+        error: 'Member not found',
+      }));
+
+    const idsToDelete = members.map((member) => member.member_id);
+    if (idsToDelete.length > 0) {
+      await memberRepository.deleteMany(idsToDelete, accountId);
+    }
+
+    return {
+      deleted: idsToDelete,
+      failed,
+    };
   }
 
   /**

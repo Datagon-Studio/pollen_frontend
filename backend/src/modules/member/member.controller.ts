@@ -207,6 +207,53 @@ memberRoutes.post('/bulk', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/v1/members/bulk-delete
+ * Bulk delete members
+ */
+memberRoutes.post('/bulk-delete', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
+    }
+
+    const account = await accountService.getUserAccount(userId);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const memberIds = req.body.member_ids;
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'member_ids array is required',
+      });
+    }
+
+    const result = await memberService.bulkDeleteMembers(account.account_id, memberIds);
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: `Deleted ${result.deleted.length} member(s)${result.failed.length ? `, ${result.failed.length} failed` : ''}`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to bulk delete members';
+    res.status(400).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
  * POST /api/v1/members
  * Create a new member
  */
