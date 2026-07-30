@@ -276,10 +276,7 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
     // Persist phone verification for members who were added without OTP
     let verifiedMember = member;
     if (!member.phone_verified) {
-      const baseUrl = req.headers.origin ||
-                      (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
-                      process.env.FRONTEND_URL;
-      verifiedMember = await memberService.verifyPhone(member.member_id, baseUrl);
+      verifiedMember = await memberService.verifyPhone(member.member_id);
       console.log(`[OTP Verify] Marked phone verified for member ${member.member_id}`);
     }
 

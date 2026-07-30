@@ -91,15 +91,12 @@ export class MemberService {
 
     const member = await memberRepository.create(memberData);
 
-    // Some flows verify the phone before the member record is created.
-    // Send the single welcome SMS now; unverified members receive it later
-    // when verifyPhone transitions them to verified.
-    if (member.phone_verified) {
-      try {
-        await this.sendPhoneVerifiedSMS(member, baseUrl);
-      } catch (error) {
-        console.error('[Create Member] Failed to send verified welcome SMS:', error);
-      }
+    // Send one welcome message when the member is added, regardless of
+    // whether their phone was verified before creation.
+    try {
+      await this.sendWelcomeSMS(member, baseUrl);
+    } catch (error) {
+      console.error('[Create Member] Failed to send welcome SMS:', error);
     }
 
     // If collector, create user account and send welcome email
@@ -137,15 +134,15 @@ export class MemberService {
   }
 
   /**
-   * Welcome a member after their phone number is verified.
+   * Welcome a member when they are added to a group.
    */
-  async sendPhoneVerifiedSMS(member: Member, baseUrl?: string): Promise<void> {
+  async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
     const message = `Hi ${memberName}! Welcome to Pollean, your welfare & fundraising platform. ${accountName} has invited you to manage your dues/pledges. View, track & contribute: ${groupPageUrl}`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {
-      throw new Error(result.error || 'Failed to send phone verification SMS');
+      throw new Error(result.error || 'Failed to send welcome SMS');
     }
   }
 
@@ -634,21 +631,8 @@ If you didn't expect this email, please contact the administrator.
   /**
    * Verify phone number
    */
-  async verifyPhone(memberId: string, baseUrl?: string): Promise<Member> {
-    const existing = await memberRepository.findById(memberId);
-    const member = await memberRepository.update(memberId, { phone_verified: true });
-
-    // Only confirm on the unverified -> verified transition so re-verifying
-    // an already verified member doesn't send a duplicate SMS.
-    if (existing && !existing.phone_verified) {
-      try {
-        await this.sendPhoneVerifiedSMS(member, baseUrl);
-      } catch (error) {
-        console.error('[Verify Phone] Failed to send confirmation SMS:', error);
-      }
-    }
-
-    return member;
+  async verifyPhone(memberId: string): Promise<Member> {
+    return memberRepository.update(memberId, { phone_verified: true });
   }
 
   /**
