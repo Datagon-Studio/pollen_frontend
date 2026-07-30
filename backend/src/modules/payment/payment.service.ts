@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { contributionService } from '../contribution/contribution.service.js';
 import { memberRepository } from '../member/member.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
-import { calculateAmountWithPaystackFees } from './paystack-fees.js';
+import { calculatePaymentAmounts } from './paystack-fees.js';
 
 import { env } from '../../env.js';
 
@@ -95,10 +95,10 @@ export const paymentService = {
         };
       }
 
-      // Pass Paystack fees to the payer so the group receives the intended contribution amount.
-      // e.g. contribute GHS 1000 → charge ~GHS 1019.90 (1.95% fee).
-      const { contributionAmount, chargedAmount, feeAmount } =
-        calculateAmountWithPaystackFees(input.amount);
+      // Apply one combined 2.5% payment fee.
+      // e.g. contribute GHS 1000 → fee ₵25 → charge ₵1025
+      const { contributionAmount, feeAmount, chargedAmount } =
+        calculatePaymentAmounts(input.amount);
 
       // Convert charged amount to pesewas (Paystack uses smallest currency unit)
       const amountInPesewas = Math.round(chargedAmount * 100);
@@ -116,8 +116,8 @@ export const paymentService = {
             name: input.name,
             email: input.email, // Store email in metadata for member lookup
             contribution_amount: contributionAmount,
-            charged_amount: chargedAmount,
             fee_amount: feeAmount,
+            charged_amount: chargedAmount,
             fees_passed_to_customer: true,
             ...(input.phone && { phone: input.phone }), // Only include phone if provided
             ...(input.member_id && { member_id: input.member_id }), // Only include member_id if provided (for verified users)

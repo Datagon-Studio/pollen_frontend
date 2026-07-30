@@ -14,10 +14,7 @@ import { Fund } from "@/services/fund.api";
 import { paymentApi, InitializePaymentInput } from "@/services/payment.api";
 import { memberApi } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
-import {
-  calculateAmountWithPaystackFees,
-  PAYSTACK_GH_FEE_RATE,
-} from "@/lib/paystack-fees";
+import { calculatePaymentAmounts } from "@/lib/paystack-fees";
 import { Loader2, Wallet } from "lucide-react";
 
 interface PaystackPaymentModalProps {
@@ -52,10 +49,9 @@ export function PaystackPaymentModal({
   const amountNum = parseFloat(amount);
   const feeBreakdown =
     !isNaN(amountNum) && amountNum > 0
-      ? calculateAmountWithPaystackFees(amountNum)
+      ? calculatePaymentAmounts(amountNum)
       : null;
   const currencySymbol = getCurrencySymbol("GHS");
-  const feePercentLabel = `${(PAYSTACK_GH_FEE_RATE * 100).toFixed(2)}%`;
 
   // Load member details when modal opens
   useEffect(() => {
@@ -255,7 +251,7 @@ export function PaystackPaymentModal({
                 <span>{currencySymbol}{feeBreakdown.contributionAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Paystack fee ({feePercentLabel})</span>
+                <span>Fee</span>
                 <span>{currencySymbol}{feeBreakdown.feeAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-medium text-foreground pt-1 border-t border-border">
