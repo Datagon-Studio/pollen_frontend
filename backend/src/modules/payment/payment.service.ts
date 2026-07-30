@@ -3,12 +3,34 @@ import crypto from 'crypto';
 import { contributionService } from '../contribution/contribution.service.js';
 import { memberRepository } from '../member/member.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
+import { calculateAmountWithPaystackFees } from './paystack-fees.js';
 
 import { env } from '../../env.js';
 
 const PAYSTACK_SECRET_KEY = env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_PUBLIC_KEY = env.PAYSTACK_PUBLIC_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+/** Resolve the contribution amount credited to the group (excludes passed-through Paystack fees). */
+function resolveContributionAmount(
+  metadata: Record<string, unknown>,
+  chargedAmount: number
+): number {
+  const raw = metadata.contribution_amount;
+  const parsed =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string'
+        ? parseFloat(raw)
+        : NaN;
+
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  // Legacy payments initiated before fee pass-through
+  return chargedAmount;
+}
 
 if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
   console.warn('⚠️  Paystack keys not configured. Payment features will not work.');
@@ -73,20 +95,30 @@ export const paymentService = {
         };
       }
 
-      // Convert amount to kobo (Paystack uses smallest currency unit)
-      const amountInKobo = Math.round(input.amount * 100);
+      // Pass Paystack fees to the payer so the group receives the intended contribution amount.
+      // e.g. contribute GHS 1000 → charge ~GHS 1019.90 (1.95% fee).
+      const { contributionAmount, chargedAmount, feeAmount } =
+        calculateAmountWithPaystackFees(input.amount);
+
+      // Convert charged amount to pesewas (Paystack uses smallest currency unit)
+      const amountInPesewas = Math.round(chargedAmount * 100);
 
       const response = await axios.post(
         `${PAYSTACK_BASE_URL}/transaction/initialize`,
         {
           email: input.email,
-          amount: amountInKobo,
+          amount: amountInPesewas,
+          currency: 'GHS',
           reference: `PH_${Date.now()}_${input.fund_id.substring(0, 8)}`,
           metadata: {
             account_id: input.account_id,
             fund_id: input.fund_id,
             name: input.name,
             email: input.email, // Store email in metadata for member lookup
+            contribution_amount: contributionAmount,
+            charged_amount: chargedAmount,
+            fee_amount: feeAmount,
+            fees_passed_to_customer: true,
             ...(input.phone && { phone: input.phone }), // Only include phone if provided
             ...(input.member_id && { member_id: input.member_id }), // Only include member_id if provided (for verified users)
           },
@@ -294,15 +326,17 @@ export const paymentService = {
               contributionId = existingContribution.contribution_id;
             }
           } else if (!existingContribution) {
-            // Create new contribution
-            console.log(`[Payment] Creating new contribution with member_id: ${memberId || 'null (anonymous)'}`);
+            // Create new contribution for the intended group amount (fees are passed to the payer)
+            const chargedAmount = transaction.amount / 100;
+            const contributionAmount = resolveContributionAmount(metadata, chargedAmount);
+            console.log(`[Payment] Creating new contribution with member_id: ${memberId || 'null (anonymous)'}, contribution=${contributionAmount}, charged=${chargedAmount}`);
             const contribution = await contributionService.createContribution({
               account_id: metadata.account_id,
               fund_id: metadata.fund_id,
               member_id: memberId, // Link to member if found, otherwise null (anonymous)
               channel: 'online',
               payment_method: 'Paystack',
-              amount: transaction.amount / 100, // Convert from kobo
+              amount: contributionAmount,
               date_received: new Date().toISOString(),
               received_by_user_id: null,
               comment: `Payment via Paystack - ${contributorName}${emailForLookup ? ` (${emailForLookup})` : ''}`,
@@ -329,12 +363,13 @@ export const paymentService = {
           );
         }
 
+        const chargedAmount = transaction.amount / 100;
         return {
           success: true,
           data: {
             status: transaction.status,
             reference: reference,
-            amount: transaction.amount / 100,
+            amount: resolveContributionAmount(metadata, chargedAmount),
             contribution_id: contributionId,
             ...(recordingError && { recording_error: recordingError }),
           },
@@ -498,14 +533,16 @@ export const paymentService = {
               member_id: memberId,
             });
           } else if (!existingContribution) {
-            // Create new contribution
+            // Create new contribution for the intended group amount (fees are passed to the payer)
+            const chargedAmount = data.amount / 100;
+            const contributionAmount = resolveContributionAmount(metadata, chargedAmount);
             await contributionService.createContribution({
               account_id: metadata.account_id,
               fund_id: metadata.fund_id,
               member_id: memberId, // Link to member if found, otherwise null (anonymous)
               channel: 'online',
               payment_method: 'Paystack',
-              amount: data.amount / 100,
+              amount: contributionAmount,
               date_received: new Date(data.paid_at || Date.now()).toISOString(),
               received_by_user_id: null,
               comment: `Payment via Paystack - ${contributorName}${customerEmail ? ` (${customerEmail})` : ''}`,

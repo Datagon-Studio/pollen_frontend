@@ -12,8 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
 import { paymentApi, InitializePaymentInput } from "@/services/payment.api";
-import { memberApi, Member } from "@/services/member.api";
+import { memberApi } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
+import {
+  calculateAmountWithPaystackFees,
+  PAYSTACK_GH_FEE_RATE,
+} from "@/lib/paystack-fees";
 import { Loader2, Wallet } from "lucide-react";
 
 interface PaystackPaymentModalProps {
@@ -44,6 +48,14 @@ export function PaystackPaymentModal({
   const [amount, setAmount] = useState("");
   const [initializing, setInitializing] = useState(false);
   const [loadingMember, setLoadingMember] = useState(false);
+
+  const amountNum = parseFloat(amount);
+  const feeBreakdown =
+    !isNaN(amountNum) && amountNum > 0
+      ? calculateAmountWithPaystackFees(amountNum)
+      : null;
+  const currencySymbol = getCurrencySymbol("GHS");
+  const feePercentLabel = `${(PAYSTACK_GH_FEE_RATE * 100).toFixed(2)}%`;
 
   // Load member details when modal opens
   useEffect(() => {
@@ -217,7 +229,7 @@ export function PaystackPaymentModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount *</Label>
+            <Label htmlFor="amount">Contribution Amount *</Label>
             <CurrencyInput
               id="amount"
               currencyCode="GHS"
@@ -231,10 +243,27 @@ export function PaystackPaymentModal({
             />
             {fund.default_amount && (
               <p className="text-xs text-muted-foreground">
-                Minimum: {getCurrencySymbol("GHS")}{fund.default_amount.toFixed(2)}
+                Minimum: {currencySymbol}{fund.default_amount.toFixed(2)}
               </p>
             )}
           </div>
+
+          {feeBreakdown && (
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-3 space-y-1.5 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Goes to group</span>
+                <span>{currencySymbol}{feeBreakdown.contributionAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Paystack fee ({feePercentLabel})</span>
+                <span>{currencySymbol}{feeBreakdown.feeAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-medium text-foreground pt-1 border-t border-border">
+                <span>You pay</span>
+                <span>{currencySymbol}{feeBreakdown.chargedAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button
@@ -252,6 +281,8 @@ export function PaystackPaymentModal({
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Processing...
                 </>
+              ) : feeBreakdown ? (
+                `Pay ${currencySymbol}${feeBreakdown.chargedAmount.toFixed(2)}`
               ) : (
                 "Proceed to Payment"
               )}
