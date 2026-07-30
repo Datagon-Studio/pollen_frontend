@@ -1081,17 +1081,8 @@ export default function PublicGroupPage() {
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-start gap-3">
-              {!isVerified ? (
-                <Button
-                  onClick={handleRequestAccess}
-                  size="lg"
-                  className="w-full sm:w-auto"
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  Verify Phone
-                </Button>
-              ) : (
+            {isVerified && (
+              <div className="flex flex-col sm:flex-row items-start gap-3">
                 <Button
                   onClick={handleLogout}
                   size="lg"
@@ -1101,8 +1092,8 @@ export default function PublicGroupPage() {
                   <LogOut className="h-4 w-4 mr-2" />
                   Leave
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
