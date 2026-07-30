@@ -7,7 +7,13 @@
  */
 
 import { memberRepository } from './member.repository.js';
-import { Member, CreateMemberInput, UpdateMemberInput } from './member.entity.js';
+import {
+  Member,
+  CreateMemberInput,
+  UpdateMemberInput,
+  BulkCreateMemberRow,
+  BulkCreateMemberResult,
+} from './member.entity.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { accountRepository } from '../account/account.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
@@ -419,6 +425,100 @@ If you didn't expect this email, please contact the administrator.
     if (!result.success) {
       throw new Error(result.error || 'Failed to send welcome email');
     }
+  }
+
+  /**
+   * Bulk create members from uploaded spreadsheet rows
+   */
+  async bulkCreateMembers(
+    accountId: string,
+    rows: BulkCreateMemberRow[]
+  ): Promise<BulkCreateMemberResult> {
+    if (!accountId) {
+      throw new Error('Account ID is required');
+    }
+    if (!rows.length) {
+      throw new Error('No members to import');
+    }
+
+    const created: Member[] = [];
+    const failed: BulkCreateMemberResult['failed'] = [];
+    const seenPhones = new Set<string>();
+    const seenMembershipNumbers = new Set<string>();
+
+    for (let index = 0; index < rows.length; index++) {
+      const rowNumber = index + 2; // account for header row
+      const row = rows[index];
+      const fullName = row.full_name?.trim() ?? '';
+      const phone = row.phone?.trim() ?? '';
+      const membershipNumber = row.membership_number?.trim() || null;
+
+      if (!fullName) {
+        failed.push({
+          row: rowNumber,
+          full_name: fullName,
+          phone,
+          error: 'Name is required',
+        });
+        continue;
+      }
+
+      if (!phone) {
+        failed.push({
+          row: rowNumber,
+          full_name: fullName,
+          phone,
+          error: 'Number is required',
+        });
+        continue;
+      }
+
+      const normalizedPhone = phone.replace(/[\s\-+]/g, '');
+      if (seenPhones.has(normalizedPhone)) {
+        failed.push({
+          row: rowNumber,
+          full_name: fullName,
+          phone,
+          error: 'Duplicate phone number in upload file',
+        });
+        continue;
+      }
+
+      if (membershipNumber && seenMembershipNumbers.has(membershipNumber)) {
+        failed.push({
+          row: rowNumber,
+          full_name: fullName,
+          phone,
+          error: 'Duplicate membership number in upload file',
+        });
+        continue;
+      }
+
+      try {
+        const member = await this.createMember({
+          account_id: accountId,
+          full_name: fullName,
+          phone,
+          membership_number: membershipNumber,
+          phone_verified: false,
+          email_verified: false,
+        });
+        created.push(member);
+        seenPhones.add(normalizedPhone);
+        if (membershipNumber) {
+          seenMembershipNumbers.add(membershipNumber);
+        }
+      } catch (error) {
+        failed.push({
+          row: rowNumber,
+          full_name: fullName,
+          phone,
+          error: error instanceof Error ? error.message : 'Failed to create member',
+        });
+      }
+    }
+
+    return { created, failed };
   }
 
   /**

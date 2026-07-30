@@ -105,6 +105,34 @@ export const memberRepository = {
   },
 
   /**
+   * Create multiple members in a single insert
+   */
+  async createMany(inputs: CreateMemberInput[]): Promise<Member[]> {
+    if (inputs.length === 0) return [];
+
+    const rows = inputs.map((input) => ({
+      account_id: input.account_id,
+      full_name: input.full_name,
+      dob: input.dob || null,
+      phone: input.phone,
+      phone_verified: input.phone_verified ?? false,
+      email: input.email || null,
+      email_verified: input.email_verified ?? false,
+      membership_number: input.membership_number || null,
+    }));
+
+    const { data, error } = await supabase
+      .from('members')
+      .insert(rows)
+      .select();
+
+    if (error) {
+      throw new Error(`Failed to create members: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  /**
    * Create a new member
    */
   async create(input: CreateMemberInput): Promise<Member> {

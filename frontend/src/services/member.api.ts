@@ -26,6 +26,17 @@ export interface MemberStats {
   inactive: number;
 }
 
+export interface BulkCreateMemberRow {
+  full_name: string;
+  phone: string;
+  membership_number?: string | null;
+}
+
+export interface BulkCreateMemberResult {
+  created: Member[];
+  failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
+}
+
 export const memberApi = {
   async getByAccount(accountId: string) {
     return apiClient.get<Member[]>(`/members?accountId=${accountId}`);
@@ -41,6 +52,10 @@ export const memberApi = {
 
   async create(data: CreateMemberInput) {
     return apiClient.post<Member>('/members', data);
+  },
+
+  async bulkCreate(members: BulkCreateMemberRow[]) {
+    return apiClient.post<BulkCreateMemberResult>('/members/bulk', { members });
   },
 
   async update(id: string, data: UpdateMemberInput) {

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X } from "lucide-react";
+import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X, FileSpreadsheet } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
+import { BulkUploadMemberModal } from "@/components/modals/BulkUploadMemberModal";
 import { EditMemberModal } from "@/components/modals/EditMemberModal";
 import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
 import { format } from "date-fns";
@@ -75,6 +76,7 @@ export default function Members() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
 
@@ -287,10 +289,16 @@ export default function Members() {
         title="Members"
         description="Manage your group members and their contributions"
         actions={
-          <Button size="sm" onClick={() => setShowAddMember(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add/Invite Member
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowBulkUpload(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Bulk Add
+            </Button>
+            <Button size="sm" onClick={() => setShowAddMember(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add/Invite Member
+            </Button>
+          </div>
         }
       />
 
@@ -405,6 +413,11 @@ export default function Members() {
       )}
 
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />
+      <BulkUploadMemberModal
+        open={showBulkUpload}
+        onOpenChange={setShowBulkUpload}
+        onSuccess={fetchMembers}
+      />
       <EditMemberModal 
         open={!!editingMember} 
         onOpenChange={(open) => !open && setEditingMember(null)} 
