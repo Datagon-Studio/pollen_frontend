@@ -105,6 +105,34 @@ export const memberRepository = {
   },
 
   /**
+   * Create multiple members in a single insert
+   */
+  async createMany(inputs: CreateMemberInput[]): Promise<Member[]> {
+    if (inputs.length === 0) return [];
+
+    const rows = inputs.map((input) => ({
+      account_id: input.account_id,
+      full_name: input.full_name,
+      dob: input.dob || null,
+      phone: input.phone,
+      phone_verified: input.phone_verified ?? false,
+      email: input.email || null,
+      email_verified: input.email_verified ?? false,
+      membership_number: input.membership_number || null,
+    }));
+
+    const { data, error } = await supabase
+      .from('members')
+      .insert(rows)
+      .select();
+
+    if (error) {
+      throw new Error(`Failed to create members: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  /**
    * Create a new member
    */
   async create(input: CreateMemberInput): Promise<Member> {
@@ -169,6 +197,43 @@ export const memberRepository = {
       throw new Error(`Failed to update member: ${error.message}`);
     }
     return data;
+  },
+
+  /**
+   * Find members by IDs within an account
+   */
+  async findByIds(memberIds: string[], accountId: string): Promise<Member[]> {
+    if (memberIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .in('member_id', memberIds)
+      .eq('account_id', accountId);
+
+    if (error) {
+      throw new Error(`Failed to find members: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  /**
+   * Delete multiple members within an account
+   */
+  async deleteMany(memberIds: string[], accountId: string): Promise<number> {
+    if (memberIds.length === 0) return 0;
+
+    const { data, error } = await supabase
+      .from('members')
+      .delete()
+      .in('member_id', memberIds)
+      .eq('account_id', accountId)
+      .select('member_id');
+
+    if (error) {
+      throw new Error(`Failed to delete members: ${error.message}`);
+    }
+    return data?.length ?? 0;
   },
 
   /**

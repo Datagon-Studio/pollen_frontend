@@ -41,4 +41,20 @@ export interface UpdateMemberInput {
   membership_number?: string | null;
 }
 
+export interface BulkCreateMemberRow {
+  full_name: string;
+  phone: string;
+  membership_number?: string | null;
+}
+
+export interface BulkCreateMemberResult {
+  created: Member[];
+  failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
+}
+
+export interface BulkDeleteMemberResult {
+  deleted: string[];
+  failed: Array<{ member_id: string; full_name: string; error: string }>;
+}
+
 

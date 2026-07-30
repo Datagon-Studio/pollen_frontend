@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X } from "lucide-react";
+import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X, FileSpreadsheet, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
+import { BulkUploadMemberModal } from "@/components/modals/BulkUploadMemberModal";
+import { BulkDeleteMemberModal } from "@/components/modals/BulkDeleteMemberModal";
 import { EditMemberModal } from "@/components/modals/EditMemberModal";
 import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
 import { format } from "date-fns";
@@ -29,6 +31,7 @@ import { memberApi, Member, isMemberActive } from "@/services/member.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formatCurrency = (amount: number | null | undefined) => {
   const value = amount ?? 0;
@@ -75,6 +78,9 @@ export default function Members() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
 
@@ -179,7 +185,55 @@ export default function Members() {
   const activeCount = members.filter(isMemberActive).length;
   const inactiveCount = members.length - activeCount;
 
+  const allFilteredSelected =
+    filteredMembers.length > 0 &&
+    filteredMembers.every((member) => selectedIds.has(member.member_id));
+  const someFilteredSelected = filteredMembers.some((member) =>
+    selectedIds.has(member.member_id)
+  );
+
+  const selectedMembers = members.filter((member) => selectedIds.has(member.member_id));
+
+  const toggleMemberSelection = (memberId: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(memberId);
+      } else {
+        next.delete(memberId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = (checked: boolean) => {
+    if (!checked) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(filteredMembers.map((member) => member.member_id)));
+  };
+
+  const handleBulkDeleteSuccess = () => {
+    setSelectedIds(new Set());
+    fetchMembers();
+  };
+
   const columns = useMemo(() => [
+    {
+      key: "select",
+      header: "",
+      className: "w-10",
+      render: (item: Member) => (
+        <Checkbox
+          checked={selectedIds.has(item.member_id)}
+          onCheckedChange={(checked) =>
+            toggleMemberSelection(item.member_id, checked === true)
+          }
+          aria-label={`Select ${item.full_name}`}
+        />
+      ),
+    },
     {
       key: "name",
       header: "Member",
@@ -279,7 +333,7 @@ export default function Members() {
       />
     ),
   },
-], [memberContributions, setEditingMember, setDeletingMember]);
+], [memberContributions, selectedIds, setEditingMember, setDeletingMember]);
 
   return (
     <AppLayout>
@@ -287,10 +341,16 @@ export default function Members() {
         title="Members"
         description="Manage your group members and their contributions"
         actions={
-          <Button size="sm" onClick={() => setShowAddMember(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add/Invite Member
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowBulkUpload(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Bulk Add
+            </Button>
+            <Button size="sm" onClick={() => setShowAddMember(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add/Invite Member
+            </Button>
+          </div>
         }
       />
 
@@ -376,20 +436,51 @@ export default function Members() {
       </div>
 
       {/* Summary */}
-      <div className="flex gap-6 mb-6 text-sm">
-        <div>
-          <span className="text-muted-foreground">Total:</span>{" "}
-          <span className="font-medium text-foreground">{members.length}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex gap-6 text-sm">
+          <div>
+            <span className="text-muted-foreground">Total:</span>{" "}
+            <span className="font-medium text-foreground">{members.length}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Active:</span>{" "}
+            <span className="font-medium text-success">{activeCount}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Inactive:</span>{" "}
+            <span className="font-medium text-amber">{inactiveCount}</span>
+          </div>
         </div>
-        <div>
-          <span className="text-muted-foreground">Active:</span>{" "}
-          <span className="font-medium text-success">{activeCount}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Inactive:</span>{" "}
-          <span className="font-medium text-amber">{inactiveCount}</span>
-        </div>
+
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowBulkDelete(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected
+            </Button>
+          </div>
+        )}
       </div>
+
+      {filteredMembers.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <Checkbox
+            checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+            onCheckedChange={(checked) => toggleSelectAllFiltered(checked === true)}
+            aria-label="Select all visible members"
+          />
+          <span className="text-sm text-muted-foreground">
+            Select all visible members
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -405,6 +496,17 @@ export default function Members() {
       )}
 
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />
+      <BulkUploadMemberModal
+        open={showBulkUpload}
+        onOpenChange={setShowBulkUpload}
+        onSuccess={fetchMembers}
+      />
+      <BulkDeleteMemberModal
+        open={showBulkDelete}
+        onOpenChange={setShowBulkDelete}
+        members={selectedMembers}
+        onSuccess={handleBulkDeleteSuccess}
+      />
       <EditMemberModal 
         open={!!editingMember} 
         onOpenChange={(open) => !open && setEditingMember(null)} 

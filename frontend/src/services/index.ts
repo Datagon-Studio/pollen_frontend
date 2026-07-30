@@ -8,7 +8,7 @@ export { reportingApi } from './reporting.api';
 export { userApi } from './user.api';
 
 export type { Account, CreateAccountInput, UpdateAccountInput } from './account.api';
-export type { Member, CreateMemberInput, UpdateMemberInput, MemberStats } from './member.api';
+export type { Member, CreateMemberInput, UpdateMemberInput, MemberStats, BulkCreateMemberRow, BulkCreateMemberResult, BulkDeleteMemberResult } from './member.api';
 export type { Fund, FundWithStats, CreateFundInput, UpdateFundInput, FundStats } from './fund.api';
 export type {
   Contribution,
