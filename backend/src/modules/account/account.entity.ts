@@ -22,6 +22,7 @@ export interface Account {
   account_id: string;
   account_name: string | null;
   account_logo: string | null;
+  short_url: string | null;
   kyc_status: KYCStatus;
   status: AccountStatus;
   created_at: string;
@@ -36,6 +37,7 @@ export interface CreateAccountInput {
 export interface UpdateAccountInput {
   account_name?: string | null;
   account_logo?: string | null;
+  short_url?: string | null;
   kyc_status?: KYCStatus;
   status?: AccountStatus;
 }

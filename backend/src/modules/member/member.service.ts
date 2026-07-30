@@ -21,6 +21,7 @@ import { supabase } from '../../shared/supabase/client.js';
 import { env } from '../../env.js';
 import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
+import { bitlyService } from '../../shared/services/bitly.service.js';
 import crypto from 'crypto';
 
 export class MemberService {
@@ -116,6 +117,7 @@ export class MemberService {
 
   /**
    * Resolve the personalisation used by member SMS notifications.
+   * Uses a persisted Bitly short URL when available; creates one once per account.
    */
   private async getMessageContext(
     member: Member,
@@ -126,10 +128,25 @@ export class MemberService {
       throw new Error('Account not found');
     }
 
+    const longUrl = `${getFrontendUrl(baseUrl)}/group/${member.account_id}`;
+    let groupPageUrl = account.short_url || longUrl;
+
+    if (!account.short_url) {
+      try {
+        const shortUrl = await bitlyService.shortenUrl(longUrl);
+        if (shortUrl) {
+          await accountRepository.update(member.account_id, { short_url: shortUrl });
+          groupPageUrl = shortUrl;
+        }
+      } catch (error) {
+        console.error('[Welcome SMS] Failed to create/persist short URL:', error);
+      }
+    }
+
     return {
       memberName: member.full_name.trim() || 'there',
       accountName: account.account_name?.trim() || 'your group',
-      groupPageUrl: `${getFrontendUrl(baseUrl)}/group/${member.account_id}`,
+      groupPageUrl,
     };
   }
 

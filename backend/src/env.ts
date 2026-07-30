@@ -21,6 +21,9 @@ const envSchema = z.object({
   POSTMARK_API_TOKEN: z.string().optional(),
   POSTMARK_FROM_EMAIL: z.string().optional(),
   POSTMARK_MESSAGE_STREAM: z.string().default('outbound'),
+  BITLY_ACCESS_TOKEN: z.string().optional(),
+  BITLY_GROUP_GUID: z.string().optional(),
+  BITLY_DOMAIN: z.string().default('bit.ly'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -41,6 +44,9 @@ if (!env.PAYSTACK_PUBLIC_KEY) {
 }
 if (!env.EMAIL_VERIFICATION_SECRET) {
   console.warn('⚠️  EMAIL_VERIFICATION_SECRET not set. Email verification will not work.');
+}
+if (!env.BITLY_ACCESS_TOKEN) {
+  console.warn('⚠️  BITLY_ACCESS_TOKEN not set. Link shortening will not work.');
 }
 
 export { env };

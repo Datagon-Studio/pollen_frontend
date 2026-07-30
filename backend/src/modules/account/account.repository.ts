@@ -127,6 +127,9 @@ export const accountRepository = {
     if (input.account_logo !== undefined) {
       updateData.account_logo = input.account_logo;
     }
+    if (input.short_url !== undefined) {
+      updateData.short_url = input.short_url;
+    }
     if (input.kyc_status !== undefined) {
       updateData.kyc_status = input.kyc_status;
     }
