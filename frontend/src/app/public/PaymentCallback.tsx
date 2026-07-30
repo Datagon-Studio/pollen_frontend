@@ -9,6 +9,26 @@ import { accountPublicPageApi } from "@/services/account-public-page.api";
 import { getThemeColors, getThemeStyles } from "@/lib/theme-utils";
 import { useToast } from "@/hooks/use-toast";
 
+function resolveAccountId(
+  searchParams: URLSearchParams,
+  verifiedAccountId?: string | null
+): string | null {
+  return (
+    searchParams.get("accountId") ||
+    searchParams.get("account_id") ||
+    verifiedAccountId ||
+    localStorage.getItem("payment_callback_accountId") ||
+    sessionStorage.getItem("payment_callback_accountId")
+  );
+}
+
+function redirectToGroup(accountId: string, navigate: ReturnType<typeof useNavigate>) {
+  localStorage.removeItem("payment_callback_accountId");
+  sessionStorage.removeItem("payment_callback_accountId");
+  localStorage.setItem("payment_completed_reload", "true");
+  navigate(`/group/${accountId}?tab=contributions`, { replace: true });
+}
+
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -17,15 +37,16 @@ export default function PaymentCallback() {
   const [message, setMessage] = useState("Verifying payment...");
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
   const [publicPage, setPublicPage] = useState<any>(null);
+  const [redirectAccountId, setRedirectAccountId] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedAccountId = localStorage.getItem('payment_callback_accountId');
-    if (storedAccountId) {
-      accountPublicPageApi.getPublicPage(storedAccountId)
+    const accountId = resolveAccountId(searchParams);
+    if (accountId) {
+      accountPublicPageApi.getPublicPage(accountId)
         .then(setPublicPage)
         .catch(err => console.error("Error loading public page details:", err));
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     const reference = searchParams.get("reference");
@@ -41,19 +62,22 @@ export default function PaymentCallback() {
       try {
         const paymentRef = reference || trxref || "";
         const result = await paymentApi.verifyPayment(paymentRef);
+        const accountId = resolveAccountId(searchParams, result.account_id);
+        setRedirectAccountId(accountId);
 
         if (result.status === "success") {
-          // Try to load currency from stored account config (if available)
-          const storedAccountId = localStorage.getItem('payment_callback_accountId');
-          if (storedAccountId) {
+          let resolvedCurrency = "GHS";
+          if (accountId) {
             try {
-              const publicConfig = await configApi.getPublicConfig(storedAccountId);
-              setCurrencyCode(publicConfig.currency_code || 'GHS');
+              const publicConfig = await configApi.getPublicConfig(accountId);
+              resolvedCurrency = publicConfig.currency_code || "GHS";
+              setCurrencyCode(resolvedCurrency);
             } catch {
-              setCurrencyCode('GHS');
+              setCurrencyCode("GHS");
             }
           }
-          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+
+          const prefix = resolvedCurrency === "GHS" ? "GH₵" : `${resolvedCurrency} `;
           const formattedAmount = `${prefix}${result.amount.toFixed(2)}`;
           setStatus("success");
 
@@ -76,28 +100,15 @@ export default function PaymentCallback() {
             });
           }
 
-          // Redirect after 3 seconds (give webhook time to process)
-          setTimeout(() => {
-            // Get accountId from localStorage (stored before redirecting to Paystack)
-            const accountId = localStorage.getItem('payment_callback_accountId');
-            if (accountId) {
-              localStorage.removeItem('payment_callback_accountId');
-              // Store flag to force reload contributions when page loads
-              localStorage.setItem('payment_completed_reload', 'true');
-              // Redirect to group page with contributions tab active
-              navigate(`/group/${accountId}?tab=contributions`);
-            } else {
-              // Fallback: try to extract from URL or navigate to landing
-              const currentPath = window.location.pathname;
-              const accountIdMatch = currentPath.match(/\/group\/([^\/]+)/);
-              if (accountIdMatch) {
-                localStorage.setItem('payment_completed_reload', 'true');
-                navigate(`/group/${accountIdMatch[1]}?tab=contributions`);
-              } else {
-                navigate("/group");
-              }
-            }
-          }, 3000);
+          if (accountId) {
+            setTimeout(() => {
+              redirectToGroup(accountId, navigate);
+            }, 2000);
+          } else {
+            setMessage(
+              "Payment verified successfully, but we could not determine which group to return you to."
+            );
+          }
         } else {
           setStatus("error");
           setMessage("Payment verification failed");
@@ -105,7 +116,7 @@ export default function PaymentCallback() {
       } catch (error) {
         setStatus("error");
         setMessage(error instanceof Error ? error.message : "Failed to verify payment");
-        
+
         toast({
           title: "Payment Verification Failed",
           description: "We couldn't verify your payment. Please contact support if you were charged.",
@@ -119,6 +130,12 @@ export default function PaymentCallback() {
 
   const themeColors = getThemeColors(publicPage);
   const themeStyles = getThemeStyles(themeColors);
+
+  const handleContinue = () => {
+    if (redirectAccountId) {
+      redirectToGroup(redirectAccountId, navigate);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
@@ -137,9 +154,20 @@ export default function PaymentCallback() {
               <>
                 <CheckCircle2 className="h-12 w-12 text-success" />
                 <p className="text-center font-medium text-foreground">{message}</p>
-                <p className="text-center text-sm text-muted-foreground">
-                  Redirecting you back...
-                </p>
+                {redirectAccountId ? (
+                  <>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Redirecting you back to your group...
+                    </p>
+                    <Button onClick={handleContinue} className="mt-2">
+                      View My Contributions
+                    </Button>
+                  </>
+                ) : (
+                  <Button onClick={() => navigate("/group")} className="mt-2">
+                    Find Your Group
+                  </Button>
+                )}
               </>
             )}
 
@@ -147,8 +175,18 @@ export default function PaymentCallback() {
               <>
                 <XCircle className="h-12 w-12 text-destructive" />
                 <p className="text-center font-medium text-destructive">{message}</p>
-                <Button onClick={() => navigate("/group")} className="mt-4">
-                  Go Back
+                <Button
+                  onClick={() => {
+                    const accountId = resolveAccountId(searchParams);
+                    if (accountId) {
+                      redirectToGroup(accountId, navigate);
+                    } else {
+                      navigate("/group");
+                    }
+                  }}
+                  className="mt-4"
+                >
+                  {resolveAccountId(searchParams) ? "Back to Group" : "Go Back"}
                 </Button>
               </>
             )}

@@ -57,6 +57,7 @@ interface VerifyPaymentResult {
   reference: string;
   amount: number;
   contribution_id: string | null;
+  account_id?: string | null;
   recording_error?: string;
 }
 
@@ -122,7 +123,7 @@ export const paymentService = {
             ...(input.phone && { phone: input.phone }), // Only include phone if provided
             ...(input.member_id && { member_id: input.member_id }), // Only include member_id if provided (for verified users)
           },
-          callback_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback`,
+          callback_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback?accountId=${encodeURIComponent(input.account_id)}`,
         },
         {
           headers: {
@@ -371,6 +372,7 @@ export const paymentService = {
             reference: reference,
             amount: resolveContributionAmount(metadata, chargedAmount),
             contribution_id: contributionId,
+            account_id: accountId || metadata.account_id || null,
             ...(recordingError && { recording_error: recordingError }),
           },
         };
