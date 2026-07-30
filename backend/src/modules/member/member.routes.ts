@@ -273,10 +273,20 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       });
     }
 
+    // Persist phone verification for members who were added without OTP
+    let verifiedMember = member;
+    if (!member.phone_verified) {
+      const baseUrl = req.headers.origin ||
+                      (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+                      process.env.FRONTEND_URL;
+      verifiedMember = await memberService.verifyPhone(member.member_id, baseUrl);
+      console.log(`[OTP Verify] Marked phone verified for member ${member.member_id}`);
+    }
+
     // Auto-link anonymous Paystack contributions to this member
     try {
       const { paymentService } = await import('../../modules/payment/payment.service.js');
-      await paymentService.linkAnonymousContributions(accountId, member.member_id);
+      await paymentService.linkAnonymousContributions(accountId, verifiedMember.member_id);
     } catch (error) {
       console.error('Error auto-linking contributions:', error);
       // Don't fail OTP verification if linking fails
@@ -285,8 +295,9 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
     res.status(200).json({
       success: true,
       data: {
-        member_id: member.member_id,
-        full_name: member.full_name,
+        member_id: verifiedMember.member_id,
+        full_name: verifiedMember.full_name,
+        phone_verified: verifiedMember.phone_verified,
       },
       message: 'OTP verified successfully',
     });

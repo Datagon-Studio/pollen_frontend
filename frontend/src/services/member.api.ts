@@ -77,10 +77,10 @@ export const memberApi = {
   },
 
   /**
-   * Verify OTP code (public endpoint - for viewing contributions)
+   * Verify OTP code (public endpoint - for viewing contributions / first-time phone verify)
    */
   async verifyOTP(phone: string, code: string, accountId: string) {
-    return apiClient.post<{ member_id: string; full_name: string }>('/members/otp/verify', {
+    return apiClient.post<{ member_id: string; full_name: string; phone_verified?: boolean }>('/members/otp/verify', {
       phone,
       code,
       accountId,

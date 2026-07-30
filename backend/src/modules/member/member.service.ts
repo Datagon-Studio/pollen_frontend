@@ -13,6 +13,7 @@ import { accountRepository } from '../account/account.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
 import { env } from '../../env.js';
 import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
+import { arkeselService } from '../../shared/services/arkesel.service.js';
 import crypto from 'crypto';
 
 export class MemberService {
@@ -83,6 +84,17 @@ export class MemberService {
 
     const member = await memberRepository.create(memberData);
 
+    // Some flows verify the phone before the member record is created.
+    // Send the single welcome SMS now; unverified members receive it later
+    // when verifyPhone transitions them to verified.
+    if (member.phone_verified) {
+      try {
+        await this.sendPhoneVerifiedSMS(member, baseUrl);
+      } catch (error) {
+        console.error('[Create Member] Failed to send verified welcome SMS:', error);
+      }
+    }
+
     // If collector, create user account and send welcome email
     if (input.isCollector && input.email?.trim()) {
       try {
@@ -96,6 +108,38 @@ export class MemberService {
     }
 
     return member;
+  }
+
+  /**
+   * Resolve the personalisation used by member SMS notifications.
+   */
+  private async getMessageContext(
+    member: Member,
+    baseUrl?: string
+  ): Promise<{ memberName: string; accountName: string; groupPageUrl: string }> {
+    const account = await accountRepository.findByAccountId(member.account_id);
+    if (!account) {
+      throw new Error('Account not found');
+    }
+
+    return {
+      memberName: member.full_name.trim() || 'there',
+      accountName: account.account_name?.trim() || 'your group',
+      groupPageUrl: `${getFrontendUrl(baseUrl)}/group/${member.account_id}`,
+    };
+  }
+
+  /**
+   * Welcome a member after their phone number is verified.
+   */
+  async sendPhoneVerifiedSMS(member: Member, baseUrl?: string): Promise<void> {
+    const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
+    const message = `Hi ${memberName}! Welcome to Pollean, your welfare & fundraising platform. ${accountName} has invited you to manage your dues/pledges. View, track & contribute: ${groupPageUrl}`;
+
+    const result = await arkeselService.sendSMS(member.phone, message);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send phone verification SMS');
+    }
   }
 
   /**
@@ -452,8 +496,21 @@ If you didn't expect this email, please contact the administrator.
   /**
    * Verify phone number
    */
-  async verifyPhone(memberId: string): Promise<Member> {
-    return memberRepository.update(memberId, { phone_verified: true });
+  async verifyPhone(memberId: string, baseUrl?: string): Promise<Member> {
+    const existing = await memberRepository.findById(memberId);
+    const member = await memberRepository.update(memberId, { phone_verified: true });
+
+    // Only confirm on the unverified -> verified transition so re-verifying
+    // an already verified member doesn't send a duplicate SMS.
+    if (existing && !existing.phone_verified) {
+      try {
+        await this.sendPhoneVerifiedSMS(member, baseUrl);
+      } catch (error) {
+        console.error('[Verify Phone] Failed to send confirmation SMS:', error);
+      }
+    }
+
+    return member;
   }
 
   /**

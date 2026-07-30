@@ -582,8 +582,13 @@ export default function PublicGroupPage() {
 
         toast({
           title: `Welcome, ${memberName}!`,
-          description: "You now have access to view your contributions",
+          description: "Your phone is verified. You can now view contributions and contribute to group funds.",
         });
+
+        // If they started from Contribute, continue into confirmation
+        if (selectedFund) {
+          setShowConfirmationDialog(true);
+        }
       } else {
         throw new Error(response.error || "Invalid OTP");
       }
@@ -610,7 +615,23 @@ export default function PublicGroupPage() {
   };
 
   const handleRequestAccess = () => {
+    setSelectedFund(null);
     setShowOtpVerification(true);
+  };
+
+  const handleContributeClick = (fund: Fund) => {
+    if (!isVerified) {
+      setSelectedFund(fund);
+      setShowOtpVerification(true);
+      toast({
+        title: "Verify your phone",
+        description: "Enter the phone number used when you joined to verify with OTP before contributing.",
+      });
+      return;
+    }
+
+    setSelectedFund(fund);
+    setShowConfirmationDialog(true);
   };
 
   const [isDark, setIsDark] = useState(() => {
@@ -904,9 +925,10 @@ export default function PublicGroupPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md bg-card border-border">
             <CardHeader>
-              <CardTitle>Verify Your Identity</CardTitle>
+              <CardTitle>Verify Your Phone</CardTitle>
               <CardDescription>
-                Enter your verified phone number to access your contributions
+                Enter the phone number used when you were added to this group.
+                We&apos;ll send an OTP to verify it so you can view contributions and contribute.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -964,7 +986,7 @@ export default function PublicGroupPage() {
                       {verifying ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        "Login"
+                        "Verify"
                       )}
                     </Button>
                   </div>
@@ -981,6 +1003,8 @@ export default function PublicGroupPage() {
                     setOtpSent(false);
                     setPhone("");
                     setOtp("");
+                    setPhoneUssdCode(null);
+                    setSelectedFund(null);
                   }}
                   className="flex-1"
                 >
@@ -1065,7 +1089,7 @@ export default function PublicGroupPage() {
                   className="w-full sm:w-auto"
                 >
                   <Lock className="h-4 w-4 mr-2" />
-                  View My Contributions
+                  Verify Phone
                 </Button>
               ) : (
                 <Button
@@ -1232,10 +1256,7 @@ export default function PublicGroupPage() {
                             {account && account.kyc_status === "verified" && (
                               <Button
                                 size="sm"
-                                onClick={() => {
-                                  setSelectedFund(f);
-                                  setShowConfirmationDialog(true);
-                                }}
+                                onClick={() => handleContributeClick(f)}
                               >
                                 Contribute →
                               </Button>

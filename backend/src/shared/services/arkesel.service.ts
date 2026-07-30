@@ -15,6 +15,12 @@ interface VerifyOTPResponse {
   message?: string;
 }
 
+interface SendSMSResponse {
+  status?: string;
+  message?: string;
+  code?: string | number;
+}
+
 class ArkeselService {
   private apiKey: string;
   private baseUrl = 'https://sms.arkesel.com';
@@ -23,6 +29,75 @@ class ArkeselService {
     this.apiKey = process.env.ARKESEL_API_KEY || '';
     if (!this.apiKey) {
       console.error('❌ CRITICAL: ARKESEL_API_KEY not set in environment variables!');
+    }
+  }
+
+  /**
+   * Send a transactional SMS.
+   */
+  async sendSMS(
+    phone: string,
+    message: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: 'Arkesel API key not configured',
+      };
+    }
+
+    const formattedPhone = phone.replace(/[\s\-+]/g, '');
+
+    try {
+      const response = await fetch(`${this.baseUrl}/api/v2/sms/send`, {
+        method: 'POST',
+        headers: {
+          'api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: 'Pollean',
+          message,
+          recipients: [formattedPhone],
+        }),
+      });
+
+      const responseText = await response.text();
+      let data: SendSMSResponse = {};
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText) as SendSMSResponse;
+        } catch {
+          if (!response.ok) {
+            return {
+              success: false,
+              error: `SMS service returned an invalid response (${response.status})`,
+            };
+          }
+        }
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || `Failed to send SMS (${response.status})`,
+        };
+      }
+
+      if (data.status && data.status.toLowerCase() !== 'success') {
+        return {
+          success: false,
+          error: data.message || `Failed to send SMS (status: ${data.status})`,
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error',
+      };
     }
   }
 
