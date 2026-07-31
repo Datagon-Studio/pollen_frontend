@@ -15,6 +15,7 @@ import { paymentApi, InitializePaymentInput } from "@/services/payment.api";
 import { memberApi } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
 import { calculatePaymentAmounts } from "@/lib/paystack-fees";
+import { getAppUrl } from "@/lib/app-url";
 import { Loader2, Wallet } from "lucide-react";
 
 interface PaystackPaymentModalProps {
@@ -136,6 +137,7 @@ export function PaystackPaymentModal({
         name: name.trim() || "Anonymous Donor",
         phone: phone.trim() || undefined,
         member_id: memberId || undefined,
+        frontend_url: getAppUrl(),
       };
 
       const result = await paymentApi.initializePayment(paymentData);

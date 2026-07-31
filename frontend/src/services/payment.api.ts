@@ -8,6 +8,7 @@ export interface InitializePaymentInput {
   name?: string;
   phone?: string;
   member_id?: string;
+  frontend_url?: string;
 }
 
 export interface PaymentInitializationResult {

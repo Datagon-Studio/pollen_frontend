@@ -8,6 +8,7 @@ import { configApi } from "@/services/config.api";
 import { accountPublicPageApi } from "@/services/account-public-page.api";
 import { getThemeColors, getThemeStyles } from "@/lib/theme-utils";
 import { useToast } from "@/hooks/use-toast";
+import { CANONICAL_APP_URL } from "@/lib/app-url";
 
 function resolveAccountId(
   searchParams: URLSearchParams,
@@ -26,7 +27,20 @@ function redirectToGroup(accountId: string, navigate: ReturnType<typeof useNavig
   localStorage.removeItem("payment_callback_accountId");
   sessionStorage.removeItem("payment_callback_accountId");
   localStorage.setItem("payment_completed_reload", "true");
-  navigate(`/group/${accountId}?tab=contributions`, { replace: true });
+
+  const path = `/group/${accountId}?tab=contributions`;
+  const canonicalOrigin = CANONICAL_APP_URL.replace(/\/$/, "");
+
+  if (
+    typeof window !== "undefined" &&
+    window.location.origin.includes("vercel.app") &&
+    !window.location.origin.includes("app.pollean.com")
+  ) {
+    window.location.replace(`${canonicalOrigin}${path}`);
+    return;
+  }
+
+  navigate(path, { replace: true });
 }
 
 export default function PaymentCallback() {
@@ -38,6 +52,18 @@ export default function PaymentCallback() {
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
   const [publicPage, setPublicPage] = useState<any>(null);
   const [redirectAccountId, setRedirectAccountId] = useState<string | null>(null);
+
+  // If Paystack still hits an old Vercel callback URL, bounce to the canonical domain first.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const origin = window.location.origin;
+    if (origin.includes("vercel.app") && !origin.includes("app.pollean.com")) {
+      window.location.replace(
+        `${CANONICAL_APP_URL.replace(/\/$/, "")}${window.location.pathname}${window.location.search}`
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const accountId = resolveAccountId(searchParams);
