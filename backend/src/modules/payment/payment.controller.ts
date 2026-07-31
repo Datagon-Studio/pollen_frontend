@@ -19,6 +19,11 @@ paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
       return sendBadRequest(res, 'Amount must be greater than 0');
     }
 
+    const frontend_url =
+      req.body.frontend_url ||
+      req.headers.origin ||
+      (req.headers.referer ? new URL(req.headers.referer).origin : undefined);
+
     const result = await paymentService.initializePayment({
       account_id,
       fund_id,
@@ -27,6 +32,7 @@ paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
       name: name || 'Anonymous Donor',
       phone: phone || undefined,
       member_id: member_id || undefined,
+      frontend_url,
     });
 
     if (!result.success) {

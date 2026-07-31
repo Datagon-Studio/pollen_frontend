@@ -6,6 +6,7 @@ import { fundRepository } from '../fund/fund.repository.js';
 import { calculatePaymentAmounts } from './paystack-fees.js';
 
 import { env } from '../../env.js';
+import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
 
 const PAYSTACK_SECRET_KEY = env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_PUBLIC_KEY = env.PAYSTACK_PUBLIC_KEY;
@@ -44,6 +45,7 @@ interface InitializePaymentInput {
   name: string;
   phone?: string;
   member_id?: string;
+  frontend_url?: string;
 }
 
 interface PaymentInitializationResult {
@@ -57,6 +59,7 @@ interface VerifyPaymentResult {
   reference: string;
   amount: number;
   contribution_id: string | null;
+  account_id?: string | null;
   recording_error?: string;
 }
 
@@ -102,6 +105,7 @@ export const paymentService = {
 
       // Convert charged amount to pesewas (Paystack uses smallest currency unit)
       const amountInPesewas = Math.round(chargedAmount * 100);
+      const frontendUrl = getFrontendUrl(input.frontend_url);
 
       const response = await axios.post(
         `${PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -122,7 +126,7 @@ export const paymentService = {
             ...(input.phone && { phone: input.phone }), // Only include phone if provided
             ...(input.member_id && { member_id: input.member_id }), // Only include member_id if provided (for verified users)
           },
-          callback_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/payment/callback`,
+          callback_url: `${frontendUrl}/payment/callback?accountId=${encodeURIComponent(input.account_id)}`,
         },
         {
           headers: {
@@ -371,6 +375,7 @@ export const paymentService = {
             reference: reference,
             amount: resolveContributionAmount(metadata, chargedAmount),
             contribution_id: contributionId,
+            account_id: accountId || metadata.account_id || null,
             ...(recordingError && { recording_error: recordingError }),
           },
         };

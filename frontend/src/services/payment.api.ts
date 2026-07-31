@@ -8,6 +8,7 @@ export interface InitializePaymentInput {
   name?: string;
   phone?: string;
   member_id?: string;
+  frontend_url?: string;
 }
 
 export interface PaymentInitializationResult {
@@ -21,6 +22,7 @@ export interface VerifyPaymentResult {
   reference: string;
   amount: number;
   contribution_id: string | null;
+  account_id?: string | null;
   recording_error?: string;
 }
 
