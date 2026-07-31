@@ -33,11 +33,19 @@ const FUND_COLORS = [
   '#78350f',
 ];
 
+/** True when dateStr falls in the same calendar month/year as reference (local time). */
+function isInCalendarMonth(dateStr: string, reference: Date = new Date()): boolean {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return false;
+  return (
+    date.getFullYear() === reference.getFullYear() &&
+    date.getMonth() === reference.getMonth()
+  );
+}
+
 export const reportingService = {
   async getDashboardStats(accountId: string): Promise<DashboardStats> {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
     // Parallelize all database queries for better performance
     const [contributionsResult, expensesResult, fundsResult, membersResult] = await Promise.all([
@@ -67,14 +75,12 @@ export const reportingService = {
     // Calculate stats
     const confirmedContributions = contributions.filter(c => c.status === 'confirmed');
     const pendingContributions = contributions.filter(c => c.status === 'pending');
-    // Use date_received for contributions instead of created_at for monthly calculation
+    // Use date_received for contributions; match full calendar month (incl. 31st).
     const monthContributions = confirmedContributions.filter(c => {
       const dateReceived = c.date_received || c.created_at;
-      return dateReceived >= startOfMonth && dateReceived <= endOfMonth;
+      return isInCalendarMonth(dateReceived, now);
     });
-    const newMembers = members.filter(m => 
-      m.created_at >= startOfMonth && m.created_at <= endOfMonth
-    );
+    const newMembers = members.filter(m => isInCalendarMonth(m.created_at, now));
 
     const totalContributions = confirmedContributions.reduce((sum, c) => sum + c.amount, 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
