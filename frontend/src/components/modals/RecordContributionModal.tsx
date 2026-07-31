@@ -42,6 +42,7 @@ import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { contributionApi } from "@/services/contribution.api";
 import { configApi } from "@/services/config.api";
+import { getCurrencySymbol } from "@/lib/currencies";
 
 interface RecordContributionModalProps {
   open: boolean;
@@ -136,8 +137,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
   }, [open]);
 
   const formatAmount = (amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
-    return `${prefix}${amount.toFixed(2)}`;
+    return `${getCurrencySymbol(currencyCode)}${amount.toFixed(2)}`;
   };
 
   const selectedMember = members.find(m => m.member_id === formData.member);
@@ -403,8 +403,10 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
                                 />
                                 <div className="flex flex-col">
                                   <span>{fund.fund_name}</span>
-                                  {fund.default_amount && (
-                                    <span className="text-xs text-muted-foreground">Default: ${fund.default_amount}</span>
+                                  {fund.default_amount != null && fund.default_amount > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Default: {formatAmount(fund.default_amount)}
+                                    </span>
                                   )}
                                 </div>
                               </CommandItem>

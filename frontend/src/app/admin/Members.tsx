@@ -26,7 +26,7 @@ import { BulkUploadMemberModal } from "@/components/modals/BulkUploadMemberModal
 import { BulkDeleteMemberModal } from "@/components/modals/BulkDeleteMemberModal";
 import { EditMemberModal } from "@/components/modals/EditMemberModal";
 import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { memberApi, Member, isMemberActive } from "@/services/member.api";
 import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
@@ -136,43 +136,44 @@ export default function Members() {
     }
   }, [account?.account_id]);
 
-  // Calculate total contributed for each member based on date range
+  // All-time confirmed contribution totals per member
   const memberContributions = useMemo(() => {
     const totals: Record<string, number> = {};
-    
+
     contributions.forEach((contribution) => {
-      // Only count confirmed contributions
       if (contribution.status !== 'confirmed' || !contribution.member_id) {
         return;
       }
 
-      const contributionDate = new Date(contribution.date_received);
-      
-      // Check date range filters
-      if (startDate) {
-        const startOfDay = new Date(startDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        if (contributionDate < startOfDay) {
-          return;
-        }
-      }
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (contributionDate > endOfDay) {
-          return;
-        }
-      }
-
-      // Sum up contributions for this member
-      if (!totals[contribution.member_id]) {
-        totals[contribution.member_id] = 0;
-      }
-      totals[contribution.member_id] += contribution.amount;
+      totals[contribution.member_id] =
+        (totals[contribution.member_id] ?? 0) + contribution.amount;
     });
 
     return totals;
-  }, [contributions, startDate, endDate]);
+  }, [contributions]);
+
+  const isMemberInAddedDateRange = useCallback(
+    (member: Member) => {
+      if (!startDate && !endDate) {
+        return true;
+      }
+
+      const addedDate = new Date(member.created_at);
+      if (Number.isNaN(addedDate.getTime())) {
+        return false;
+      }
+
+      let rangeStart = startDate ? startOfDay(startDate) : new Date(0);
+      let rangeEnd = endDate ? endOfDay(endDate) : new Date(8640000000000000);
+
+      if (rangeStart > rangeEnd) {
+        [rangeStart, rangeEnd] = [rangeEnd, rangeStart];
+      }
+
+      return isWithinInterval(addedDate, { start: rangeStart, end: rangeEnd });
+    },
+    [startDate, endDate]
+  );
 
   const filteredMembers = members.filter((member) => {
     const fullName = member.full_name.toLowerCase();
@@ -183,7 +184,9 @@ export default function Members() {
     const matchesStatus = statusFilter === "all" ||
       (statusFilter === "active" && isActive) ||
       (statusFilter === "inactive" && !isActive);
-    return matchesSearch && matchesStatus;
+    const matchesDateRange = isMemberInAddedDateRange(member);
+
+    return matchesSearch && matchesStatus && matchesDateRange;
   });
 
   const activeCount = members.filter(isMemberActive).length;
@@ -381,19 +384,19 @@ export default function Members() {
           </SelectContent>
         </Select>
         
-        {/* Date Range Filters */}
+        {/* Filter members by date added */}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
               <CalendarIcon className="h-4 w-4 mr-2" />
-              {startDate ? format(startDate, "PPP") : "Start date"}
+              {startDate ? format(startDate, "PPP") : "Added from"}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
             <Calendar
               mode="single"
               selected={startDate}
-              onSelect={setStartDate}
+              onSelect={(date) => setStartDate(date ? startOfDay(date) : undefined)}
               initialFocus
               className="p-3 pointer-events-auto"
             />
@@ -414,14 +417,14 @@ export default function Members() {
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
               <CalendarIcon className="h-4 w-4 mr-2" />
-              {endDate ? format(endDate, "PPP") : "End date"}
+              {endDate ? format(endDate, "PPP") : "Added to"}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
             <Calendar
               mode="single"
               selected={endDate}
-              onSelect={setEndDate}
+              onSelect={(date) => setEndDate(date ? startOfDay(date) : undefined)}
               initialFocus
               className="p-3 pointer-events-auto"
             />
