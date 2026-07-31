@@ -81,14 +81,12 @@ export default function Contributions() {
     return `${prefix}${amount.toFixed(2)}`;
   }, [currencyCode]);
 
-  // Load contributions with caching
+  // Load contributions with caching — always fetch the full list; tabs filter client-side.
   const loadContributions = useCallback(async (forceRefresh = false) => {
     if (!account?.account_id) return;
     
     const now = Date.now();
-    const cacheKey = activeTab === "pending" ? "pending" : "all";
     
-    // Use cache if valid and not forcing refresh
     if (!forceRefresh && cache.contributions && (now - cache.contributionsTimestamp) < cache.CACHE_TTL) {
       setContributions(cache.contributions);
       setLoading(false);
@@ -98,15 +96,12 @@ export default function Contributions() {
     try {
       if (!forceRefresh) setLoading(true);
       
-      // Cancel previous request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
       abortControllerRef.current = new AbortController();
       
-      const response = activeTab === "pending" 
-        ? await contributionApi.getPending(account.account_id)
-        : await contributionApi.getByAccount(account.account_id);
+      const response = await contributionApi.getByAccount(account.account_id);
       
       if (response.success && response.data) {
         setContributions(response.data);
@@ -123,7 +118,7 @@ export default function Contributions() {
     } finally {
       setLoading(false);
     }
-  }, [account?.account_id, activeTab, toast]);
+  }, [account?.account_id, toast]);
 
   // Load funds with caching
   const loadFunds = useCallback(async (forceRefresh = false) => {
@@ -160,12 +155,11 @@ export default function Contributions() {
   useEffect(() => {
     if (account?.account_id) {
       loadContributions();
-      // Load currency config once for this account
       configApi.getMyConfig()
         .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
         .catch(() => setCurrencyCode("GHS"));
     }
-  }, [account?.account_id, activeTab, loadContributions]);
+  }, [account?.account_id, loadContributions]);
 
   useEffect(() => {
     if (account?.account_id) {
@@ -178,7 +172,6 @@ export default function Contributions() {
     const contribution = contributions.find(c => c.contribution_id === id);
     if (!contribution) return;
 
-    // Optimistic update
     const previousContributions = [...contributions];
     setContributions(prev => prev.map(c => 
       c.contribution_id === id ? { ...c, status: 'confirmed' as const } : c
@@ -187,16 +180,19 @@ export default function Contributions() {
     try {
       const response = await contributionApi.confirm(id);
       if (response.success) {
-        // Invalidate cache and refresh silently
         cache.contributions = null;
-        loadContributions(true);
+        cache.contributionsTimestamp = 0;
+        await loadContributions(true);
+        setActiveTab("all");
+        toast({
+          title: "Confirmed",
+          description: `${contribution.member_name || "Contribution"} of ${formatAmount(contribution.amount)} has been confirmed.`,
+        });
       } else {
-        // Rollback on error
         setContributions(previousContributions);
         throw new Error(response.error || "Failed to confirm contribution");
       }
     } catch (error) {
-      // Rollback on error
       setContributions(previousContributions);
       const errorMessage = error instanceof Error ? error.message : "Failed to confirm contribution";
       toast({
@@ -205,7 +201,7 @@ export default function Contributions() {
         variant: "destructive",
       });
     }
-  }, [contributions, loadContributions, toast]);
+  }, [contributions, loadContributions, toast, formatAmount]);
 
   const handleReject = useCallback(async (id: string) => {
     const contribution = contributions.find(c => c.contribution_id === id);
@@ -220,9 +216,9 @@ export default function Contributions() {
     try {
       const response = await contributionApi.reject(id);
       if (response.success) {
-        // Invalidate cache and refresh silently
         cache.contributions = null;
-        loadContributions(true);
+        cache.contributionsTimestamp = 0;
+        await loadContributions(true);
       } else {
         // Rollback on error
         setContributions(previousContributions);
@@ -660,7 +656,8 @@ export default function Contributions() {
         open={showRecordContribution} 
         onOpenChange={setShowRecordContribution}
         onSuccess={() => {
-          cache.contributions = null; // Invalidate cache
+          cache.contributions = null;
+          cache.contributionsTimestamp = 0;
           loadContributions(true);
           loadFunds(true);
         }}

@@ -186,6 +186,9 @@ async function sendContributionConfirmationSMS(
 
     const phone = member?.phone?.trim() || smsRecipient?.phone?.trim();
     if (!phone) {
+      console.log(
+        `[Contribution] Skipping confirmation SMS for contribution ${contribution.contribution_id}: no phone on file`
+      );
       return;
     }
 
