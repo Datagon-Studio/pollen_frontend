@@ -16,5 +16,9 @@ frontend/Design-Assets/skills.md
 frontend/DESIGN.md
 frontend/PRODUCT.md
 
-./impeccable
+./impeccable/*
 impeccable/
+DESIGN.md
+PRODUCT.md
+.impeccable/live/config.json
+.impeccable/design.json
