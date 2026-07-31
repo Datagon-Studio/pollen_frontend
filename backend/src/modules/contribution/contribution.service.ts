@@ -223,7 +223,7 @@ async function sendContributionConfirmationSMS(
           .replace(/\{\{transaction_date\}\}/g, `${formattedDate} at ${formattedTime}`)
           .replace(/\{\{group_page_url\}\}/g, groupPageUrl)
           .replace(/\{\{account_name\}\}/g, accountName)
-      : `Hi ${memberName}! Your ${formattedAmount} contribution to ${fundName} was received and recorded on ${formattedDate} at ${formattedTime}. Thank you for giving!\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\nPowered by _Pollean_, Your welfare and contributions platform.`;
+      : `Hi ${memberName}! Your ${formattedAmount} contribution to ${fundName} was received and recorded on ${formattedDate} at ${formattedTime}. Thank you for giving!\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean, Your welfare and contributions platform.`;
 
     const result = await arkeselService.sendSMS(phone, message);
     if (!result.success) {
