@@ -11,3 +11,10 @@ build/
 .env.*.local
 backend/.env
 frontend/.env
+frontend/Design-Assets/Pollean-Landing-Page-Design-Brief.md
+frontend/Design-Assets/skills.md
+frontend/DESIGN.md
+frontend/PRODUCT.md
+
+./impeccable
+impeccable/
