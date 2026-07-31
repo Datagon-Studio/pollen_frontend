@@ -116,36 +116,54 @@ export class MemberService {
   }
 
   /**
-   * Resolve the personalisation used by member SMS notifications.
+   * Resolve group page URL and account name for SMS notifications.
    * Uses a persisted Bitly short URL when available; creates one once per account.
    */
-  private async getMessageContext(
-    member: Member,
+  async resolveAccountMessageContext(
+    accountId: string,
     baseUrl?: string
-  ): Promise<{ memberName: string; accountName: string; groupPageUrl: string }> {
-    const account = await accountRepository.findByAccountId(member.account_id);
+  ): Promise<{ accountName: string; groupPageUrl: string }> {
+    const account = await accountRepository.findByAccountId(accountId);
     if (!account) {
       throw new Error('Account not found');
     }
 
-    const longUrl = `${getFrontendUrl(baseUrl)}/group/${member.account_id}`;
+    const longUrl = `${getFrontendUrl(baseUrl)}/group/${accountId}`;
     let groupPageUrl = account.short_url || longUrl;
 
     if (!account.short_url) {
       try {
         const shortUrl = await bitlyService.shortenUrl(longUrl);
         if (shortUrl) {
-          await accountRepository.update(member.account_id, { short_url: shortUrl });
+          await accountRepository.update(accountId, { short_url: shortUrl });
           groupPageUrl = shortUrl;
         }
       } catch (error) {
-        console.error('[Welcome SMS] Failed to create/persist short URL:', error);
+        console.error('[SMS] Failed to create/persist short URL:', error);
       }
     }
 
     return {
-      memberName: member.full_name.trim() || 'there',
       accountName: account.account_name?.trim() || 'your group',
+      groupPageUrl,
+    };
+  }
+
+  /**
+   * Resolve the personalisation used by member SMS notifications.
+   */
+  private async getMessageContext(
+    member: Member,
+    baseUrl?: string
+  ): Promise<{ memberName: string; accountName: string; groupPageUrl: string }> {
+    const { accountName, groupPageUrl } = await this.resolveAccountMessageContext(
+      member.account_id,
+      baseUrl
+    );
+
+    return {
+      memberName: member.full_name.trim() || 'there',
+      accountName,
       groupPageUrl,
     };
   }
@@ -155,7 +173,7 @@ export class MemberService {
    */
   async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
-    const message = `Hi ${memberName}! Welcome to Pollean, your welfare & fundraising platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
+    const message = `Hi ${memberName}! Welcome to _Pollean_, Your welfare and contributions platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {

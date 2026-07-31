@@ -5,6 +5,18 @@ import { accountRepository } from '../account/account.repository.js';
 import { configRepository } from '../config/config.repository.js';
 import { userRepository } from '../user/user.repository.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
+import { arkeselService } from '../../shared/services/arkesel.service.js';
+import { memberService } from '../member/member.service.js';
+
+type ContributionSmsRecipient = {
+  phone: string;
+  name: string;
+};
+
+type CreateContributionOptions = {
+  allowBelowFundMinimum?: boolean;
+  smsRecipient?: ContributionSmsRecipient;
+};
 
 /**
  * Send email notification to admins when a contribution is confirmed
@@ -154,6 +166,77 @@ Thank you for using Pollean!
   }
 }
 
+/**
+ * Send SMS confirmation to the contributor when a contribution is recorded.
+ *
+ * SMS is sent when:
+ * - The contribution status is 'confirmed'
+ * - A recipient phone is available (linked member or Paystack metadata fallback)
+ */
+async function sendContributionConfirmationSMS(
+  contribution: Contribution,
+  smsRecipient?: ContributionSmsRecipient
+): Promise<void> {
+  try {
+    const config = await configRepository.findByAccountId(contribution.account_id);
+
+    const member = contribution.member_id
+      ? await memberRepository.findById(contribution.member_id)
+      : null;
+
+    const phone = member?.phone?.trim() || smsRecipient?.phone?.trim();
+    if (!phone) {
+      return;
+    }
+
+    const fund = await fundRepository.findById(contribution.fund_id);
+    const { accountName, groupPageUrl } = await memberService.resolveAccountMessageContext(
+      contribution.account_id
+    );
+
+    const currencyCode = config?.currency_code || 'GHS';
+    const formattedAmount = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    }).format(contribution.amount);
+
+    const transactionDate = new Date(contribution.date_received);
+    const formattedDate = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(transactionDate);
+    const formattedTime = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(transactionDate);
+
+    const memberName = member?.full_name?.trim() || smsRecipient?.name?.trim() || 'there';
+    const fundName = fund?.fund_name || 'your fund';
+
+    let message = config?.sms_template
+      ? config.sms_template
+          .replace(/\{\{member_name\}\}/g, memberName)
+          .replace(/\{\{amount\}\}/g, formattedAmount)
+          .replace(/\{\{fund_name\}\}/g, fundName)
+          .replace(/\{\{transaction_date\}\}/g, `${formattedDate} at ${formattedTime}`)
+          .replace(/\{\{group_page_url\}\}/g, groupPageUrl)
+          .replace(/\{\{account_name\}\}/g, accountName)
+      : `Hi ${memberName}! Your ${formattedAmount} contribution to ${fundName} was received and recorded on ${formattedDate} at ${formattedTime}. Thank you for giving!\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\nPowered by _Pollean_, Your welfare and contributions platform.`;
+
+    const result = await arkeselService.sendSMS(phone, message);
+    if (!result.success) {
+      console.error('[Contribution] Failed to send confirmation SMS:', result.error);
+      return;
+    }
+
+    console.log(`📱 [Contribution] Sent confirmation SMS to contributor (${phone})`);
+  } catch (error) {
+    console.error('Error sending contribution confirmation SMS:', error);
+  }
+}
+
 export const contributionService = {
   async getContribution(id: string): Promise<Contribution | null> {
     return contributionRepository.findById(id);
@@ -189,7 +272,7 @@ export const contributionService = {
   async createContribution(
     input: CreateContributionInput,
     userId?: string,
-    options: { allowBelowFundMinimum?: boolean } = {}
+    options: CreateContributionOptions = {}
   ): Promise<Contribution | null> {
     // Validate required fields
     if (!input.fund_id) {
@@ -260,9 +343,10 @@ export const contributionService = {
 
     const contribution = await contributionRepository.create(contributionData);
 
-    // Send email notification to admins if contribution is confirmed
+    // Notify admins and contributor when contribution is confirmed
     if (contribution && contribution.status === 'confirmed') {
       await sendContributionConfirmationEmail(contribution);
+      await sendContributionConfirmationSMS(contribution, options.smsRecipient);
     }
 
     return contribution;
@@ -288,10 +372,10 @@ export const contributionService = {
     
     const contribution = await contributionRepository.update(id, { status: 'confirmed' });
 
-    // Send email notification to all admins when contribution is confirmed
-    // This happens regardless of who recorded the transaction or who confirmed it
+    // Notify admins and contributor when contribution is confirmed
     if (contribution && !wasConfirmed && contribution.status === 'confirmed') {
       await sendContributionConfirmationEmail(contribution);
+      await sendContributionConfirmationSMS(contribution);
     }
 
     // Note: total_contributed is calculated from contributions, not stored on member

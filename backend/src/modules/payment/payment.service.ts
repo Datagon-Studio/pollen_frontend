@@ -33,6 +33,29 @@ function resolveContributionAmount(
   return chargedAmount;
 }
 
+function normalizePhone(phoneNum: string): string {
+  let normalized = phoneNum.replace(/[\s\-+()]/g, '');
+  if (normalized.startsWith('233') && normalized.length === 12) {
+    normalized = '0' + normalized.substring(3);
+  }
+  return normalized;
+}
+
+function buildPaystackSmsRecipient(
+  memberId: string | null,
+  customerPhone: string | null | undefined,
+  contributorName: string
+): { phone: string; name: string } | undefined {
+  if (memberId || !customerPhone?.trim()) {
+    return undefined;
+  }
+
+  return {
+    phone: normalizePhone(customerPhone),
+    name: contributorName.trim() || 'there',
+  };
+}
+
 if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
   console.warn('⚠️  Paystack keys not configured. Payment features will not work.');
 }
@@ -266,15 +289,6 @@ export const paymentService = {
 
             // If not found by email, try by phone (normalize phone number)
             if (!memberId && customerPhone) {
-              const normalizePhone = (phoneNum: string): string => {
-                let normalized = phoneNum.replace(/[\s\-+()]/g, '');
-                // If starts with 233 (country code), replace with 0
-                if (normalized.startsWith('233') && normalized.length === 12) {
-                  normalized = '0' + normalized.substring(3);
-                }
-                return normalized;
-              };
-
               const normalizedPhone = normalizePhone(customerPhone);
               console.log(`[Payment] Looking up member by phone: "${normalizedPhone}" for account: ${accountId}`);
               const memberByPhone = await memberRepository.findByPhone(normalizedPhone, accountId);
@@ -346,7 +360,10 @@ export const paymentService = {
               comment: `Payment via Paystack - ${contributorName}${emailForLookup ? ` (${emailForLookup})` : ''}`,
               payment_reference: reference,
               status: 'confirmed', // Paystack verified = confirmed
-            }, undefined, { allowBelowFundMinimum: true });
+            }, undefined, {
+              allowBelowFundMinimum: true,
+              smsRecipient: buildPaystackSmsRecipient(memberId, customerPhone, contributorName),
+            });
 
             contributionId = contribution?.contribution_id || null;
             if (contribution) {
@@ -487,15 +504,6 @@ export const paymentService = {
 
             // If not found by email, try by phone (normalize phone number)
             if (!memberId && customerPhone) {
-              const normalizePhone = (phoneNum: string): string => {
-                let normalized = phoneNum.replace(/[\s\-+()]/g, '');
-                // If starts with 233 (country code), replace with 0
-                if (normalized.startsWith('233') && normalized.length === 12) {
-                  normalized = '0' + normalized.substring(3);
-                }
-                return normalized;
-              };
-
               const normalizedPhone = normalizePhone(customerPhone);
               console.log(`[Webhook] Looking up member by phone: "${normalizedPhone}" for account: ${accountId}`);
               const memberByPhone = await memberRepository.findByPhone(normalizedPhone, accountId);
@@ -553,7 +561,10 @@ export const paymentService = {
               comment: `Payment via Paystack - ${contributorName}${customerEmail ? ` (${customerEmail})` : ''}`,
               payment_reference: reference,
               status: 'confirmed',
-            }, undefined, { allowBelowFundMinimum: true });
+            }, undefined, {
+              allowBelowFundMinimum: true,
+              smsRecipient: buildPaystackSmsRecipient(memberId, customerPhone, contributorName),
+            });
           }
         } catch (error) {
           console.error(
