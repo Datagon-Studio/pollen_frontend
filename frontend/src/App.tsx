@@ -25,8 +25,11 @@ import Settings from "./app/admin/Settings";
 import KYCVerification from "./app/admin/KYCVerification";
 import UserProfile from "./app/admin/UserProfile";
 import NotFound from "./app/NotFound";
+import LandingPage from "./app/marketing/LandingPage";
+import RedirectToApp from "./app/marketing/RedirectToApp";
 import { useAuth } from "./hooks/useAuth";
 import { useRoles } from "./hooks/useRoles";
+import { isMarketingHost } from "./lib/hosts";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +97,116 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const AppRoutes = () => {
+  // Marketing host (pollean.com): landing only; everything else goes to the app.
+  if (isMarketingHost()) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="*" element={<RedirectToApp />} />
+      </Routes>
+    );
+  }
+
+  // App host (app.pollean.com / local): product + member portal.
+  return (
+    <Routes>
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
+      <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Local/preview of the marketing page without switching hosts */}
+      <Route path="/landing" element={<LandingPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Index />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/members"
+        element={
+          <ProtectedRoute>
+            <Members />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/funds"
+        element={
+          <ProtectedRoute>
+            <Funds />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contributions"
+        element={
+          <ProtectedRoute>
+            <Contributions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedRoute>
+            <Expenses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/public-settings"
+        element={
+          <AdminRoute>
+            <PublicSettings />
+          </AdminRoute>
+        }
+      />
+      <Route path="/group" element={<PublicGroupLanding />} />
+      <Route path="/group/:accountId" element={<PublicGroupPage />} />
+      <Route path="/group/:accountId/join" element={<JoinGroupPage />} />
+      <Route path="/verify-member-email" element={<VerifyMemberEmail />} />
+      <Route path="/payment/callback" element={<PaymentCallback />} />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <AdminRoute>
+            <Settings />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/kyc-verification"
+        element={
+          <SuperAdminRoute>
+            <KYCVerification />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/user-profile"
+        element={
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => {
   // Don't call useAuth here - it's called inside ProtectedRoute and other components
   // This prevents the hook from running before Router context is available
@@ -110,104 +223,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/signin" element={<SignIn />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/verify-otp" element={<VerifyOTP />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/members"
-                element={
-                  <ProtectedRoute>
-                    <Members />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/funds"
-                element={
-                  <ProtectedRoute>
-                    <Funds />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/contributions"
-                element={
-                  <ProtectedRoute>
-                    <Contributions />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/expenses"
-                element={
-                  <ProtectedRoute>
-                    <Expenses />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/public-settings"
-                element={
-                  <AdminRoute>
-                    <PublicSettings />
-                  </AdminRoute>
-                }
-              />
-              <Route path="/group" element={<PublicGroupLanding />} />
-              <Route path="/group/:accountId" element={<PublicGroupPage />} />
-              <Route
-                path="/group/:accountId/join"
-                element={<JoinGroupPage />}
-              />
-              <Route
-                path="/verify-member-email"
-                element={<VerifyMemberEmail />}
-              />
-              <Route path="/payment/callback" element={<PaymentCallback />} />
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <AdminRoute>
-                    <Settings />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/kyc-verification"
-                element={
-                  <SuperAdminRoute>
-                    <KYCVerification />
-                  </SuperAdminRoute>
-                }
-              />
-              <Route
-                path="/user-profile"
-                element={
-                  <ProtectedRoute>
-                    <UserProfile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AppRoutes />
           </BrowserRouter>
           <Analytics />
         </TooltipProvider>
