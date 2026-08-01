@@ -34,19 +34,17 @@ const mono = "'JetBrains Mono', monospace"
 
 /* ─── Logo ─────────────────────────────────────────────────────────────────── */
 function Logo({ dark = false, size = 30 }: { dark?: boolean; size?: number }) {
-  const n = '#F6F1EA'
   const t = dark ? '#F6F1EA' : CH
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-        <path d="M16 1.5L29.5 8.25V23.75L16 30.5L2.5 23.75V8.25Z" fill={G} />
-        <circle cx="16" cy="10" r="2.3" fill={n} />
-        <circle cx="9.5" cy="21" r="2.3" fill={n} />
-        <circle cx="22.5" cy="21" r="2.3" fill={n} />
-        <line x1="16" y1="10" x2="9.5" y2="21" stroke={n} strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="16" y1="10" x2="22.5" y2="21" stroke={n} strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="9.5" y1="21" x2="22.5" y2="21" stroke={n} strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
+      <img
+        src="/logos/Pollean-Symbol-Gold.png"
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+        decoding="async"
+      />
       <span style={{ fontFamily: sans, fontWeight: 800, fontSize: size * 0.57, letterSpacing: '0.1em', color: t, lineHeight: 1 }}>
         POLLEAN
       </span>
@@ -82,7 +80,7 @@ function HexDecor({ size = 360, opacity = 0.09, style: sx = {} }: { size?: numbe
 /* ─── Dashboard mockup ──────────────────────────────────────────────────────── */
 function DashboardMockup() {
   return (
-    <div style={{ borderRadius: 14, border: `1px solid ${BOR}`, overflow: 'hidden', boxShadow: `0 28px 64px rgba(46,46,46,0.14)`, backgroundColor: CARD, maxWidth: 540 }}>
+    <div style={{ borderRadius: 14, border: `1px solid ${BOR}`, overflow: 'hidden', boxShadow: `0 28px 64px rgba(46,46,46,0.14)`, backgroundColor: CARD, width: '100%', maxWidth: 540, boxSizing: 'border-box' }}>
       {/* Browser chrome */}
       <div style={{ height: 40, backgroundColor: SURF, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', borderBottom: `1px solid ${BOR}` }}>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -427,44 +425,87 @@ function HeroSection() {
       {/* Hex decorations */}
       <HexDecor size={480} opacity={0.07} style={{ position: 'absolute', top: -80, right: -80 }} />
       <HexDecor size={240} opacity={0.05} style={{ position: 'absolute', bottom: 40, left: -60 }} />
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 32px 72px', display: 'flex', alignItems: 'center', gap: 64, flexWrap: 'wrap' }}>
-        {/* Text */}
-        <div style={{ flex: '1 1 400px', maxWidth: 540, position: 'relative', zIndex: 1 }}>
-          <h1 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(32px, 5vw, 52px)', color: CH, lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 20px' }}>
+      <div
+        className="flex flex-col gap-6 px-5 py-8 md:flex-row md:items-center md:gap-16 md:px-8 md:pt-20 md:pb-[72px]"
+        style={{ maxWidth: 1200, margin: '0 auto' }}
+      >
+        {/* Text — below demo on mobile */}
+        <div
+          className="order-2 mx-auto w-full text-center md:order-1 md:text-left"
+          style={{ flex: '1 1 400px', maxWidth: 540, position: 'relative', zIndex: 2 }}
+        >
+          <h1 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(28px, 5vw, 52px)', color: CH, lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 20px' }}>
             Run your group's contributions without the notebook chaos.
           </h1>
-          <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 17, color: CHL, lineHeight: 1.65, margin: '0 0 36px', maxWidth: 460 }}>
+          <p className="hidden md:block" style={{ fontFamily: sans, fontWeight: 400, fontSize: 17, color: CHL, lineHeight: 1.65, margin: '0 0 36px', maxWidth: 460 }}>
             Replace WhatsApp chasing and paper ledgers with digital records, online payments, and a member portal your community can trust.
           </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="flex flex-nowrap items-center justify-center gap-2 md:justify-start md:gap-3">
             <a href={APP_SIGNUP}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '14px 28px', borderRadius: 10, textDecoration: 'none', transition: 'background-color 0.15s', boxShadow: `0 4px 16px rgba(255,189,89,0.35)` }}
+              style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: G, color: CH, fontFamily: sans, padding: '10px 16px', borderRadius: 10, textDecoration: 'none', transition: 'background-color 0.15s', boxShadow: `0 4px 16px rgba(255,189,89,0.35)`, flex: '1 1 0', minWidth: 0, maxWidth: 168 }}
               onMouseEnter={e => (e.currentTarget.style.backgroundColor = GL)}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = G)}>
-              Start free <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+              <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', lineHeight: 1.2 }}>
+                Start free <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
+              </span>
+              <span style={{ fontWeight: 500, fontSize: 10, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For organisers</span>
             </a>
             <a href="#for-members"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: 'transparent', color: CH, fontFamily: sans, fontWeight: 600, fontSize: 15, padding: '13px 24px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid ${BOR}`, transition: 'border-color 0.15s' }}
+              style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: 'transparent', color: CH, fontFamily: sans, padding: '9px 16px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid ${BOR}`, transition: 'border-color 0.15s', flex: '1 1 0', minWidth: 0, maxWidth: 168 }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = CH)}
               onMouseLeave={e => (e.currentTarget.style.borderColor = BOR)}>
-              Find your group
+              <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.02em', lineHeight: 1.2 }}>Find your group</span>
+              <span style={{ fontWeight: 500, fontSize: 10, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For members</span>
             </a>
           </div>
-          <div style={{ display: 'flex', gap: 20, marginTop: 28, flexWrap: 'wrap' }}>
+          <div className="mt-6 flex flex-nowrap items-center justify-center gap-2 md:mt-7 md:justify-start md:gap-5">
             {['Free to start', 'Paystack-secured', 'No app required'].map((t, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <div key={i} className="flex min-w-0 shrink items-center gap-1 md:gap-1.5">
+                <svg className="h-3 w-3 shrink-0 md:h-3.5 md:w-3.5" viewBox="0 0 14 14" fill="none">
                   <circle cx="7" cy="7" r="6.5" fill={SUC} fillOpacity="0.15" />
                   <path d="M4 7l2 2 4-4" stroke={SUC} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span style={{ fontFamily: sans, fontWeight: 500, fontSize: 12, color: CHL }}>{t}</span>
+                <span className="whitespace-nowrap text-[10px] font-medium md:text-xs" style={{ fontFamily: sans, color: CHL }}>{t}</span>
               </div>
             ))}
           </div>
         </div>
-        {/* Dashboard mockup */}
-        <div className="hidden md:block" style={{ flex: '1 1 480px', position: 'relative', zIndex: 1 }}>
-          <DashboardMockup />
+        {/* Dashboard mockup — scaled to 60% on mobile, full on desktop */}
+        <div
+          className="order-1 flex w-full justify-center overflow-hidden md:hidden"
+          style={{ position: 'relative', zIndex: 0 }}
+        >
+          <div
+            style={{
+              width: 540 * 0.6,
+              height: 470 * 0.6,
+              position: 'relative',
+              margin: '0 auto',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                width: 540,
+                transform: 'translateX(-50%) scale(0.6)',
+                transformOrigin: 'top center',
+                pointerEvents: 'none',
+              }}
+            >
+              <DashboardMockup />
+            </div>
+          </div>
+        </div>
+        <div
+          className="order-2 hidden w-full justify-center md:order-2 md:flex"
+          style={{ flex: '1 1 480px', position: 'relative', zIndex: 1 }}
+        >
+          <div style={{ width: '100%', maxWidth: 540 }}>
+            <DashboardMockup />
+          </div>
         </div>
       </div>
     </section>
@@ -494,7 +535,7 @@ function PainSection() {
     <section style={{ backgroundColor: CRA, padding: '80px 32px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Why groups switch</p>
+          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: CH, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Why groups switch</p>
           <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(26px, 4vw, 38px)', color: CH, letterSpacing: '-0.02em', margin: 0 }}>
             Sound familiar?
           </h2>
@@ -514,7 +555,7 @@ function PainSection() {
         </div>
         <div style={{ textAlign: 'center', marginTop: 40 }}>
           <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 16, color: CH, margin: 0 }}>
-            There is a better way. <a href={APP_SIGNUP} style={{ color: G, textDecoration: 'none', borderBottom: `2px solid ${G}` }}>Start free today →</a>
+            There is a better way. <a href={APP_SIGNUP} style={{ color: CH, textDecoration: 'none', borderBottom: `2px solid ${G}` }}>Start free →</a>
           </p>
         </div>
       </div>
@@ -616,7 +657,7 @@ function ProductModulesSection() {
     <section id="features" style={{ backgroundColor: CR, padding: '88px 32px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 52 }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Product</p>
+          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: CH, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Product</p>
           <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(26px, 4vw, 38px)', color: CH, letterSpacing: '-0.02em', margin: '0 0 14px' }}>
             Everything your group needs
           </h2>
@@ -671,27 +712,49 @@ function HowItWorksSection() {
     <section id="how-it-works" style={{ backgroundColor: CRA, padding: '88px 32px' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Getting started</p>
+          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: CH, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Getting started</p>
           <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(26px, 4vw, 38px)', color: CH, letterSpacing: '-0.02em', margin: '0 0 14px' }}>
             How it works
           </h2>
-          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 15, color: G, margin: 0 }}>
+          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 15, color: CH, margin: 0 }}>
             From sign-up to first contribution in under an hour.
           </p>
         </div>
-        <div style={{ position: 'relative', display: 'flex', gap: 0, flexWrap: 'wrap' }}>
-          {/* Connecting line (desktop) */}
-          <div className="hidden md:block" style={{ position: 'absolute', top: 28, left: '16.67%', right: '16.67%', borderTop: `2px dashed ${BOR}`, zIndex: 0 }} />
+
+        {/* Mobile: vertical timeline */}
+        <div className="md:hidden" style={{ maxWidth: 480, margin: '0 auto' }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: CH, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontWeight: 700, fontSize: 14, color: G, flexShrink: 0, zIndex: 1 }}>
+                  {s.n}
+                </div>
+                {i < steps.length - 1 && (
+                  <div style={{ width: 0, flex: 1, minHeight: 28, borderLeft: `2px dashed ${BOR}`, margin: '6px 0' }} />
+                )}
+              </div>
+              <div style={{ paddingBottom: i < steps.length - 1 ? 36 : 0, paddingTop: 4 }}>
+                <h3 style={{ fontFamily: sans, fontWeight: 700, fontSize: 17, color: CH, margin: '0 0 8px', letterSpacing: '-0.01em', textAlign: 'left' }}>{s.title}</h3>
+                <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 14, color: CHL, lineHeight: 1.65, margin: 0, textAlign: 'left' }}>{s.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: horizontal steps */}
+        <div className="hidden md:flex" style={{ position: 'relative', gap: 0, flexWrap: 'wrap' }}>
+          <div style={{ position: 'absolute', top: 28, left: '16.67%', right: '16.67%', borderTop: `2px dashed ${BOR}`, zIndex: 0 }} />
           {steps.map((s, i) => (
             <div key={i} style={{ flex: '1 1 240px', textAlign: 'center', padding: '0 24px', position: 'relative', zIndex: 1 }}>
               <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: CH, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontFamily: mono, fontWeight: 700, fontSize: 15, color: G }}>
                 {s.n}
               </div>
-              <h3 style={{ fontFamily: sans, fontWeight: 700, fontSize: 17, color: CH, marginBottom: 10, letterSpacing: '-0.01em' }}>{s.title}</h3>
-              <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 14, color: CHL, lineHeight: 1.65, margin: 0 }}>{s.body}</p>
+              <h3 style={{ fontFamily: sans, fontWeight: 700, fontSize: 17, color: CH, marginBottom: 10, letterSpacing: '-0.01em', textAlign: 'left' }}>{s.title}</h3>
+              <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 14, color: CHL, lineHeight: 1.65, margin: 0, textAlign: 'left' }}>{s.body}</p>
             </div>
           ))}
         </div>
+
         <div style={{ textAlign: 'center', marginTop: 56 }}>
           <a href={APP_SIGNUP}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '14px 32px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 4px 16px rgba(255,189,89,0.3)` }}>
@@ -714,13 +777,10 @@ function MemberPortalSection() {
         </div>
         {/* Text */}
         <div style={{ flex: '1 1 360px' }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>For members</p>
+          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: CH, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>For members</p>
           <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(24px, 3.5vw, 36px)', color: CH, letterSpacing: '-0.02em', lineHeight: 1.15, margin: '0 0 16px' }}>
             Your members get their own portal. No app download.
           </h2>
-          <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 15, color: CHL, lineHeight: 1.65, margin: '0 0 28px' }}>
-            Share a public link with your group. Members can join, view fund progress, contribute online, and track their own contribution history, from any phone browser.
-          </p>
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 36px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
               'Join with phone number verification',
@@ -748,155 +808,86 @@ function MemberPortalSection() {
   )
 }
 
-/* ─── Feature grid ──────────────────────────────────────────────────────────── */
-function FeatureGridSection() {
-  const features = [
-    { icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3z', title: 'Online Payments', body: 'Paystack-powered MoMo and card contributions from the public portal.' },
-    { icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12h.01M16 12h.01M8 12h.01', title: 'Offline Recording', body: 'Log cash contributions manually. Every entry is timestamped and attributed.' },
-    { icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 0 0 1.946-.806 3.42 3.42 0 0 1 4.438 0 3.42 3.42 0 0 0 1.946.806 3.42 3.42 0 0 1 3.138 3.138 3.42 3.42 0 0 0 .806 1.946 3.42 3.42 0 0 1 0 4.438 3.42 3.42 0 0 0-.806 1.946 3.42 3.42 0 0 1-3.138 3.138', title: 'Pledges', body: 'Members pledge contributions; track fulfilment over time.' },
-    { icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8', title: 'Expense Tracking', body: 'Log outflows against funds. Net position always visible to admins.' },
-    { icon: 'M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9', title: 'Public Group Page', body: 'Shareable branded portal with your group logo and colours.' },
-    { icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 0 0-5-5.917V5a1 1 0 1 0-2 0v.083A6 6 0 0 0 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9', title: 'SMS & Email Alerts', body: 'Automatic notifications when contributions are confirmed or pending.' },
-    { icon: 'M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10m14 0h.01M17 19v-3a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2z', title: 'Reports', body: 'Monthly summaries and fund-level breakdowns. Export to CSV.' },
-    { icon: 'M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', title: 'Roles & Access', body: 'Admin, Collector, and Viewer roles. Bulk member upload supported.' },
+
+
+/* ─── Final CTA ─────────────────────────────────────────────────────────────── */
+function FinalCTASection() {
+  const communities = [
+    {
+      label: 'Churches',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <path d="M9 22V12h6v10" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Associations',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Welfare Groups',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Cooperatives',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22V12" />
+          <path d="M12 12C10 9 8 6 7 4c-1-2 1-3 3-2s2 2 2 2" />
+          <path d="M12 12c2-3 4-6 5-8 1-2-1-3-3-2s-2 2-2 2" />
+        </svg>
+      ),
+    },
   ]
   return (
-    <section style={{ backgroundColor: SURF, padding: '88px 32px' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 52 }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Features</p>
-          <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(26px, 4vw, 38px)', color: CH, letterSpacing: '-0.02em', margin: 0 }}>
-            Built for real group management
-          </h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-          {features.map((f, i) => (
-            <div key={i} style={{ backgroundColor: CARD, borderRadius: 16, padding: '22px 22px', border: `1px solid ${BOR}`, transition: 'transform 0.15s, box-shadow 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 24px rgba(46,46,46,0.08)` }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 9, backgroundColor: GW, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: CH }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={f.icon} />
-                </svg>
-              </div>
-              <div style={{ fontFamily: sans, fontWeight: 700, fontSize: 14, color: CH, marginBottom: 6 }}>{f.title}</div>
-              <div style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: CHL, lineHeight: 1.55 }}>{f.body}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ─── Social proof ──────────────────────────────────────────────────────────── */
-function SocialProofSection() {
-  return (
-    <section style={{ backgroundColor: CR, padding: '72px 32px' }}>
-      <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-          {[
-            {
-              label: 'Churches',
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  <path d="M9 22V12h6v10" />
-                </svg>
-              ),
-            },
-            {
-              label: 'Associations',
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              ),
-            },
-            {
-              label: 'Welfare Groups',
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-              ),
-            },
-            {
-              label: 'Cooperatives',
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22V12" />
-                  <path d="M12 12C10 9 8 6 7 4c-1-2 1-3 3-2s2 2 2 2" />
-                  <path d="M12 12c2-3 4-6 5-8 1-2-1-3-3-2s-2 2-2 2" />
-                </svg>
-              ),
-            },
-          ].map((item, i) => (
+    <section style={{ backgroundColor: CH, padding: '96px 32px', position: 'relative', overflow: 'hidden' }}>
+      <HexDecor size={500} opacity={0.06} style={{ position: 'absolute', top: -100, right: -100 }} />
+      <HexDecor size={280} opacity={0.04} style={{ position: 'absolute', bottom: -60, left: -40 }} />
+      <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
+          {communities.map((item, i) => (
             <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, backgroundColor: GW, border: `1px solid ${G}`, borderRadius: 20, padding: '6px 14px' }}>
               {item.icon}
               <span style={{ fontFamily: sans, fontWeight: 600, fontSize: 13, color: CH }}>{item.label}</span>
             </div>
           ))}
         </div>
-        <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(22px, 3.5vw, 32px)', color: CH, letterSpacing: '-0.02em', margin: '0 0 16px' }}>
-          Trusted by churches, associations, and welfare groups across Ghana
-        </h2>
-        <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 15, color: CHL, lineHeight: 1.65, margin: '0 0 32px' }}>
-          Pollean is your welfare and fundraising platform, built to help organisers spend less time chasing and more time serving their community.
-        </p>
-        <a href={APP_SIGNUP}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '14px 32px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 4px 16px rgba(255,189,89,0.3)` }}>
-          Start your group free →
-        </a>
-      </div>
-    </section>
-  )
-}
-
-/* ─── Final CTA ─────────────────────────────────────────────────────────────── */
-function FinalCTASection() {
-  return (
-    <section style={{ backgroundColor: CH, padding: '96px 32px', position: 'relative', overflow: 'hidden' }}>
-      <HexDecor size={500} opacity={0.06} style={{ position: 'absolute', top: -100, right: -100 }} />
-      <HexDecor size={280} opacity={0.04} style={{ position: 'absolute', bottom: -60, left: -40 }} />
-      <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,189,89,0.12)', border: `1px solid rgba(255,189,89,0.25)`, borderRadius: 20, padding: '5px 14px', marginBottom: 24 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: G }} />
-          <span style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: G, letterSpacing: '0.06em' }}>Ready to get started?</span>
-        </div>
         <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(28px, 5vw, 48px)', color: '#F6F1EA', letterSpacing: '-0.02em', lineHeight: 1.15, margin: '0 0 18px' }}>
-          Ready to run your group online?
+          Ready to run your welfare group on Pollean?
         </h2>
-        <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 16, color: 'rgba(246,241,234,0.6)', lineHeight: 1.65, margin: '0 0 40px' }}>
-          Set up your group, add members, and collect your first contribution, all in under an hour.
+        <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 16, color: 'rgba(246,241,234,0.6)', lineHeight: 1.65, margin: '0 auto 40px', maxWidth: 560 }}>
+          Free to use with no monthly fee. Exact Paystack and Pollean fees appear on the transfer confirm screen before anything leaves your group.
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href={APP_SIGNUP}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 16, letterSpacing: '0.04em', padding: '16px 36px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 6px 24px rgba(255,189,89,0.3)`, transition: 'background-color 0.15s' }}
+            style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: G, color: CH, fontFamily: sans, padding: '12px 28px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 6px 24px rgba(255,189,89,0.3)`, transition: 'background-color 0.15s', minWidth: 168 }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = GL)}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = G)}>
-            Start free →
+            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', lineHeight: 1.2 }}>
+              Start free <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+            </span>
+            <span style={{ fontWeight: 500, fontSize: 11, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For organisers</span>
           </a>
-          <a href={APP_SIGNIN}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: 'transparent', color: '#F6F1EA', fontFamily: sans, fontWeight: 600, fontSize: 15, padding: '15px 28px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid rgba(246,241,234,0.25)`, transition: 'border-color 0.15s' }}
+          <a href="#for-members"
+            style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: 'transparent', color: '#F6F1EA', fontFamily: sans, padding: '11px 24px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid rgba(246,241,234,0.25)`, transition: 'border-color 0.15s', minWidth: 168 }}
             onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(246,241,234,0.6)')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(246,241,234,0.25)')}>
-            Log in
+            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.02em', lineHeight: 1.2 }}>Find your group</span>
+            <span style={{ fontWeight: 500, fontSize: 11, color: 'rgba(246,241,234,0.55)', letterSpacing: '0.01em', lineHeight: 1.2 }}>For members</span>
           </a>
-        </div>
-        <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {['No app required for members', 'Paystack-secured payments', 'Free to start'].map((t, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="7" r="6.5" fill="rgba(255,189,89,0.15)" />
-                <path d="M4 7l2 2 4-4" stroke={G} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span style={{ fontFamily: sans, fontWeight: 500, fontSize: 12, color: 'rgba(246,241,234,0.5)' }}>{t}</span>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -961,8 +952,6 @@ export default function LandingPage() {
       <ProductModulesSection />
       <HowItWorksSection />
       <MemberPortalSection />
-      <FeatureGridSection />
-      <SocialProofSection />
       <FinalCTASection />
       <FooterSection />
     </div>
