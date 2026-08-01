@@ -9,8 +9,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { memberApi, BulkCreateMemberRow, BulkCreateMemberResult } from "@/services/member.api";
+import { useAccount } from "@/hooks/useAccount";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  memberApi,
+  BulkCreateMemberResult,
+  Member,
+} from "@/services/member.api";
 import { FileSpreadsheet, Loader2, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface BulkUploadMemberModalProps {
@@ -117,17 +124,26 @@ export function BulkUploadMemberModal({
   onSuccess,
 }: BulkUploadMemberModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [result, setResult] = useState<BulkCreateMemberResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    added: 0,
+    currentName: "",
+  });
 
   const resetState = () => {
     setParsedRows([]);
     setResult(null);
     setFileName(null);
     setUploading(false);
+    setImportProgress({ current: 0, total: 0, added: 0, currentName: "" });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -140,18 +156,105 @@ export function BulkUploadMemberModal({
     onOpenChange(nextOpen);
   };
 
-  const importMembers = async (rows: ParsedRow[]) => {
-    const members: BulkCreateMemberRow[] = rows.map((row) => ({
-      full_name: row.full_name,
-      phone: row.phone,
-    }));
-
-    const response = await memberApi.bulkCreate(members);
-    if (!response.success || !response.data) {
-      throw new Error(response.error || "Failed to import members");
+  const importMembers = async (rows: ParsedRow[]): Promise<BulkCreateMemberResult> => {
+    if (!account?.account_id) {
+      throw new Error("Account not found");
     }
 
-    return response.data;
+    const created: Member[] = [];
+    const failed: BulkCreateMemberResult["failed"] = [];
+    const seenPhones = new Set<string>();
+
+    setImportProgress({
+      current: 0,
+      total: rows.length,
+      added: 0,
+      currentName: rows[0]?.full_name ?? "",
+    });
+
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      setImportProgress({
+        current: index + 1,
+        total: rows.length,
+        added: created.length,
+        currentName: row.full_name || "Member",
+      });
+
+      const fullName = row.full_name.trim();
+      const phone = row.phone.trim();
+      const normalizedPhone = phone.replace(/[\s\-+]/g, "");
+
+      if (!fullName) {
+        failed.push({
+          row: row.row,
+          full_name: fullName,
+          phone,
+          error: "Name is required",
+        });
+        continue;
+      }
+
+      if (!phone) {
+        failed.push({
+          row: row.row,
+          full_name: fullName,
+          phone,
+          error: "Number is required",
+        });
+        continue;
+      }
+
+      if (seenPhones.has(normalizedPhone)) {
+        failed.push({
+          row: row.row,
+          full_name: fullName,
+          phone,
+          error: "Duplicate phone number in upload file",
+        });
+        continue;
+      }
+
+      try {
+        const response = await memberApi.create({
+          account_id: account.account_id,
+          full_name: fullName,
+          phone,
+          email: null,
+          dob: null,
+          membership_number: null,
+          phone_verified: false,
+          email_verified: false,
+        });
+
+        if (response.success && response.data) {
+          created.push(response.data);
+          seenPhones.add(normalizedPhone);
+          setImportProgress({
+            current: index + 1,
+            total: rows.length,
+            added: created.length,
+            currentName: row.full_name,
+          });
+        } else {
+          failed.push({
+            row: row.row,
+            full_name: fullName,
+            phone,
+            error: response.error || "Failed to create member",
+          });
+        }
+      } catch (error) {
+        failed.push({
+          row: row.row,
+          full_name: fullName,
+          phone,
+          error: error instanceof Error ? error.message : "Failed to create member",
+        });
+      }
+    }
+
+    return { created, failed };
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,11 +327,25 @@ export function BulkUploadMemberModal({
             className="w-full rounded-lg border-2 border-dashed border-border p-8 text-center transition-colors hover:border-amber hover:bg-amber/5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-3 w-full px-4">
                 <Loader2 className="h-8 w-8 animate-spin text-amber" />
-                <p className="text-sm text-muted-foreground">
-                  Importing members from {fileName}...
-                </p>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {importProgress.added}/{importProgress.total} added
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Importing from {fileName}
+                    {importProgress.currentName
+                      ? ` · Adding ${importProgress.currentName}`
+                      : ""}
+                  </p>
+                </div>
+                {importProgress.total > 0 && (
+                  <Progress
+                    value={(importProgress.current / importProgress.total) * 100}
+                    className="w-full h-2"
+                  />
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">

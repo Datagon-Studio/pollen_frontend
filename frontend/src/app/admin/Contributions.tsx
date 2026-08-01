@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { usePagination } from "@/hooks/usePagination";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -468,6 +470,12 @@ export default function Contributions() {
     return filtered;
   }, [contributionRows, searchQuery, activeTab, fundFilter, sortColumn, sortDirection]);
 
+  const contributionsPagination = usePagination(
+    filteredContributions,
+    12,
+    `${activeTab}|${searchQuery}|${fundFilter}|${sortColumn}|${sortDirection}`
+  );
+
   const pendingCount = contributions.filter((c) => c.status === "pending").length;
   const confirmedCount = contributions.filter((c) => c.status === "confirmed").length;
   const pendingAmount = contributions
@@ -640,16 +648,26 @@ export default function Contributions() {
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading contributions...</div>
       ) : (
-        <DataTable
-          columns={columns as any}
-          data={filteredContributions as any}
-          rowClassName={(item: any) =>
-            item.status === "pending" ? "border-l-2 border-l-amber" : ""
-          }
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-        />
+        <>
+          <DataTable
+            columns={columns as any}
+            data={contributionsPagination.paginatedItems as any}
+            rowClassName={(item: any) =>
+              item.status === "pending" ? "border-l-2 border-l-amber" : ""
+            }
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          />
+          <TablePagination
+            page={contributionsPagination.page}
+            totalPages={contributionsPagination.totalPages}
+            totalItems={contributionsPagination.totalItems}
+            rangeStart={contributionsPagination.rangeStart}
+            rangeEnd={contributionsPagination.rangeEnd}
+            onPageChange={contributionsPagination.setPage}
+          />
+        </>
       )}
 
       <RecordContributionModal 

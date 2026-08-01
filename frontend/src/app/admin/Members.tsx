@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { usePagination } from "@/hooks/usePagination";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,27 +177,35 @@ export default function Members() {
     [startDate, endDate]
   );
 
-  const filteredMembers = members.filter((member) => {
-    const fullName = member.full_name.toLowerCase();
-    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
-      (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-    const isActive = isMemberActive(member);
-    const matchesStatus = statusFilter === "all" ||
-      (statusFilter === "active" && isActive) ||
-      (statusFilter === "inactive" && !isActive);
-    const matchesDateRange = isMemberInAddedDateRange(member);
+  const filteredMembers = useMemo(() => {
+    return members.filter((member) => {
+      const fullName = member.full_name.toLowerCase();
+      const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
+        (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      const isActive = isMemberActive(member);
+      const matchesStatus = statusFilter === "all" ||
+        (statusFilter === "active" && isActive) ||
+        (statusFilter === "inactive" && !isActive);
+      const matchesDateRange = isMemberInAddedDateRange(member);
 
-    return matchesSearch && matchesStatus && matchesDateRange;
-  });
+      return matchesSearch && matchesStatus && matchesDateRange;
+    });
+  }, [members, searchQuery, statusFilter, isMemberInAddedDateRange]);
+
+  const membersPagination = usePagination(
+    filteredMembers,
+    12,
+    `${searchQuery}|${statusFilter}|${startDate?.toISOString() ?? ""}|${endDate?.toISOString() ?? ""}`
+  );
 
   const activeCount = members.filter(isMemberActive).length;
   const inactiveCount = members.length - activeCount;
 
   const allFilteredSelected =
-    filteredMembers.length > 0 &&
-    filteredMembers.every((member) => selectedIds.has(member.member_id));
-  const someFilteredSelected = filteredMembers.some((member) =>
+    membersPagination.paginatedItems.length > 0 &&
+    membersPagination.paginatedItems.every((member) => selectedIds.has(member.member_id));
+  const someFilteredSelected = membersPagination.paginatedItems.some((member) =>
     selectedIds.has(member.member_id)
   );
 
@@ -499,7 +509,20 @@ export default function Members() {
           <Button variant="outline" onClick={fetchMembers}>Try Again</Button>
         </div>
       ) : (
-        <DataTable columns={columns as any} data={filteredMembers as any} />
+        <>
+          <DataTable
+            columns={columns as any}
+            data={membersPagination.paginatedItems as any}
+          />
+          <TablePagination
+            page={membersPagination.page}
+            totalPages={membersPagination.totalPages}
+            totalItems={membersPagination.totalItems}
+            rangeStart={membersPagination.rangeStart}
+            rangeEnd={membersPagination.rangeEnd}
+            onPageChange={membersPagination.setPage}
+          />
+        </>
       )}
 
       <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />

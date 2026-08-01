@@ -16,6 +16,8 @@ import { contributionApi, FundContributionStats } from "@/services/contribution.
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { usePagination } from "@/hooks/usePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -290,6 +292,8 @@ export default function Funds() {
 
   const activeFunds = funds.filter((f) => f.is_active);
   const inactiveFunds = funds.filter((f) => !f.is_active);
+  const activeFundsPagination = usePagination(activeFunds, 12, `active-${funds.length}`);
+  const inactiveFundsPagination = usePagination(inactiveFunds, 12, `inactive-${funds.length}`);
 
   const totalCollected = useMemo(() => {
     return funds.reduce((sum, fund) => sum + (fund.totalCollected || 0), 0);
@@ -341,7 +345,7 @@ export default function Funds() {
             <div className="mb-8">
               <h2 className="text-lg font-semibold text-foreground mb-4">Active Funds</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeFunds.map((fund) => (
+                {activeFundsPagination.paginatedItems.map((fund) => (
                   <FundCard 
                     key={fund.fund_id} 
                     fund={fund} 
@@ -352,6 +356,14 @@ export default function Funds() {
                   />
                 ))}
               </div>
+              <TablePagination
+                page={activeFundsPagination.page}
+                totalPages={activeFundsPagination.totalPages}
+                totalItems={activeFundsPagination.totalItems}
+                rangeStart={activeFundsPagination.rangeStart}
+                rangeEnd={activeFundsPagination.rangeEnd}
+                onPageChange={activeFundsPagination.setPage}
+              />
             </div>
           )}
 
@@ -360,7 +372,7 @@ export default function Funds() {
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-4">Inactive Funds</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {inactiveFunds.map((fund) => (
+                {inactiveFundsPagination.paginatedItems.map((fund) => (
                   <FundCard 
                     key={fund.fund_id} 
                     fund={fund} 
@@ -371,6 +383,14 @@ export default function Funds() {
                   />
                 ))}
               </div>
+              <TablePagination
+                page={inactiveFundsPagination.page}
+                totalPages={inactiveFundsPagination.totalPages}
+                totalItems={inactiveFundsPagination.totalItems}
+                rangeStart={inactiveFundsPagination.rangeStart}
+                rangeEnd={inactiveFundsPagination.rangeEnd}
+                onPageChange={inactiveFundsPagination.setPage}
+              />
             </div>
           )}
 

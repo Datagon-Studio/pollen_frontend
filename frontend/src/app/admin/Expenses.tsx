@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { usePagination } from "@/hooks/usePagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -317,6 +319,12 @@ export default function Expenses() {
     }
   }, [expenses, searchQuery, categoryFilter, dateFrom, dateTo, sortColumn, sortDirection]);
 
+  const expensesPagination = usePagination(
+    filteredExpenses,
+    12,
+    `${searchQuery}|${categoryFilter}|${dateFrom?.toISOString() ?? ""}|${dateTo?.toISOString() ?? ""}|${sortColumn}|${sortDirection}`
+  );
+
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + e.amountValue, 0);
   }, [filteredExpenses]);
@@ -501,13 +509,23 @@ export default function Expenses() {
           No expenses found. Add your first expense to get started.
         </div>
       ) : (
-        <DataTable 
-          columns={columnsWithHandlers as any} 
-          data={filteredExpenses as any}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-        />
+        <>
+          <DataTable 
+            columns={columnsWithHandlers as any} 
+            data={expensesPagination.paginatedItems as any}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          />
+          <TablePagination
+            page={expensesPagination.page}
+            totalPages={expensesPagination.totalPages}
+            totalItems={expensesPagination.totalItems}
+            rangeStart={expensesPagination.rangeStart}
+            rangeEnd={expensesPagination.rangeEnd}
+            onPageChange={expensesPagination.setPage}
+          />
+        </>
       )}
 
       <RecordExpenseModal 
