@@ -9,7 +9,11 @@ const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes in milliseconds
 const isPublicRoute = (): boolean => {
   if (typeof window === 'undefined') return false;
   const pathname = window.location.pathname;
-  return pathname.startsWith('/group') || pathname.startsWith('/payment/callback');
+  return (
+    pathname === "/landing" ||
+    pathname.startsWith("/group") ||
+    pathname.startsWith("/payment/callback")
+  );
 };
 
 export function useAuth() {
