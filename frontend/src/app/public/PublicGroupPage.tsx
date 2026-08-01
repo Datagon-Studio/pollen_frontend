@@ -812,7 +812,7 @@ export default function PublicGroupPage() {
           }
 
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center justify-end gap-1">
               {isPending ? (
                 <Loader2 className="h-3.5 w-3.5 text-amber animate-spin" />
               ) : isConfirmed ? (
@@ -922,19 +922,19 @@ export default function PublicGroupPage() {
       <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
       {/* OTP Verification Modal */}
       {showOtpVerification && !isVerified && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md bg-card border-border">
-            <CardHeader>
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <Card className="w-full max-w-md rounded-b-none sm:rounded-lg bg-card border-border max-h-[90dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-0">
+            <CardHeader className="px-4 sm:px-6">
               <CardTitle>Verify Your Phone</CardTitle>
               <CardDescription>
                 Enter the phone number used when you were added to this group.
                 We&apos;ll send an OTP to verify it so you can view contributions and contribute.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 sm:px-6">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     id="phone"
                     placeholder="XXX XXX XXXX"
@@ -944,12 +944,16 @@ export default function PublicGroupPage() {
                       setPhoneUssdCode(null);
                     }}
                     disabled={otpSent}
+                    className="min-h-11 text-base sm:text-sm"
+                    inputMode="tel"
+                    autoComplete="tel"
                   />
                   {!otpSent && (
                     <Button
                       type="button"
                       onClick={handleSendOtp}
                       disabled={sendingOtp || !phone.trim()}
+                      className="min-h-11 w-full sm:w-auto shrink-0"
                     >
                       {sendingOtp ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -967,7 +971,7 @@ export default function PublicGroupPage() {
               {otpSent && (
                 <div className="space-y-2">
                   <Label htmlFor="otp">Enter OTP Code</Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
                       id="otp"
                       placeholder="000000"
@@ -976,12 +980,15 @@ export default function PublicGroupPage() {
                         setOtp(e.target.value.replace(/\D/g, ""))
                       }
                       maxLength={6}
-                      className="text-center text-2xl tracking-widest font-mono"
+                      className="min-h-11 text-center text-2xl tracking-widest font-mono"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
                     />
                     <Button
                       type="button"
                       onClick={handleVerifyOtp}
                       disabled={verifying || !otp.trim()}
+                      className="min-h-11 w-full sm:w-auto shrink-0"
                     >
                       {verifying ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1006,7 +1013,7 @@ export default function PublicGroupPage() {
                     setPhoneUssdCode(null);
                     setSelectedFund(null);
                   }}
-                  className="flex-1"
+                  className="flex-1 min-h-11"
                 >
                   Cancel
                 </Button>
@@ -1017,14 +1024,14 @@ export default function PublicGroupPage() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* Theme Toggle */}
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end mb-3 sm:mb-4">
           <Button
             variant="outline"
             size="icon"
             onClick={toggleTheme}
-            className="rounded-full h-9 w-9 bg-card border-border text-foreground hover:bg-secondary/50"
+            className="rounded-full h-11 w-11 sm:h-9 sm:w-9 bg-card border-border text-foreground hover:bg-secondary/50"
             title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
             {isDark ? (
@@ -1035,40 +1042,48 @@ export default function PublicGroupPage() {
           </Button>
         </div>
 
-        {/* Header with Logo on Left */}
-        <div className="flex items-start gap-6 mb-8">
-          {/* Logo on Left */}
-          <div className="flex-shrink-0">
+        {/* Header — stacks on narrow screens so title never fights the logo */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:block flex-shrink-0">
             {account?.account_logo ? (
               <img
                 src={account.account_logo}
                 alt={account.account_name || "Logo"}
-                className="h-20 w-20 rounded-xl object-cover shadow-lg border-2"
+                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl object-cover shadow-lg border-2"
                 style={{ borderColor: foregroundColor + "20" }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
               <div
-                className="h-20 w-20 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card"
+                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card"
                 style={{
                   borderColor: foregroundColor + "20",
                 }}
               >
-                <BrandSymbol className="h-10 w-10" alt="Pollean" />
+                <BrandSymbol className="h-7 w-7 sm:h-10 sm:w-10" alt="Pollean" />
               </div>
             )}
-          </div>
-
-          {/* Title and Description */}
-          <div className="flex-1">
+            {/* Mobile: group name sits beside logo for a compact first row */}
             <h1
-              className="text-3xl font-bold mb-2"
+              className="text-xl font-bold leading-tight break-words sm:hidden min-w-0 flex-1"
               style={{ color: foregroundColor }}
             >
               {account?.account_name || "Community Group"}
             </h1>
-            <p className="opacity-80 mb-4" style={{ color: foregroundColor }}>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h1
+              className="hidden sm:block text-3xl font-bold mb-2 break-words"
+              style={{ color: foregroundColor }}
+            >
+              {account?.account_name || "Community Group"}
+            </h1>
+            <p
+              className="text-sm sm:text-base opacity-80 mb-4 leading-relaxed"
+              style={{ color: foregroundColor }}
+            >
               {isVerified && memberName ? (
                 <>
                   Welcome back,{" "}
@@ -1080,14 +1095,13 @@ export default function PublicGroupPage() {
               )}
             </p>
 
-            {/* Action Buttons */}
             {isVerified && (
-              <div className="flex flex-col sm:flex-row items-start gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
                 <Button
                   onClick={handleLogout}
                   size="lg"
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto min-h-11"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Leave
@@ -1097,46 +1111,41 @@ export default function PublicGroupPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — equal grid, compact labels on phone */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList
-            className="w-full"
+            className={cn(
+              "w-full h-auto p-1 gap-1",
+              expenseVisibilityLevel !== "none"
+                ? "grid grid-cols-3"
+                : "grid grid-cols-2",
+            )}
             style={{ backgroundColor: secondaryColor + "80" }}
           >
-            {isVerified ? (
-              <>
-                <TabsTrigger value="contributions" className="flex-1">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  My Contributions
-                </TabsTrigger>
-                <TabsTrigger value="funds" className="flex-1">
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Contribute
-                </TabsTrigger>
-                {expenseVisibilityLevel !== "none" && (
-                  <TabsTrigger value="expenses" className="flex-1">
-                    <Receipt className="h-4 w-4 mr-2" />
-                    Expenses
-                  </TabsTrigger>
-                )}
-              </>
-            ) : (
-              <>
-                <TabsTrigger value="contributions" className="flex-1">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  My Contributions
-                </TabsTrigger>
-                <TabsTrigger value="funds" className="flex-1">
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Contribute
-                </TabsTrigger>
-                {expenseVisibilityLevel !== "none" && (
-                  <TabsTrigger value="expenses" className="flex-1">
-                    <Receipt className="h-4 w-4 mr-2" />
-                    Expenses
-                  </TabsTrigger>
-                )}
-              </>
+            <TabsTrigger
+              value="contributions"
+              aria-label="My Contributions"
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-0 min-h-11 px-1.5 sm:px-3 text-[11px] leading-tight sm:text-sm whitespace-normal"
+            >
+              <Receipt className="h-4 w-4 sm:mr-2 shrink-0" />
+              <span className="sm:hidden text-center">Mine</span>
+              <span className="hidden sm:inline">My Contributions</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="funds"
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-0 min-h-11 px-1.5 sm:px-3 text-[11px] leading-tight sm:text-sm whitespace-normal"
+            >
+              <Wallet className="h-4 w-4 sm:mr-2 shrink-0" />
+              Contribute
+            </TabsTrigger>
+            {expenseVisibilityLevel !== "none" && (
+              <TabsTrigger
+                value="expenses"
+                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-0 min-h-11 px-1.5 sm:px-3 text-[11px] leading-tight sm:text-sm whitespace-normal"
+              >
+                <Receipt className="h-4 w-4 sm:mr-2 shrink-0" />
+                Expenses
+              </TabsTrigger>
             )}
           </TabsList>
 
@@ -1235,19 +1244,22 @@ export default function PublicGroupPage() {
                           (e.currentTarget.style.borderColor = "transparent")
                         }
                       >
-                        <CardContent className="pt-6">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
+                        <CardContent className="pt-5 sm:pt-6">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
+                            <div className="flex items-center gap-3 min-w-0">
                               <Wallet
-                                className="h-5 w-5"
+                                className="h-5 w-5 shrink-0"
                                 style={{ color: primaryColor }}
                               />
-                              <span className="font-medium">{f.fund_name}</span>
+                              <span className="font-medium break-words">
+                                {f.fund_name}
+                              </span>
                             </div>
                             {account && account.kyc_status === "verified" && (
                               <Button
                                 size="sm"
                                 onClick={() => handleContributeClick(f)}
+                                className="w-full sm:w-auto min-h-11 sm:min-h-9"
                               >
                                 Contribute →
                               </Button>
@@ -1301,16 +1313,15 @@ export default function PublicGroupPage() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {/* Filters */}
+                {/* Filters — stack on phone so controls stay full-width and tappable */}
                 <div className="space-y-3">
-                  {/* Search - Full width row */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search contributions..."
                       value={contributionSearch}
                       onChange={(e) => setContributionSearch(e.target.value)}
-                      className="pl-9"
+                      className="pl-9 min-h-11 text-base sm:text-sm"
                       style={{
                         backgroundColor: backgroundColor,
                         color: foregroundColor,
@@ -1318,18 +1329,17 @@ export default function PublicGroupPage() {
                     />
                   </div>
 
-                  {/* All Funds and All Status - Side by side */}
-                  <div className="flex gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Select
                       value={contributionFundFilter}
                       onValueChange={setContributionFundFilter}
                     >
                       <SelectTrigger
-                        className="flex-1"
+                        className="w-full min-h-11"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2" />
-                        <SelectValue placeholder="Filter by group" />
+                        <Filter className="h-4 w-4 mr-2 shrink-0" />
+                        <SelectValue placeholder="Filter by fund" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="all">All Funds</SelectItem>
@@ -1345,10 +1355,10 @@ export default function PublicGroupPage() {
                       onValueChange={setContributionStatusFilter}
                     >
                       <SelectTrigger
-                        className="flex-1"
+                        className="w-full min-h-11"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2" />
+                        <Filter className="h-4 w-4 mr-2 shrink-0" />
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
@@ -1360,15 +1370,14 @@ export default function PublicGroupPage() {
                     </Select>
                   </div>
 
-                  {/* Start Date and End Date - Side by side */}
-                  <div className="flex gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           className={cn(
-                            "flex-1 relative font-normal",
+                            "w-full min-h-11 relative font-normal justify-start pl-10",
                             !contributionStartDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1377,7 +1386,7 @@ export default function PublicGroupPage() {
                           }}
                         >
                           <CalendarIcon className="absolute left-3 h-4 w-4" />
-                          <span className="text-center w-full">
+                          <span className="truncate">
                             {contributionStartDate
                               ? format(contributionStartDate, "MMM d, yyyy")
                               : "Start date"}
@@ -1404,7 +1413,7 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "flex-1 relative font-normal",
+                            "w-full min-h-11 relative font-normal justify-start pl-10",
                             !contributionEndDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1413,7 +1422,7 @@ export default function PublicGroupPage() {
                           }}
                         >
                           <CalendarIcon className="absolute left-3 h-4 w-4" />
-                          <span className="text-center w-full">
+                          <span className="truncate">
                             {contributionEndDate
                               ? format(contributionEndDate, "MMM d, yyyy")
                               : "End date"}
@@ -1445,7 +1454,7 @@ export default function PublicGroupPage() {
                         setContributionStartDate(undefined);
                         setContributionEndDate(undefined);
                       }}
-                      className="w-full"
+                      className="w-full min-h-11"
                       style={{
                         backgroundColor: backgroundColor,
                         color: foregroundColor,
@@ -1497,11 +1506,11 @@ export default function PublicGroupPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center p-4 border rounded-lg">
-                        <span className="text-muted-foreground">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center p-4 border rounded-lg">
+                        <span className="text-sm text-muted-foreground">
                           Total Contributions
                         </span>
-                        <span className="text-lg font-semibold text-green-600">
+                        <span className="text-lg font-semibold font-mono text-green-600 tabular-nums">
                           {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
                           {Object.values(fundStats)
                             .reduce(
@@ -1511,21 +1520,21 @@ export default function PublicGroupPage() {
                             .toFixed(2)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center p-4 border rounded-lg">
-                        <span className="text-muted-foreground">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center p-4 border rounded-lg">
+                        <span className="text-sm text-muted-foreground">
                           Total Expenses
                         </span>
-                        <span className="text-lg font-semibold text-red-600">
+                        <span className="text-lg font-semibold font-mono text-red-600 tabular-nums">
                           {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
                           {expenses
                             .reduce((sum, e) => sum + Number(e.amount), 0)
                             .toFixed(2)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center p-4 border rounded-lg bg-muted">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center p-4 border rounded-lg bg-muted">
                         <span className="font-medium">Net Position</span>
                         <span
-                          className={`text-lg font-semibold ${
+                          className={`text-lg font-semibold font-mono tabular-nums ${
                             Object.values(fundStats).reduce(
                               (sum, stats) => sum + stats.totalCollected,
                               0,
@@ -1565,7 +1574,7 @@ export default function PublicGroupPage() {
                         placeholder="Search expenses..."
                         value={expenseSearch}
                         onChange={(e) => setExpenseSearch(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 min-h-11 text-base sm:text-sm"
                         style={{
                           backgroundColor: backgroundColor,
                           color: foregroundColor,
@@ -1577,10 +1586,10 @@ export default function PublicGroupPage() {
                       onValueChange={setExpenseCategoryFilter}
                     >
                       <SelectTrigger
-                        className="w-[180px]"
+                        className="w-full sm:w-[180px] min-h-11"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2" />
+                        <Filter className="h-4 w-4 mr-2 shrink-0" />
                         <SelectValue placeholder="Filter by category" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
