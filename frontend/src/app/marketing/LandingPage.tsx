@@ -3,53 +3,80 @@
  *
  * THESIS: Manager-first conversion — notebook chaos → digital group records — without a dual hero.
  * OWN-WORLD: Warm hive cream/charcoal with rare Pollean Gold; Montserrat + JetBrains Mono; honeycomb decor.
- * STORY: Organizer recognizes the pain, trusts Paystack/Ghana truth, starts free; members find their group.
+ * DARK: Night hive via semantic tokens + landing-scoped preference (system default, nav toggle, local storage).
+ * STORY: Organizer recognizes the pain, trusts Paystack/Ghana truth, starts free.
  * FIRST VIEWPORT: Brand lockup in nav, manager headline + dual CTAs, dashboard mockup as product proof.
  * FORM: Figma handoff integrated as-shipped; CTAs point at app.pollean.com.
  */
 import { useState, useEffect, type CSSProperties } from "react";
 import { getAppUrl } from "@/lib/app-url";
+import {
+  LandingThemeProvider,
+  useLandingTheme,
+} from "@/hooks/useLandingTheme";
 
 const APP = getAppUrl();
 const APP_SIGNIN = `${APP}/signin`;
 const APP_SIGNUP = `${APP}/signup`;
-const APP_GROUP = `${APP}/group`;
 
-/* ─── Brand tokens ─────────────────────────────────────────────────────────── */
-const G = '#FFBD59'          // gold
-const GL = '#FFCA7A'         // gold light
-const GW = '#FFEFD6'         // gold wash
-const CH = '#2E2E2E'         // charcoal
-const CHL = '#474747'        // charcoal light
-const CR = '#F6F1EA'         // cream
-const CRA = '#EFEAE1'        // cream alt
-const CARD = '#F8F6F1'       // card
-const SURF = '#ECE7DF'       // surface
-const BOR = '#DED8CE'        // border
-const SUC = '#17823E'        // success
-const DNG = '#DB2424'        // danger
+/* ─── Semantic tokens (remap under .dark / .landing-mock) ──────────────────── */
+const G = "hsl(var(--primary))";
+const GL = "hsl(var(--amber-light))";
+const GW = "hsl(var(--accent))";
+const CH = "hsl(var(--foreground))";
+const CHL = "hsl(var(--muted-foreground))";
+const CR = "hsl(var(--background))";
+const CRA = "hsl(var(--cream))";
+const CARD = "hsl(var(--card))";
+const SURF = "hsl(var(--secondary))";
+const BOR = "hsl(var(--border))";
+const SUC = "hsl(var(--success))";
+const DNG = "hsl(var(--destructive))";
+const ON_GOLD = "hsl(var(--primary-foreground))";
+const INK = "hsl(var(--landing-ink))";
+const INK_FG = "hsl(var(--landing-ink-fg))";
+const INK_MUTED = "hsl(var(--landing-ink-muted) / 0.55)";
+const INK_MUTED_SOFT = "hsl(var(--landing-ink-muted) / 0.35)";
+const INK_BORDER = "hsl(var(--landing-ink-fg) / 0.08)";
+const FOOTER_BG = "hsl(var(--landing-footer))";
 
-const sans = "'Montserrat', sans-serif"
-const mono = "'JetBrains Mono', monospace"
+const sans = "'Montserrat', sans-serif";
+const mono = "'JetBrains Mono', monospace";
 
 /* ─── Logo ─────────────────────────────────────────────────────────────────── */
-function Logo({ dark = false, size = 30 }: { dark?: boolean; size?: number }) {
-  const t = dark ? '#F6F1EA' : CH
+function Logo({
+  onInk = false,
+  size = 30,
+}: {
+  onInk?: boolean;
+  size?: number;
+}) {
+  const { resolved } = useLandingTheme();
+  const t = onInk || resolved === "dark" ? INK_FG : CH;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
       <img
         src="/logos/Pollean-Symbol-Gold.png"
         alt=""
         width={size}
         height={size}
-        style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+        style={{ width: size, height: size, objectFit: "contain", display: "block" }}
         decoding="async"
       />
-      <span style={{ fontFamily: sans, fontWeight: 800, fontSize: size * 0.57, letterSpacing: '0.1em', color: t, lineHeight: 1 }}>
+      <span
+        style={{
+          fontFamily: sans,
+          fontWeight: 800,
+          fontSize: size * 0.57,
+          letterSpacing: "0.1em",
+          color: t,
+          lineHeight: 1,
+        }}
+      >
         POLLEAN
       </span>
     </div>
-  )
+  );
 }
 
 /* ─── Decorative hex ────────────────────────────────────────────────────────── */
@@ -80,7 +107,8 @@ function HexDecor({ size = 360, opacity = 0.09, style: sx = {} }: { size?: numbe
 /* ─── Dashboard mockup ──────────────────────────────────────────────────────── */
 function DashboardMockup() {
   return (
-    <div style={{ borderRadius: 14, border: `1px solid ${BOR}`, overflow: 'hidden', boxShadow: `0 28px 64px rgba(46,46,46,0.14)`, backgroundColor: CARD, width: '100%', maxWidth: 540, boxSizing: 'border-box' }}>
+    <div className="landing-mock">
+    <div style={{ borderRadius: 14, border: `1px solid ${BOR}`, overflow: 'hidden', boxShadow: `0 28px 64px hsl(0 0% 0% / 0.14)`, backgroundColor: CARD, width: '100%', maxWidth: 540, boxSizing: 'border-box' }}>
       {/* Browser chrome */}
       <div style={{ height: 40, backgroundColor: SURF, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', borderBottom: `1px solid ${BOR}` }}>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -91,12 +119,12 @@ function DashboardMockup() {
         </div>
       </div>
       {/* App header bar */}
-      <div style={{ backgroundColor: CH, padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ backgroundColor: INK, padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#F6F1EA', fontFamily: sans }}>Adom Welfare Association</div>
-          <div style={{ fontSize: 10, color: 'rgba(246,241,234,0.55)', fontFamily: sans, marginTop: 1 }}>Dashboard · June 2025</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: INK_FG, fontFamily: sans }}>Adom Welfare Association</div>
+          <div style={{ fontSize: 10, color: INK_MUTED, fontFamily: sans, marginTop: 1 }}>Dashboard · June 2025</div>
         </div>
-        <div style={{ backgroundColor: G, borderRadius: 6, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: CH, fontFamily: sans, letterSpacing: '0.06em' }}>ADMIN</div>
+        <div style={{ backgroundColor: G, borderRadius: 6, padding: '4px 10px', fontSize: 10, fontWeight: 700, color: ON_GOLD, fontFamily: sans, letterSpacing: '0.06em' }}>ADMIN</div>
       </div>
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, padding: '14px 20px 10px' }}>
@@ -155,16 +183,18 @@ function DashboardMockup() {
         ))}
       </div>
     </div>
+    </div>
   )
 }
 
 /* ─── Product tab UIs ───────────────────────────────────────────────────────── */
 function FundsMockupUI() {
   return (
+    <div className="landing-mock">
     <div style={{ backgroundColor: CARD, borderRadius: 12, border: `1px solid ${BOR}`, overflow: 'hidden' }}>
-      <div style={{ backgroundColor: CH, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#F6F1EA', fontFamily: sans }}>Funds</span>
-        <div style={{ backgroundColor: G, borderRadius: 5, padding: '3px 9px', fontSize: 10, fontWeight: 700, color: CH, fontFamily: sans }}>+ New Fund</div>
+      <div style={{ backgroundColor: INK, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: INK_FG, fontFamily: sans }}>Funds</span>
+        <div style={{ backgroundColor: G, borderRadius: 5, padding: '3px 9px', fontSize: 10, fontWeight: 700, color: ON_GOLD, fontFamily: sans }}>+ New Fund</div>
       </div>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {[
@@ -194,6 +224,7 @@ function FundsMockupUI() {
         ))}
       </div>
     </div>
+    </div>
   )
 }
 
@@ -206,12 +237,13 @@ function ContributionsMockupUI() {
     { name: 'Yaw Darko', amount: 'GH₵ 150', fund: 'Annual Dues', ok: false, pledge: true, date: 'Jun 22' },
   ]
   return (
+    <div className="landing-mock">
     <div style={{ backgroundColor: CARD, borderRadius: 12, border: `1px solid ${BOR}`, overflow: 'hidden' }}>
-      <div style={{ backgroundColor: CH, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#F6F1EA', fontFamily: sans }}>Contributions</span>
+      <div style={{ backgroundColor: INK, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: INK_FG, fontFamily: sans }}>Contributions</span>
         <div style={{ display: 'flex', gap: 5 }}>
           {['All', 'Confirmed', 'Pending'].map((t, i) => (
-            <div key={i} style={{ backgroundColor: i === 0 ? G : 'rgba(246,241,234,0.12)', borderRadius: 4, padding: '2px 8px', fontSize: 9, fontWeight: 600, color: i === 0 ? CH : 'rgba(246,241,234,0.65)', fontFamily: sans, cursor: 'pointer' }}>{t}</div>
+            <div key={i} style={{ backgroundColor: i === 0 ? G : 'hsl(var(--landing-ink-fg) / 0.12)', borderRadius: 4, padding: '2px 8px', fontSize: 9, fontWeight: 600, color: i === 0 ? ON_GOLD : 'hsl(var(--landing-ink-fg) / 0.65)', fontFamily: sans, cursor: 'pointer' }}>{t}</div>
           ))}
         </div>
       </div>
@@ -235,6 +267,7 @@ function ContributionsMockupUI() {
         ))}
       </div>
     </div>
+    </div>
   )
 }
 
@@ -247,17 +280,18 @@ function MembersMockupUI() {
     { name: 'Yaw Darko', role: 'Member', paid: false, total: 'GH₵ 300' },
   ]
   return (
+    <div className="landing-mock">
     <div style={{ backgroundColor: CARD, borderRadius: 12, border: `1px solid ${BOR}`, overflow: 'hidden' }}>
-      <div style={{ backgroundColor: CH, padding: '12px 16px' }}>
+      <div style={{ backgroundColor: INK, padding: '12px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#F6F1EA', fontFamily: sans }}>Members & Reports</span>
-          <div style={{ backgroundColor: G, borderRadius: 5, padding: '3px 9px', fontSize: 10, fontWeight: 700, color: CH, fontFamily: sans }}>Export CSV</div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: INK_FG, fontFamily: sans }}>Members & Reports</span>
+          <div style={{ backgroundColor: G, borderRadius: 5, padding: '3px 9px', fontSize: 10, fontWeight: 700, color: ON_GOLD, fontFamily: sans }}>Export CSV</div>
         </div>
         <div style={{ display: 'flex', gap: 14 }}>
           {[{ l: 'Members', v: '14' }, { l: 'Collected', v: 'GH₵ 9,450' }, { l: 'Expenses', v: 'GH₵ 2,340' }, { l: 'Net', v: 'GH₵ 7,110' }].map((s, i) => (
             <div key={i}>
-              <div style={{ fontSize: 9, color: 'rgba(246,241,234,0.55)', fontFamily: sans }}>{s.l}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: mono, color: '#F6F1EA' }}>{s.v}</div>
+              <div style={{ fontSize: 9, color: INK_MUTED, fontFamily: sans }}>{s.l}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: mono, color: INK_FG }}>{s.v}</div>
             </div>
           ))}
         </div>
@@ -276,66 +310,61 @@ function MembersMockupUI() {
               <div style={{ fontSize: 9, color: CHL, fontFamily: sans }}>{m.role}</div>
             </div>
           </div>
-          <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, backgroundColor: m.paid ? '#E6F4EC' : '#FEF3F3', color: m.paid ? SUC : DNG, fontSize: 9, fontWeight: 600, fontFamily: sans, width: 'fit-content' }}>
+          <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, backgroundColor: m.paid ? 'hsl(var(--success) / 0.12)' : 'hsl(var(--destructive) / 0.1)', color: m.paid ? SUC : DNG, fontSize: 9, fontWeight: 600, fontFamily: sans, width: 'fit-content' }}>
             {m.paid ? '✓ Paid' : '○ Due'}
           </span>
           <div style={{ fontSize: 11, fontWeight: 700, fontFamily: mono, color: CH }}>{m.total}</div>
         </div>
       ))}
     </div>
+    </div>
   )
 }
 
-/* ─── Mobile portal mockup ──────────────────────────────────────────────────── */
-function MobilePortalMockup() {
+/* ─── Theme toggle ──────────────────────────────────────────────────────────── */
+function ThemeToggle({ compact = false }: { compact?: boolean }) {
+  const { resolved, toggle } = useLandingTheme()
+  const isDark = resolved === 'dark'
   return (
-    <div style={{ width: 238, margin: '0 auto', flexShrink: 0 }}>
-      <div style={{ borderRadius: 28, border: `2px solid ${BOR}`, backgroundColor: CARD, overflow: 'hidden', boxShadow: `0 24px 56px rgba(46,46,46,0.16)` }}>
-        <div style={{ height: 38, backgroundColor: CH, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-          <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M16 1.5L29.5 8.25V23.75L16 30.5L2.5 23.75V8.25Z" fill={G} /></svg>
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', color: '#F6F1EA', fontFamily: sans }}>POLLEAN</span>
-        </div>
-        <div style={{ padding: '14px 16px 10px', textAlign: 'center', backgroundColor: CR, borderBottom: `1px solid ${BOR}` }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: GW, border: `2px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21h18M9 21V9l3-6 3 6v12M9 9h6"/>
-            </svg>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: CH, fontFamily: sans }}>Grace Assembly Welfare</div>
-          <div style={{ fontSize: 9, color: CHL, fontFamily: sans, marginTop: 2 }}>Accra, Ghana · 24 members</div>
-        </div>
-        <div style={{ padding: '12px 16px 8px' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: CH, fontFamily: sans, marginBottom: 8 }}>Active Funds</div>
-          {[{ name: 'Building Fund', pct: 71, col: '7,100', tar: '10,000' }, { name: 'Annual Dues 2025', pct: 55, col: '3,300', tar: '6,000' }].map((f, i) => (
-            <div key={i} style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 9, fontWeight: 600, color: CH, fontFamily: sans }}>{f.name}</span>
-                <span style={{ fontSize: 9, fontFamily: mono, color: CHL }}>{f.pct}%</span>
-              </div>
-              <div style={{ height: 5, backgroundColor: BOR, borderRadius: 3 }}>
-                <div style={{ width: `${f.pct}%`, height: '100%', backgroundColor: G, borderRadius: 3 }} />
-              </div>
-              <div style={{ fontSize: 8, color: CHL, marginTop: 2, fontFamily: mono }}>GH₵ {f.col} / GH₵ {f.tar}</div>
-            </div>
-          ))}
-          <button style={{ width: '100%', height: 36, borderRadius: 8, backgroundColor: G, border: 'none', fontSize: 10, fontWeight: 700, color: CH, cursor: 'pointer', fontFamily: sans, letterSpacing: '0.05em', marginTop: 4 }}>
-            CONTRIBUTE ONLINE
-          </button>
-        </div>
-        <div style={{ padding: '6px 16px 16px' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: CH, fontFamily: sans, marginBottom: 6 }}>Your Contributions</div>
-          {[{ month: 'Jun 2025', amount: 'GH₵ 200' }, { month: 'May 2025', amount: 'GH₵ 200' }, { month: 'Apr 2025', amount: 'GH₵ 200' }].map((item, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < 2 ? `1px solid ${BOR}` : 'none' }}>
-              <span style={{ fontSize: 9, color: CHL, fontFamily: sans }}>{item.month}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 9, fontFamily: mono, fontWeight: 700, color: CH }}>{item.amount}</span>
-                <span style={{ fontSize: 8, color: SUC, fontWeight: 600 }}>✓</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: compact ? 40 : 36,
+        height: compact ? 40 : 36,
+        borderRadius: 8,
+        border: `1px solid ${BOR}`,
+        backgroundColor: 'transparent',
+        color: CHL,
+        cursor: 'pointer',
+        flexShrink: 0,
+        transition: 'color 0.15s, border-color 0.15s, background-color 0.15s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.color = CH
+        e.currentTarget.style.borderColor = CH
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.color = CHL
+        e.currentTarget.style.borderColor = BOR
+      }}
+    >
+      {isDark ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z" />
+        </svg>
+      )}
+    </button>
   )
 }
 
@@ -353,13 +382,12 @@ function Nav() {
   const links = [
     { label: 'Features', href: '#features' },
     { label: 'How it works', href: '#how-it-works' },
-    { label: 'For members', href: '#for-members' },
   ]
 
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-      backgroundColor: scrolled ? 'rgba(246,241,234,0.95)' : 'transparent',
+      backgroundColor: scrolled ? 'hsl(var(--background) / 0.95)' : 'transparent',
       backdropFilter: scrolled ? 'blur(12px)' : 'none',
       borderBottom: scrolled ? `1px solid ${BOR}` : '1px solid transparent',
       transition: 'all 0.25s ease',
@@ -378,26 +406,31 @@ function Nav() {
         </div>
         {/* Desktop CTAs */}
         <div className="hidden md:flex" style={{ gap: 10, alignItems: 'center' }}>
+          <ThemeToggle />
           <a href={APP_SIGNIN} style={{ fontFamily: sans, fontWeight: 600, fontSize: 13, color: CHL, textDecoration: 'none', padding: '8px 16px', borderRadius: 8, transition: 'color 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.color = CH)}
             onMouseLeave={e => (e.currentTarget.style.color = CHL)}>
             Log in
           </a>
           <a href={APP_SIGNUP}
-            style={{ fontFamily: sans, fontWeight: 700, fontSize: 13, color: CH, textDecoration: 'none', padding: '9px 20px', borderRadius: 8, backgroundColor: G, letterSpacing: '0.04em', transition: 'background-color 0.15s' }}
+            style={{ fontFamily: sans, fontWeight: 700, fontSize: 13, color: ON_GOLD, textDecoration: 'none', padding: '9px 20px', borderRadius: 8, backgroundColor: G, letterSpacing: '0.04em', transition: 'background-color 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = GL)}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = G)}>
             Start free
           </a>
         </div>
-        {/* Mobile hamburger */}
-        <button className="md:hidden" onClick={() => setOpen(!open)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}>
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            {open ? <><line x1="3" y1="3" x2="19" y2="19" stroke={CH} strokeWidth="2" strokeLinecap="round" /><line x1="19" y1="3" x2="3" y2="19" stroke={CH} strokeWidth="2" strokeLinecap="round" /></>
-              : <><line x1="3" y1="6" x2="19" y2="6" stroke={CH} strokeWidth="2" strokeLinecap="round" /><line x1="3" y1="11" x2="19" y2="11" stroke={CH} strokeWidth="2" strokeLinecap="round" /><line x1="3" y1="16" x2="19" y2="16" stroke={CH} strokeWidth="2" strokeLinecap="round" /></>}
-          </svg>
-        </button>
+        {/* Mobile controls */}
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle compact />
+          <button onClick={() => setOpen(!open)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: CH }}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              {open ? <><line x1="3" y1="3" x2="19" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><line x1="19" y1="3" x2="3" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>
+                : <><line x1="3" y1="6" x2="19" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><line x1="3" y1="11" x2="19" y2="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><line x1="3" y1="16" x2="19" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>}
+            </svg>
+          </button>
+        </div>
       </div>
       {/* Mobile drawer */}
       {open && (
@@ -410,7 +443,7 @@ function Nav() {
           ))}
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <a href={APP_SIGNIN} style={{ flex: 1, textAlign: 'center', fontFamily: sans, fontWeight: 600, fontSize: 14, color: CH, textDecoration: 'none', padding: '11px', borderRadius: 8, border: `1.5px solid ${BOR}` }}>Log in</a>
-            <a href={APP_SIGNUP} style={{ flex: 1, textAlign: 'center', fontFamily: sans, fontWeight: 700, fontSize: 14, color: CH, textDecoration: 'none', padding: '11px', borderRadius: 8, backgroundColor: G }}>Start free</a>
+            <a href={APP_SIGNUP} style={{ flex: 1, textAlign: 'center', fontFamily: sans, fontWeight: 700, fontSize: 14, color: ON_GOLD, textDecoration: 'none', padding: '11px', borderRadius: 8, backgroundColor: G }}>Start free</a>
           </div>
         </div>
       )}
@@ -442,20 +475,12 @@ function HeroSection() {
           </p>
           <div className="flex flex-nowrap items-center justify-center gap-2 md:justify-start md:gap-3">
             <a href={APP_SIGNUP}
-              style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: G, color: CH, fontFamily: sans, padding: '10px 16px', borderRadius: 10, textDecoration: 'none', transition: 'background-color 0.15s', boxShadow: `0 4px 16px rgba(255,189,89,0.35)`, flex: '1 1 0', minWidth: 0, maxWidth: 168 }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: G, color: ON_GOLD, fontFamily: sans, padding: '12px 22px', borderRadius: 10, textDecoration: 'none', transition: 'background-color 0.15s', boxShadow: `0 4px 16px hsl(var(--primary) / 0.35)` }}
               onMouseEnter={e => (e.currentTarget.style.backgroundColor = GL)}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = G)}>
               <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', lineHeight: 1.2 }}>
                 Start free <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
               </span>
-              <span style={{ fontWeight: 500, fontSize: 10, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For organisers</span>
-            </a>
-            <a href="#for-members"
-              style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: 'transparent', color: CH, fontFamily: sans, padding: '9px 16px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid ${BOR}`, transition: 'border-color 0.15s', flex: '1 1 0', minWidth: 0, maxWidth: 168 }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = CH)}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = BOR)}>
-              <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.02em', lineHeight: 1.2 }}>Find your group</span>
-              <span style={{ fontWeight: 500, fontSize: 10, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For members</span>
             </a>
           </div>
           <div className="mt-6 flex flex-nowrap items-center justify-center gap-2 md:mt-7 md:justify-start md:gap-5">
@@ -542,7 +567,7 @@ function PainSection() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           {pains.map((p, i) => (
-            <div key={i} style={{ backgroundColor: CARD, borderRadius: 16, padding: '28px 28px', border: `1px solid ${BOR}`, boxShadow: `0 2px 12px rgba(46,46,46,0.05)` }}>
+            <div key={i} style={{ backgroundColor: CARD, borderRadius: 16, padding: '28px 28px', border: `1px solid ${BOR}`, boxShadow: `0 2px 12px hsl(0 0% 0% / 0.05)` }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: GW, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, color: CH }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d={p.icon} />
@@ -604,19 +629,19 @@ function TrustStrip() {
     },
   ]
   return (
-    <section style={{ backgroundColor: CH, padding: '60px 32px' }}>
+    <section style={{ backgroundColor: INK, padding: '60px 32px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <p style={{ fontFamily: sans, fontWeight: 700, fontSize: 14, color: 'rgba(246,241,234,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+          <p style={{ fontFamily: sans, fontWeight: 700, fontSize: 14, color: INK_MUTED_SOFT, letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
             Trusted infrastructure
           </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1, backgroundColor: 'rgba(246,241,234,0.08)', borderRadius: 14, overflow: 'hidden', border: `1px solid rgba(246,241,234,0.08)` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1, backgroundColor: INK_BORDER, borderRadius: 14, overflow: 'hidden', border: `1px solid ${INK_BORDER}` }}>
           {items.map((item, i) => (
-            <div key={i} style={{ padding: '28px 28px', backgroundColor: 'rgba(46,46,46,0.6)' }}>
+            <div key={i} style={{ padding: '28px 28px', backgroundColor: 'hsl(var(--landing-ink) / 0.6)' }}>
               <div style={{ marginBottom: 14 }}>{item.icon}</div>
-              <div style={{ fontFamily: sans, fontWeight: 700, fontSize: 14, color: '#F6F1EA', marginBottom: 6 }}>{item.title}</div>
-              <div style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'rgba(246,241,234,0.55)', lineHeight: 1.55, textAlign: 'left' }}>{item.body}</div>
+              <div style={{ fontFamily: sans, fontWeight: 700, fontSize: 14, color: INK_FG, marginBottom: 6 }}>{item.title}</div>
+              <div style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: INK_MUTED, lineHeight: 1.55, textAlign: 'left' }}>{item.body}</div>
             </div>
           ))}
         </div>
@@ -691,7 +716,7 @@ function ProductModulesSection() {
               ))}
             </ul>
             <a href={APP_SIGNUP}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', padding: '12px 24px', borderRadius: 9, textDecoration: 'none' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: ON_GOLD, fontFamily: sans, fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', padding: '12px 24px', borderRadius: 9, textDecoration: 'none' }}>
               Try it free →
             </a>
           </div>
@@ -726,7 +751,7 @@ function HowItWorksSection() {
           {steps.map((s, i) => (
             <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: CH, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontWeight: 700, fontSize: 14, color: G, flexShrink: 0, zIndex: 1 }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: INK, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontWeight: 700, fontSize: 14, color: G, flexShrink: 0, zIndex: 1 }}>
                   {s.n}
                 </div>
                 {i < steps.length - 1 && (
@@ -746,7 +771,7 @@ function HowItWorksSection() {
           <div style={{ position: 'absolute', top: 28, left: '16.67%', right: '16.67%', borderTop: `2px dashed ${BOR}`, zIndex: 0 }} />
           {steps.map((s, i) => (
             <div key={i} style={{ flex: '1 1 240px', textAlign: 'center', padding: '0 24px', position: 'relative', zIndex: 1 }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: CH, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontFamily: mono, fontWeight: 700, fontSize: 15, color: G }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: INK, border: `3px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontFamily: mono, fontWeight: 700, fontSize: 15, color: G }}>
                 {s.n}
               </div>
               <h3 style={{ fontFamily: sans, fontWeight: 700, fontSize: 17, color: CH, marginBottom: 10, letterSpacing: '-0.01em', textAlign: 'left' }}>{s.title}</h3>
@@ -757,7 +782,7 @@ function HowItWorksSection() {
 
         <div style={{ textAlign: 'center', marginTop: 56 }}>
           <a href={APP_SIGNUP}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '14px 32px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 4px 16px rgba(255,189,89,0.3)` }}>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: G, color: ON_GOLD, fontFamily: sans, fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', padding: '14px 32px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 4px 16px hsl(var(--primary) / 0.3)` }}>
             Start free. It takes minutes.
           </a>
         </div>
@@ -766,57 +791,13 @@ function HowItWorksSection() {
   )
 }
 
-/* ─── Member portal ─────────────────────────────────────────────────────────── */
-function MemberPortalSection() {
-  return (
-    <section id="for-members" style={{ backgroundColor: CR, padding: '88px 32px' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Mobile mockup */}
-        <div style={{ flex: '0 0 auto' }}>
-          <MobilePortalMockup />
-        </div>
-        {/* Text */}
-        <div style={{ flex: '1 1 360px' }}>
-          <p style={{ fontFamily: sans, fontWeight: 600, fontSize: 12, color: CH, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>For members</p>
-          <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(24px, 3.5vw, 36px)', color: CH, letterSpacing: '-0.02em', lineHeight: 1.15, margin: '0 0 16px' }}>
-            Your members get their own portal. No app download.
-          </h2>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 36px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {[
-              'Join with phone number verification',
-              'Contribute online via Paystack: MoMo or card',
-              'View fund progress and personal history',
-              'Optional expense transparency, group-controlled',
-            ].map((item, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: GW, border: `1.5px solid ${G}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 2.5" stroke={G} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </div>
-                <span style={{ fontFamily: sans, fontWeight: 500, fontSize: 14, color: CH, lineHeight: 1.5 }}>{item}</span>
-              </li>
-            ))}
-          </ul>
-          <a href={APP_GROUP}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, backgroundColor: SURF, color: CH, fontFamily: sans, fontWeight: 700, fontSize: 14, letterSpacing: '0.04em', padding: '12px 24px', borderRadius: 10, textDecoration: 'none', border: `1px solid ${BOR}`, transition: 'background-color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = GW)}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = SURF)}>
-            Find your group →
-          </a>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-
-
 /* ─── Final CTA ─────────────────────────────────────────────────────────────── */
 function FinalCTASection() {
   const communities = [
     {
       label: 'Churches',
       icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           <path d="M9 22V12h6v10" />
         </svg>
@@ -825,7 +806,7 @@ function FinalCTASection() {
     {
       label: 'Associations',
       icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -836,7 +817,7 @@ function FinalCTASection() {
     {
       label: 'Welfare Groups',
       icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       ),
@@ -844,7 +825,7 @@ function FinalCTASection() {
     {
       label: 'Cooperatives',
       icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={CH} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22V12" />
           <path d="M12 12C10 9 8 6 7 4c-1-2 1-3 3-2s2 2 2 2" />
           <path d="M12 12c2-3 4-6 5-8 1-2-1-3-3-2s-2 2-2 2" />
@@ -853,40 +834,32 @@ function FinalCTASection() {
     },
   ]
   return (
-    <section style={{ backgroundColor: CH, padding: '96px 32px', position: 'relative', overflow: 'hidden' }}>
+    <section style={{ backgroundColor: INK, padding: '96px 32px', position: 'relative', overflow: 'hidden' }}>
       <HexDecor size={500} opacity={0.06} style={{ position: 'absolute', top: -100, right: -100 }} />
       <HexDecor size={280} opacity={0.04} style={{ position: 'absolute', bottom: -60, left: -40 }} />
       <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
           {communities.map((item, i) => (
-            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, backgroundColor: GW, border: `1px solid ${G}`, borderRadius: 20, padding: '6px 14px' }}>
+            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, backgroundColor: GW, border: `1px solid ${G}`, borderRadius: 20, padding: '6px 14px', color: CH }}>
               {item.icon}
-              <span style={{ fontFamily: sans, fontWeight: 600, fontSize: 13, color: CH }}>{item.label}</span>
+              <span style={{ fontFamily: sans, fontWeight: 600, fontSize: 13, color: 'currentColor' }}>{item.label}</span>
             </div>
           ))}
         </div>
-        <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(28px, 5vw, 48px)', color: '#F6F1EA', letterSpacing: '-0.02em', lineHeight: 1.15, margin: '0 0 18px' }}>
+        <h2 style={{ fontFamily: sans, fontWeight: 800, fontSize: 'clamp(28px, 5vw, 48px)', color: INK_FG, letterSpacing: '-0.02em', lineHeight: 1.15, margin: '0 0 18px' }}>
           Ready to run your welfare group on Pollean?
         </h2>
-        <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 16, color: 'rgba(246,241,234,0.6)', lineHeight: 1.65, margin: '0 auto 40px', maxWidth: 560 }}>
+        <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 16, color: INK_MUTED, lineHeight: 1.65, margin: '0 auto 40px', maxWidth: 560 }}>
           Free to use with no monthly fee. Exact Paystack and Pollean fees appear on the transfer confirm screen before anything leaves your group.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href={APP_SIGNUP}
-            style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: G, color: CH, fontFamily: sans, padding: '12px 28px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 6px 24px rgba(255,189,89,0.3)`, transition: 'background-color 0.15s', minWidth: 168 }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: G, color: ON_GOLD, fontFamily: sans, padding: '14px 28px', borderRadius: 10, textDecoration: 'none', boxShadow: `0 6px 24px hsl(var(--primary) / 0.3)`, transition: 'background-color 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = GL)}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = G)}>
             <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.04em', lineHeight: 1.2 }}>
               Start free <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
             </span>
-            <span style={{ fontWeight: 500, fontSize: 11, color: CHL, letterSpacing: '0.01em', lineHeight: 1.2 }}>For organisers</span>
-          </a>
-          <a href="#for-members"
-            style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2, backgroundColor: 'transparent', color: '#F6F1EA', fontFamily: sans, padding: '11px 24px', borderRadius: 10, textDecoration: 'none', border: `1.5px solid rgba(246,241,234,0.25)`, transition: 'border-color 0.15s', minWidth: 168 }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(246,241,234,0.6)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(246,241,234,0.25)')}>
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.02em', lineHeight: 1.2 }}>Find your group</span>
-            <span style={{ fontWeight: 500, fontSize: 11, color: 'rgba(246,241,234,0.55)', letterSpacing: '0.01em', lineHeight: 1.2 }}>For members</span>
           </a>
         </div>
       </div>
@@ -898,29 +871,29 @@ function FinalCTASection() {
 function FooterSection() {
   const year = new Date().getFullYear()
   return (
-    <footer style={{ backgroundColor: '#1E1E1E', padding: '56px 32px 40px', borderTop: `1px solid rgba(246,241,234,0.08)` }}>
+    <footer style={{ backgroundColor: FOOTER_BG, padding: '56px 32px 40px', borderTop: `1px solid ${INK_BORDER}` }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap', marginBottom: 48, justifyContent: 'space-between' }}>
           {/* Brand */}
           <div style={{ flex: '0 0 auto', maxWidth: 260 }}>
-            <Logo dark size={26} />
-            <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'rgba(246,241,234,0.45)', lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>
+            <Logo onInk size={26} />
+            <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.45)', lineHeight: 1.6, marginTop: 14, marginBottom: 0 }}>
               Your welfare and fundraising platform. Helping community groups in Ghana manage members, funds, and contributions, with transparency everyone can trust.
             </p>
           </div>
           {/* Links */}
           {[
-            { head: 'Product', links: [{ l: 'Features', h: '#features' }, { l: 'How it works', h: '#how-it-works' }, { l: 'For members', h: '#for-members' }, { l: 'Sign up free', h: APP_SIGNUP }] },
+            { head: 'Product', links: [{ l: 'Features', h: '#features' }, { l: 'How it works', h: '#how-it-works' }, { l: 'Sign up free', h: APP_SIGNUP }] },
             { head: 'Company', links: [{ l: 'About', h: '#' }, { l: 'Contact', h: '#' }, { l: 'Powered by Pollean', h: '#' }] },
             { head: 'Legal', links: [{ l: 'Privacy Policy', h: '#' }, { l: 'Terms of Service', h: '#' }, { l: 'Paystack Terms', h: '#' }] },
           ].map((col, i) => (
             <div key={i} style={{ flex: '0 0 auto' }}>
-              <div style={{ fontFamily: sans, fontWeight: 700, fontSize: 12, color: 'rgba(246,241,234,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>{col.head}</div>
+              <div style={{ fontFamily: sans, fontWeight: 700, fontSize: 12, color: 'hsl(var(--landing-ink-fg) / 0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>{col.head}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {col.links.map(link => (
-                  <a key={link.l} href={link.h} style={{ fontFamily: sans, fontWeight: 500, fontSize: 14, color: 'rgba(246,241,234,0.6)', textDecoration: 'none', transition: 'color 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#F6F1EA')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(246,241,234,0.6)')}>
+                  <a key={link.l} href={link.h} style={{ fontFamily: sans, fontWeight: 500, fontSize: 14, color: 'hsl(var(--landing-ink-fg) / 0.6)', textDecoration: 'none', transition: 'color 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = INK_FG)}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'hsl(var(--landing-ink-fg) / 0.6)')}>
                     {link.l}
                   </a>
                 ))}
@@ -928,11 +901,11 @@ function FooterSection() {
             </div>
           ))}
         </div>
-        <div style={{ borderTop: `1px solid rgba(246,241,234,0.08)`, paddingTop: 28, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-          <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'rgba(246,241,234,0.3)', margin: 0 }}>
+        <div style={{ borderTop: `1px solid ${INK_BORDER}`, paddingTop: 28, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+          <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.3)', margin: 0 }}>
             © {year} Pollean. All rights reserved. Pollean is not a bank or lender.
           </p>
-          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 13, color: 'rgba(246,241,234,0.3)', margin: 0 }}>
+          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.3)', margin: 0 }}>
             Payments powered by <span style={{ color: G }}>Paystack</span>
           </p>
         </div>
@@ -942,18 +915,37 @@ function FooterSection() {
 }
 
 /* ─── App ───────────────────────────────────────────────────────────────────── */
-export default function LandingPage() {
+function LandingPageShell() {
+  const { resolved } = useLandingTheme()
+  const isDark = resolved === 'dark'
+
   return (
-    <div style={{ fontFamily: sans, color: CH, backgroundColor: CR }}>
+    <div
+      className={isDark ? 'dark' : undefined}
+      style={{
+        fontFamily: sans,
+        color: CH,
+        backgroundColor: CR,
+        minHeight: '100vh',
+        colorScheme: isDark ? 'dark' : 'light',
+      }}
+    >
       <Nav />
       <HeroSection />
       <PainSection />
       <TrustStrip />
       <ProductModulesSection />
       <HowItWorksSection />
-      <MemberPortalSection />
       <FinalCTASection />
       <FooterSection />
     </div>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <LandingThemeProvider>
+      <LandingPageShell />
+    </LandingThemeProvider>
   )
 }
