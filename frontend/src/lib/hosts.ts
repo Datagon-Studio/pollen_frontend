@@ -3,6 +3,11 @@
  * - Marketing site: pollean.com (and www)
  * - Product app: app.pollean.com
  *
+ * Prefer apex as the canonical marketing URL. Vercel should redirect
+ * www → pollean.com (not the reverse). Old Squarespace issued permanent
+ * www → apex redirects; pointing apex → www creates browser redirect loops
+ * until those caches expire.
+ *
  * Local/preview: set VITE_SITE_MODE=marketing to serve the landing at `/`.
  */
 
@@ -46,8 +51,12 @@ export function getMarketingUrl(): string {
       origin.includes("127.0.0.1") ||
       origin.includes("pollean.com")
     ) {
-      // On app subdomain, still point marketing links at the apex domain in prod
+      // On app subdomain, link to canonical marketing apex
       if (origin.includes("app.pollean.com")) {
+        return CANONICAL_MARKETING_URL;
+      }
+      // Prefer apex over www when already on marketing
+      if (origin.includes("www.pollean.com")) {
         return CANONICAL_MARKETING_URL;
       }
       return origin;
