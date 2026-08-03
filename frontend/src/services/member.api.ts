@@ -18,7 +18,9 @@ export interface Member {
 export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'> & {
   isCollector?: boolean;
 };
-export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>>;
+export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>> & {
+  baseUrl?: string;
+};
 
 export interface MemberStats {
   total: number;
@@ -93,6 +95,23 @@ export const memberApi = {
    */
   async verifyPhoneOTP(id: string, code: string) {
     return apiClient.post<Member>(`/members/${id}/verify-phone-otp`, { code });
+  },
+
+  /**
+   * Send OTP to member's email
+   */
+  async sendEmailOTP(id: string, email?: string) {
+    return apiClient.post(`/members/${id}/send-email-otp`, email ? { email } : {});
+  },
+
+  /**
+   * Verify OTP code for member's email
+   */
+  async verifyEmailOTP(id: string, code: string, email?: string) {
+    return apiClient.post<Member>(`/members/${id}/verify-email-otp`, {
+      code,
+      ...(email ? { email } : {}),
+    });
   },
 
   /**

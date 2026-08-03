@@ -14,8 +14,14 @@ import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js
 import { accountService } from '../account/account.service.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { otpCache } from '../../shared/services/otp-cache.service.js';
+import { postmarkService } from '../../shared/services/postmark.service.js';
+import { otpRepository } from '../otp/otp.repository.js';
 
 export const memberRoutes = Router();
+
+const generateEmailOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 /**
  * GET /api/v1/members/test-otp
@@ -333,10 +339,40 @@ memberRoutes.put('/:id', async (req: Request, res: Response) => {
     };
 
     const member = await memberService.updateMember(req.params.id, input);
+
+    // Promote to collector after update when requested
+    if (req.body.isCollector && member.email?.trim()) {
+      if (!member.email_verified) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email must be verified before setting a member as a collector',
+        });
+      }
+
+      const baseUrl =
+        req.body.baseUrl ||
+        req.headers.origin ||
+        (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+        process.env.FRONTEND_URL;
+
+      try {
+        await memberService.createCollectorAccount(member, member.account_id, baseUrl || undefined);
+      } catch (error) {
+        console.error('[Update Member] Failed to create collector account:', error);
+        return res.status(400).json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create collector account',
+          data: member,
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: member,
-      message: 'Member updated successfully',
+      message: req.body.isCollector
+        ? 'Member updated and promoted to collector successfully'
+        : 'Member updated successfully',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update member';
@@ -576,6 +612,217 @@ memberRoutes.post('/:id/verify-phone-otp', async (req: Request, res: Response) =
       message: 'Phone verified successfully',
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to verify OTP';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
+ * POST /api/v1/members/:id/send-email-otp
+ * Send OTP to member's email address (for verifying email on an existing member)
+ */
+memberRoutes.post('/:id/send-email-otp', async (req: Request, res: Response) => {
+  try {
+    const member = await memberService.getMember(req.params.id);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        error: 'Member not found',
+      });
+    }
+
+    const requestedEmail =
+      typeof req.body.email === 'string' && req.body.email.trim()
+        ? req.body.email.trim()
+        : member.email;
+
+    if (!requestedEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required',
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(requestedEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format',
+      });
+    }
+
+    const normalizedEmail = requestedEmail.toLowerCase().trim();
+
+    // Ensure another member in this account isn't already using this email
+    const members = await memberService.getMembersByAccount(member.account_id);
+    const emailTaken = members.some(
+      (m) =>
+        m.member_id !== member.member_id &&
+        m.email &&
+        m.email.toLowerCase().trim() === normalizedEmail
+    );
+
+    if (emailTaken) {
+      return res.status(400).json({
+        success: false,
+        error: 'A member with this email address already exists',
+      });
+    }
+
+    // Persist email on the member if it changed (still unverified until OTP succeeds)
+    if (!member.email || member.email.toLowerCase().trim() !== normalizedEmail) {
+      await memberService.updateMember(member.member_id, {
+        email: normalizedEmail,
+        email_verified: false,
+      });
+    }
+
+    const otpCode = generateEmailOTP();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+    try {
+      await otpRepository.create({
+        account_id: member.account_id,
+        identifier: normalizedEmail,
+        identifier_type: 'email',
+        otp_code: otpCode,
+        expires_at: expiresAt,
+        max_attempts: 3,
+      });
+    } catch (dbError) {
+      console.error('[Send Email OTP] Failed to store OTP:', dbError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate OTP. Please try again.',
+      });
+    }
+
+    const emailSubject = 'Your Pollean Verification Code';
+    const emailBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .otp-code { font-size: 32px; font-weight: bold; color: #f59e0b; text-align: center; padding: 20px; background-color: #fef3c7; border-radius: 8px; margin: 20px 0; }
+          .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Email Verification Code</h2>
+          <p>Hello${member.full_name ? ` ${member.full_name}` : ''},</p>
+          <p>Your verification code for Pollean is:</p>
+          <div class="otp-code">${otpCode}</div>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+          <div class="footer">
+            <p>Best regards,<br>The Pollean Team</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const result = await postmarkService.sendEmail(
+      normalizedEmail,
+      emailSubject,
+      emailBody,
+      `Your Pollean verification code is ${otpCode}. This code will expire in 5 minutes.`,
+      'email-otp'
+    );
+
+    if (!result.success) {
+      console.error('[Send Email OTP] Failed to send email:', result.error);
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to send OTP. Please try again later.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully to your email',
+    });
+  } catch (error) {
+    console.error('[Send Email OTP] Exception:', error);
+    const message = error instanceof Error ? error.message : 'Failed to send OTP';
+    res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
+ * POST /api/v1/members/:id/verify-email-otp
+ * Verify OTP code and mark member email as verified
+ */
+memberRoutes.post('/:id/verify-email-otp', async (req: Request, res: Response) => {
+  try {
+    const { code, email } = req.body;
+
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP code is required',
+      });
+    }
+
+    const member = await memberService.getMember(req.params.id);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        error: 'Member not found',
+      });
+    }
+
+    const targetEmail =
+      typeof email === 'string' && email.trim()
+        ? email.trim()
+        : member.email;
+
+    if (!targetEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required',
+      });
+    }
+
+    const normalizedEmail = targetEmail.toLowerCase().trim();
+    const isValid = await otpRepository.verify(
+      member.account_id,
+      normalizedEmail,
+      'email',
+      code.trim()
+    );
+
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired OTP code. Please request a new code.',
+      });
+    }
+
+    const updatedMember = await memberService.updateMember(member.member_id, {
+      email: normalizedEmail,
+      email_verified: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updatedMember,
+      message: 'Email verified successfully',
+    });
+  } catch (error) {
+    console.error('[Verify Email OTP] Exception:', error);
     const message = error instanceof Error ? error.message : 'Failed to verify OTP';
     const statusCode = message.includes('not found') ? 404 : 400;
     res.status(statusCode).json({

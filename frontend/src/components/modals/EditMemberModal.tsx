@@ -44,6 +44,11 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
   const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
   const [phoneUssdCode, setPhoneUssdCode] = useState<string | null>(null);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     dob: undefined as Date | undefined,
@@ -67,6 +72,9 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       setPhoneOtpSent(false);
       setPhoneOtp("");
       setPhoneUssdCode(null);
+      setEmailVerified(member.email_verified);
+      setEmailOtpSent(false);
+      setEmailOtp("");
     }
   }, [member, open]);
 
@@ -137,6 +145,82 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
     }
   };
 
+  const handleSendEmailOtp = async () => {
+    if (!formData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!member) return;
+
+    setEmailSending(true);
+    try {
+      const response = await memberApi.sendEmailOTP(member.member_id, formData.email.trim());
+      if (response.success) {
+        setEmailOtpSent(true);
+        toast({
+          title: "OTP Sent",
+          description: `Verification code sent to ${formData.email}`,
+        });
+      } else {
+        throw new Error(response.error || "Failed to send OTP");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!member) return;
+
+    setEmailVerifying(true);
+    try {
+      const response = await memberApi.verifyEmailOTP(
+        member.member_id,
+        emailOtp.trim(),
+        formData.email.trim()
+      );
+      if (response.success) {
+        setEmailVerified(true);
+        setEmailOtpSent(false);
+        setEmailOtp("");
+        toast({
+          title: "Email Verified",
+          description: "Email address has been verified successfully.",
+        });
+      } else {
+        throw new Error(response.error || "Failed to verify OTP");
+      }
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -169,7 +253,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       return;
     }
 
-    if (isCollector && !member.email_verified) {
+    if (isCollector && !emailVerified) {
       toast({
         title: "Email Verification Required",
         description: "Please verify the email address before setting a member as a collector.",
@@ -180,6 +264,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
 
     try {
       setSaving(true);
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined;
       const input: UpdateMemberInput = {
         full_name: formData.fullName.trim(),
         dob: formData.dob ? format(formData.dob, "yyyy-MM-dd") : null,
@@ -187,8 +272,14 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
         email: formData.email.trim() || null,
         membership_number: formData.membershipNumber.trim() || null,
         phone_verified: isActive ? phoneVerified : false,
-        // If setting to inactive, also unverify email
-        ...(isActive ? {} : { email_verified: false }),
+        // If setting to inactive, also unverify email; otherwise keep OTP result
+        email_verified: isActive ? emailVerified : false,
+        ...(isCollector
+          ? {
+              isCollector: true,
+              baseUrl,
+            }
+          : {}),
       };
 
       const response = await memberApi.update(member.member_id, input);
@@ -197,24 +288,11 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
         throw new Error(response.error || 'Failed to update member');
       }
 
-      // If member is being set as a collector, send verification email / magic link
-      if (isCollector && formData.email.trim() && member.email_verified) {
-        try {
-          const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined;
-          await memberApi.sendVerificationEmail(member.member_id, baseUrl);
-        } catch (error) {
-          // Non-fatal: updating the member succeeded, but email failed
-          toast({
-            title: "Collector Email Failed",
-            description: error instanceof Error ? error.message : "Failed to send collector email",
-            variant: "destructive",
-          });
-        }
-      }
-
       toast({
         title: "Member Updated",
-        description: `${formData.fullName} has been updated successfully.`,
+        description: isCollector
+          ? `${formData.fullName} has been updated and promoted to collector. A welcome email with password setup link has been sent to ${formData.email}.`
+          : `${formData.fullName} has been updated successfully.`,
       });
 
       onOpenChange(false);
@@ -365,44 +443,66 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
                   type="email"
                   placeholder="member@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={member.email_verified}
-                  className={cn(member.email_verified && "bg-success/10 border-success")}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    if (!emailVerified) {
+                      setEmailOtpSent(false);
+                      setEmailOtp("");
+                    }
+                  }}
+                  disabled={emailVerified}
+                  className={cn(emailVerified && "bg-success/10 border-success")}
                 />
-                {!member.email_verified && formData.email.trim() && (
+                {!emailVerified && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      // TODO: Send magic link when implemented
-                      toast({
-                        title: "Magic Link",
-                        description: "Magic link functionality will be implemented soon",
-                      });
-                    }}
-                    disabled={!formData.email.trim()}
+                    onClick={handleSendEmailOtp}
+                    disabled={emailSending || !formData.email.trim()}
                     className="shrink-0"
                   >
-                    Verify
+                    {emailSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-1" />
+                        Send OTP
+                      </>
+                    )}
                   </Button>
                 )}
-                {member.email_verified && (
+                {emailVerified && (
                   <div className="flex items-center gap-1 text-success shrink-0 px-2">
                     <Check className="h-4 w-4" />
                     <span className="text-sm">Verified</span>
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {member.email_verified ? (
-                  <span className="text-success">Email verified</span>
-                ) : member.email ? (
-                  <span>Email not verified</span>
-                ) : (
-                  <span>No email</span>
-                )}
-              </div>
+
+              {/* Email OTP Input */}
+              {emailOtpSent && !emailVerified && (
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Enter OTP code"
+                    value={emailOtp}
+                    onChange={(e) => setEmailOtp(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleVerifyEmailOtp}
+                    disabled={emailVerifying || !emailOtp.trim()}
+                  >
+                    {emailVerifying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Verify"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Collector Option — only admins can assign collector role */}
