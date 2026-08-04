@@ -49,6 +49,7 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailVerifying, setEmailVerifying] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     dob: undefined as Date | undefined,
@@ -218,6 +219,39 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
       });
     } finally {
       setEmailVerifying(false);
+    }
+  };
+
+  const handleResendCollectorInvite = async () => {
+    if (!member) return;
+    if (!formData.email.trim() || !emailVerified) {
+      toast({
+        title: "Email Required",
+        description: "Verify the member's email before resending a collector invite.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResendingInvite(true);
+    try {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : undefined;
+      const response = await memberApi.resendCollectorInvite(member.member_id, baseUrl);
+      if (!response.success) {
+        throw new Error(response.error || "Failed to resend invite");
+      }
+      toast({
+        title: "Invite Resent",
+        description: `A fresh password setup link was sent to ${formData.email}. Previous links are no longer valid.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Resend Failed",
+        description: error instanceof Error ? error.message : "Failed to resend collector invite",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingInvite(false);
     }
   };
 
@@ -522,8 +556,34 @@ export function EditMemberModal({ open, onOpenChange, member, onSuccess }: EditM
                   </Label>
                 </div>
                 <p className="text-xs text-muted-foreground pl-6">
-                  Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
+                  Grant admin portal access. A password setup link (expires in 1 hour) will be sent to their email.
                 </p>
+                {emailVerified && formData.email.trim() && (
+                  <div className="pl-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResendCollectorInvite}
+                      disabled={resendingInvite || saving}
+                    >
+                      {resendingInvite ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Resending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-1" />
+                          Resend collector invite
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use this if their password link expired. Prior links stop working when you resend.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

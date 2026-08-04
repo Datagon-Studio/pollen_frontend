@@ -19,8 +19,10 @@ export const accountApi = {
   /**
    * Get current user's account
    */
-  async getMyAccount(): Promise<Account> {
-    const response = await request<Account>('/accounts/me', {
+  async getMyAccount(preferredAccountId?: string | null): Promise<Account> {
+    const accountId = preferredAccountId ?? undefined;
+    const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+    const response = await request<Account>(`/accounts/me${query}`, {
       method: 'GET',
     });
 

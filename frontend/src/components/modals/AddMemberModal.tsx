@@ -767,7 +767,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground pl-6">
-                Grant admin portal access. A magic link will be sent to their email to set up their password and log in.
+                Grant admin portal access. A password setup link (expires in 1 hour) will be sent to their email to set up their password and log in.
               </p>
             </div>
 

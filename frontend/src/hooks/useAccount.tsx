@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { accountApi, Account } from '@/services/account.api';
+import { getPreferredAccountId } from '@/lib/preferred-account';
 
 // Module-level cache to share account data across all hook instances
 let cachedAccount: Account | null = null;
 let loadingPromise: Promise<Account> | null = null;
 let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null; // Track which user the cache belongs to
+let cachedPreferredAccountId: string | null = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Export function to clear cache when user logs out or changes
@@ -14,6 +16,7 @@ export function clearAccountCache() {
   loadingPromise = null;
   cacheTimestamp = 0;
   cachedUserId = null;
+  cachedPreferredAccountId = null;
 }
 
 export function useAccount(userId?: string) {
@@ -24,9 +27,13 @@ export function useAccount(userId?: string) {
 
   useEffect(() => {
     mountedRef.current = true;
+    const preferredAccountId = getPreferredAccountId();
     
-    // If userId changed, clear the cache
-    if (userId && cachedUserId && userId !== cachedUserId) {
+    // If userId or preferred account changed, clear the cache
+    if (
+      (userId && cachedUserId && userId !== cachedUserId) ||
+      preferredAccountId !== cachedPreferredAccountId
+    ) {
       clearAccountCache();
     }
     
@@ -34,6 +41,7 @@ export function useAccount(userId?: string) {
     if (userId) {
       cachedUserId = userId;
     }
+    cachedPreferredAccountId = preferredAccountId;
     
     // If we have cached data that's still fresh and for the same user, use it immediately
     const now = Date.now();
@@ -76,7 +84,9 @@ export function useAccount(userId?: string) {
       setError(null);
       
       // Create a promise and cache it so other instances can reuse it
-      loadingPromise = accountApi.getMyAccount();
+      const preferredAccountId = getPreferredAccountId();
+      cachedPreferredAccountId = preferredAccountId;
+      loadingPromise = accountApi.getMyAccount(preferredAccountId);
       const accountData = await loadingPromise;
       
       // Update cache

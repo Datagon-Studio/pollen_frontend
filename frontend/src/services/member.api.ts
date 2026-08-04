@@ -214,6 +214,13 @@ export const memberApi = {
   },
 
   /**
+   * Resend collector welcome email with a fresh password-setup link
+   */
+  async resendCollectorInvite(id: string, baseUrl?: string) {
+    return apiClient.post(`/members/${id}/resend-collector-invite`, { baseUrl });
+  },
+
+  /**
    * Verify email via token (public)
    */
   async verifyEmailToken(token: string) {
