@@ -267,7 +267,8 @@ export class MemberService {
   }
 
   /**
-   * Find auth user id by email via public.users (case-insensitive), then Auth Admin API.
+   * Find auth user id by email via public.users (case-insensitive), then Auth Admin listUsers.
+   * Do NOT use generateLink for lookup — that issues a recovery token and can invalidate invites.
    */
   private async findAuthUserIdByEmail(email: string): Promise<string | null> {
     const normalized = email.toLowerCase().trim();
@@ -285,24 +286,28 @@ export class MemberService {
       return profile.user_id;
     }
 
-    // Auth user may exist without a public.users row (or with different casing).
-    // Admin generateLink does not send email; it returns the user when one exists.
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: normalized,
-    });
-
-    if (linkError) {
-      const msg = linkError.message?.toLowerCase() || '';
-      // "User not found" means no auth user — safe to create
-      if (msg.includes('not found') || msg.includes('unable to find') || msg.includes('user not found')) {
+    // Paginate Auth users (service role). Prefer this over generateLink so we don't mint OTPs.
+    const perPage = 200;
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        console.error('[Create Collector] Auth listUsers failed:', error);
         return null;
       }
-      console.error('[Create Collector] Auth lookup via generateLink failed:', linkError);
-      return null;
+
+      const match = data.users.find(
+        (user) => user.email?.toLowerCase().trim() === normalized
+      );
+      if (match?.id) {
+        return match.id;
+      }
+
+      if (data.users.length < perPage) {
+        break;
+      }
     }
 
-    return linkData?.user?.id ?? null;
+    return null;
   }
 
   /**
@@ -410,20 +415,19 @@ export class MemberService {
     }
 
     const frontendUrl = getFrontendUrl(baseUrl);
-    // Embed account_id so post-login lands on the inviting group, not another linked account
-    const resetPasswordUrl = `${frontendUrl}/reset-password?account_id=${encodeURIComponent(accountId)}`;
+    const email = member.email.toLowerCase().trim();
     console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
-    // Generate reset password link using Supabase Admin API
-    // Note: Supabase recovery/OTP links expire based on project Auth "Email OTP expiration"
-    // (default 1 hour). Keep email copy aligned with that default.
+    // Generate recovery token once, then link to OUR app with hashed_token.
+    // Do not email Supabase's action_link (auth/v1/verify...) — email security scanners
+    // prefetch that URL and consume the one-time token before the user clicks.
     let resetLink: string;
     try {
       const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
         type: 'recovery',
-        email: member.email,
+        email,
         options: {
-          redirectTo: resetPasswordUrl,
+          redirectTo: `${frontendUrl}/reset-password?account_id=${encodeURIComponent(accountId)}`,
         },
       });
 
@@ -432,11 +436,17 @@ export class MemberService {
         throw new Error(`Failed to generate reset password link: ${resetError.message}`);
       }
 
-      if (!resetData?.properties?.action_link) {
-        throw new Error('Reset password link was not generated');
+      const hashedToken = resetData?.properties?.hashed_token;
+      if (!hashedToken) {
+        throw new Error('Reset password token was not generated');
       }
 
-      resetLink = resetData.properties.action_link;
+      const params = new URLSearchParams({
+        token_hash: hashedToken,
+        type: 'recovery',
+        account_id: accountId,
+      });
+      resetLink = `${frontendUrl}/reset-password?${params.toString()}`;
     } catch (error) {
       console.error('[Send Collector Welcome Email] Failed to generate reset link:', error);
       throw error;
@@ -486,7 +496,7 @@ export class MemberService {
             <a href="${resetLink}" class="button">Set Password & Login</a>
             <p>Or copy and paste this link into your browser:</p>
             <p style="word-break: break-all; color: #666; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">${resetLink}</p>
-            <p><strong>This link expires in 1 hour</strong> and can only be used once. If it expires, ask your admin to resend the invite.</p>
+            <p><strong>This link expires in 1 hour</strong>. Open it, tap Continue, then set your password. If it no longer works, ask your admin to resend the invite.</p>
           </div>
           <div class="footer">
             <p>If you didn't expect this email, please contact the administrator.</p>
@@ -508,7 +518,7 @@ Set a password for ${member.email}, then sign in to access ${accountName}.
 
 Reset Password Link: ${resetLink}
 
-This link expires in 1 hour and can only be used once. If it expires, ask your admin to resend the invite.
+This link expires in 1 hour. Open it, tap Continue, then set your password. If it no longer works, ask your admin to resend the invite.
 
 If you didn't expect this email, please contact the administrator.
     `;
