@@ -241,23 +241,25 @@ export class MemberService {
       if (existingLink) {
         // User already linked, just send welcome email
         console.log(`[Create Collector] User ${userId} already linked to account ${accountId}, sending welcome email`);
-        await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+        await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
         return;
       }
       
       // User exists but not linked to this account - link them
       console.log(`[Create Collector] Linking existing user ${userId} to account ${accountId}`);
       await accountRepository.linkUserToAccount(userId, accountId, 'officer');
-      await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+      await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
       return;
     } else {
-      // Create new auth user
+      // Create new auth user — skip empty personal account (invite links them to this group only)
       console.log(`[Create Collector] Creating new auth user for ${member.email}`);
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email: member.email,
         email_confirm: true, // Auto-confirm email since it's verified
         user_metadata: {
           full_name: member.full_name,
+          skip_account_creation: 'true',
+          invited_account_id: accountId,
         },
       });
 
@@ -290,12 +292,12 @@ export class MemberService {
               .maybeSingle();
             
             if (existingLink) {
-              await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+              await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
               return;
             }
             // Link existing user
             await accountRepository.linkUserToAccount(foundUserId, accountId, 'officer');
-            await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+            await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
             return;
           } else {
             throw new Error(`Failed to create auth user: User exists but could not be found`);
@@ -309,48 +311,95 @@ export class MemberService {
         userId = newUser.user.id;
       }
 
-      // Wait a bit for the trigger to create user profile and account
-      // Then remove any auto-created account link
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Check if trigger created an account link and remove it
-      const { data: autoCreatedLinks } = await supabase
-        .from('user_accounts')
-        .select('account_id')
-        .eq('user_id', userId);
-
-      if (autoCreatedLinks && autoCreatedLinks.length > 0) {
-        // Delete auto-created account links (trigger creates one)
-        for (const link of autoCreatedLinks) {
-          await supabase
-            .from('user_accounts')
-            .delete()
-            .eq('user_id', userId)
-            .eq('account_id', link.account_id);
-        }
-      }
+      // Safety net: remove any empty auto-created personal accounts (race / old trigger)
+      await this.removeOrphanPersonalAccounts(userId, accountId);
       
       // Link new user to account with 'officer' role
       await accountRepository.linkUserToAccount(userId, accountId, 'officer');
       
       // Send welcome email with reset password link
-      await this.sendCollectorWelcomeEmail(member, accountName, baseUrl);
+      await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
+    }
+  }
+
+  /**
+   * Remove empty personal accounts accidentally created by the signup trigger
+   * for collector invites (keeps the intended inviting account).
+   */
+  private async removeOrphanPersonalAccounts(userId: string, keepAccountId: string): Promise<void> {
+    // Poll briefly for trigger-created links
+    let autoCreatedLinks: Array<{ account_id: string }> | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data } = await supabase
+        .from('user_accounts')
+        .select('account_id')
+        .eq('user_id', userId)
+        .neq('account_id', keepAccountId);
+
+      autoCreatedLinks = data;
+      if (data && data.length > 0) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    if (!autoCreatedLinks || autoCreatedLinks.length === 0) {
+      return;
+    }
+
+    for (const link of autoCreatedLinks) {
+      const { data: account } = await supabase
+        .from('accounts')
+        .select('account_id, account_name')
+        .eq('account_id', link.account_id)
+        .maybeSingle();
+
+      // Only remove unnamed shell accounts from the signup trigger
+      if (account && (!account.account_name || !account.account_name.trim())) {
+        const { error: unlinkError } = await supabase
+          .from('user_accounts')
+          .delete()
+          .eq('user_id', userId)
+          .eq('account_id', link.account_id);
+
+        if (unlinkError) {
+          console.error('[Create Collector] Failed to unlink orphan account:', unlinkError);
+          continue;
+        }
+
+        const { error: deleteAccountError } = await supabase
+          .from('accounts')
+          .delete()
+          .eq('account_id', link.account_id);
+
+        if (deleteAccountError) {
+          console.error('[Create Collector] Failed to delete orphan account:', deleteAccountError);
+        }
+      }
     }
   }
 
   /**
    * Send welcome email to collector with reset password link
    */
-  async sendCollectorWelcomeEmail(member: Member, accountName: string, baseUrl?: string): Promise<void> {
+  async sendCollectorWelcomeEmail(
+    member: Member,
+    accountName: string,
+    accountId: string,
+    baseUrl?: string
+  ): Promise<void> {
     if (!member.email) {
       throw new Error('Email is required');
     }
 
     const frontendUrl = getFrontendUrl(baseUrl);
-    const resetPasswordUrl = `${frontendUrl}/reset-password`;
+    // Embed account_id so post-login lands on the inviting group, not another linked account
+    const resetPasswordUrl = `${frontendUrl}/reset-password?account_id=${encodeURIComponent(accountId)}`;
     console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
     // Generate reset password link using Supabase Admin API
+    // Note: Supabase recovery/OTP links expire based on project Auth "Email OTP expiration"
+    // (default 1 hour). Keep email copy aligned with that default.
     let resetLink: string;
     try {
       const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
@@ -416,11 +465,11 @@ export class MemberService {
             <ul class="roles">
               ${collectorRoles.map(role => `<li>${role}</li>`).join('')}
             </ul>
-            <p>Kindly find attached the reset password link. Set a password with your verified email and login afterwards.</p>
+            <p>Click the button below to set a password for <strong>${member.email}</strong>, then sign in to access <strong>${accountName}</strong>.</p>
             <a href="${resetLink}" class="button">Set Password & Login</a>
             <p>Or copy and paste this link into your browser:</p>
             <p style="word-break: break-all; color: #666; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">${resetLink}</p>
-            <p>This link will expire in 24 hours.</p>
+            <p><strong>This link expires in 1 hour</strong> and can only be used once. If it expires, ask your admin to resend the invite.</p>
           </div>
           <div class="footer">
             <p>If you didn't expect this email, please contact the administrator.</p>
@@ -438,11 +487,11 @@ You have been added to ${accountName} as a collector.
 Your role is to:
 ${collectorRoles.map(role => `- ${role}`).join('\n')}
 
-Kindly find attached the reset password link. Set a password with your verified email and login afterwards.
+Set a password for ${member.email}, then sign in to access ${accountName}.
 
 Reset Password Link: ${resetLink}
 
-This link will expire in 24 hours.
+This link expires in 1 hour and can only be used once. If it expires, ask your admin to resend the invite.
 
 If you didn't expect this email, please contact the administrator.
     `;
@@ -458,6 +507,34 @@ If you didn't expect this email, please contact the administrator.
     if (!result.success) {
       throw new Error(result.error || 'Failed to send welcome email');
     }
+  }
+
+  /**
+   * Resend collector welcome / password-setup email for an existing member
+   */
+  async resendCollectorInvite(memberId: string, baseUrl?: string): Promise<void> {
+    const member = await this.getMember(memberId);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+    if (!member.email?.trim()) {
+      throw new Error('Member does not have an email address');
+    }
+    if (!member.email_verified) {
+      throw new Error('Member email must be verified before sending a collector invite');
+    }
+
+    const account = await accountRepository.findByAccountId(member.account_id);
+    if (!account) {
+      throw new Error('Account not found');
+    }
+
+    // Ensure collector auth user + link exist (idempotent)
+    await this.createCollectorAccount(
+      member,
+      member.account_id,
+      baseUrl
+    );
   }
 
   /**

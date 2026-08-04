@@ -52,46 +52,84 @@ export const accountRepository = {
   },
 
   /**
-   * Get user's account(s) - returns first account linked to user
+   * Get all accounts linked to a user
    */
-  async findByUserId(userId: string): Promise<Account | null> {
+  async findAllByUserId(userId: string): Promise<Account[]> {
+    const { data: links, error: linkError } = await supabase
+      .from('user_accounts')
+      .select('account_id, role, created_at')
+      .eq('user_id', userId);
+
+    if (linkError) {
+      throw new Error(`Failed to fetch user account links: ${linkError.message}`);
+    }
+
+    if (!links || links.length === 0) {
+      return [];
+    }
+
+    const accountIds = links.map((link) => link.account_id);
+    const { data: accounts, error } = await supabase
+      .from('accounts')
+      .select('*')
+      .in('account_id', accountIds);
+
+    if (error) {
+      throw new Error(`Failed to fetch accounts: ${error.message}`);
+    }
+
+    return accounts || [];
+  },
+
+  /**
+   * Get user's account — prefers preferredAccountId when linked, otherwise
+   * prefers named accounts over empty auto-created shells.
+   */
+  async findByUserId(userId: string, preferredAccountId?: string | null): Promise<Account | null> {
     try {
-      // First get the account_id from user_accounts
-      const { data: userAccountLink, error: linkError } = await supabase
-        .from('user_accounts')
-        .select('account_id')
-        .eq('user_id', userId)
-        .limit(1)
-        .single();
-
-      if (linkError || !userAccountLink) {
-        if (linkError?.code === 'PGRST116') {
-          return null;
-        }
-        console.error('Error fetching user account link:', linkError);
-        throw new Error(`Failed to fetch user account link: ${linkError?.message || 'Unknown error'}`);
+      const accounts = await this.findAllByUserId(userId);
+      if (accounts.length === 0) {
+        return null;
       }
 
-      // Then get the account details
-      const { data, error } = await supabase
-        .from('accounts')
-        .select('*')
-        .eq('account_id', userAccountLink.account_id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null;
+      if (preferredAccountId) {
+        const preferred = accounts.find((account) => account.account_id === preferredAccountId);
+        if (preferred) {
+          return preferred;
         }
-        console.error('Error fetching account:', error);
-        throw new Error(`Failed to fetch account: ${error.message}`);
       }
 
-      return data;
+      // Prefer real groups (named) over empty personal shells from signup trigger
+      const namedAccounts = accounts.filter(
+        (account) => account.account_name && account.account_name.trim()
+      );
+      if (namedAccounts.length > 0) {
+        return namedAccounts[0];
+      }
+
+      return accounts[0];
     } catch (err) {
       console.error('Error in findByUserId:', err);
       throw err;
     }
+  },
+
+  /**
+   * Check whether a user is linked to a specific account
+   */
+  async userHasAccountAccess(userId: string, accountId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .select('account_id')
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`Failed to check account access: ${error.message}`);
+    }
+
+    return !!data;
   },
 
   /**

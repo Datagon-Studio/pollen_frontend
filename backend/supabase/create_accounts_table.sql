@@ -117,7 +117,18 @@ CREATE OR REPLACE FUNCTION public.handle_new_user_account()
 RETURNS TRIGGER AS $$
 DECLARE
   new_account_id UUID;
+  skip_creation TEXT;
 BEGIN
+  -- Collectors invited via admin createUser set skip_account_creation metadata
+  SELECT raw_user_meta_data->>'skip_account_creation'
+  INTO skip_creation
+  FROM auth.users
+  WHERE id = NEW.user_id;
+
+  IF skip_creation = 'true' THEN
+    RETURN NEW;
+  END IF;
+
   -- Create a new account with just the ID (no name, no logo)
   INSERT INTO public.accounts (account_id, account_name, account_logo, kyc_status, status)
   VALUES (

@@ -33,7 +33,9 @@ export class AccountController {
         return;
       }
 
-      const account = await accountService.getUserAccount(userId);
+      const preferredAccountId =
+        typeof req.query.accountId === 'string' ? req.query.accountId : null;
+      const account = await accountService.getUserAccount(userId, preferredAccountId);
 
       if (!account) {
         res.status(404).json({

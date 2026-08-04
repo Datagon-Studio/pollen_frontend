@@ -16,12 +16,12 @@ export class AccountService {
   /**
    * Get current user's account
    */
-  async getUserAccount(userId: string): Promise<Account | null> {
+  async getUserAccount(userId: string, preferredAccountId?: string | null): Promise<Account | null> {
     if (!userId) {
       throw new Error('User ID is required');
     }
 
-    return accountRepository.findByUserId(userId);
+    return accountRepository.findByUserId(userId, preferredAccountId);
   }
 
   /**
@@ -33,9 +33,9 @@ export class AccountService {
       throw new Error('Account ID is required');
     }
 
-    // Business Rule: Verify user owns this account
-    const userAccount = await accountRepository.findByUserId(userId);
-    if (!userAccount || userAccount.account_id !== accountId) {
+    // Business Rule: Verify user is linked to this account
+    const hasAccess = await accountRepository.userHasAccountAccess(userId, accountId);
+    if (!hasAccess) {
       throw new Error('Unauthorized: You do not have access to this account');
     }
 

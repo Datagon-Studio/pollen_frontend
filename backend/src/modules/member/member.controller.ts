@@ -476,6 +476,33 @@ memberRoutes.post('/:id/send-verification-email', async (req: Request, res: Resp
   }
 });
 
+/**
+ * POST /api/v1/members/:id/resend-collector-invite
+ * Resend collector welcome email with a fresh password-setup link
+ */
+memberRoutes.post('/:id/resend-collector-invite', async (req: Request, res: Response) => {
+  try {
+    const baseUrl =
+      req.body.baseUrl ||
+      req.headers.origin ||
+      (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+      process.env.FRONTEND_URL;
+
+    await memberService.resendCollectorInvite(req.params.id, baseUrl || undefined);
+    res.status(200).json({
+      success: true,
+      message: 'Collector invite resent successfully',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to resend collector invite';
+    const statusCode = message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
 
 
 
