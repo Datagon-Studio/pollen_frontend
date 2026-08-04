@@ -189,6 +189,8 @@ export class MemberService {
       throw new Error('Email is required to create collector account');
     }
 
+    const email = member.email.toLowerCase().trim();
+
     // Get account details for welcome email
     const account = await accountRepository.findByAccountId(accountId);
     if (!account) {
@@ -197,65 +199,14 @@ export class MemberService {
 
     const accountName = account.account_name || 'your group';
 
-    // Check if user already exists by email - query users table directly (more efficient)
-    let userExists = false;
-    let userId: string | undefined;
-    
-    try {
-      // Query users table directly to find by email
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('user_id')
-        .eq('email', member.email.toLowerCase())
-        .maybeSingle();
-      
-      if (userError && userError.code !== 'PGRST116') {
-        // PGRST116 is "no rows returned", which is fine
-        console.error(`[Create Collector] Error checking user existence:`, userError);
-        // Continue to try creating user
-      } else if (userData?.user_id) {
-        userExists = true;
-        userId = userData.user_id;
-        console.log(`[Create Collector] User ${member.email} already exists with ID: ${userId}`);
-      }
-    } catch (error) {
-      console.log(`[Create Collector] Could not check existing users, will try to create:`, error);
-      // Continue to try creating user
-    }
+    // Resolve existing auth user (public.users and/or auth.users)
+    let userId = await this.findAuthUserIdByEmail(email);
 
-    if (userExists && userId) {
-      // Check if user is already linked to this account
-      const { data: existingLink, error: linkError } = await supabase
-        .from('user_accounts')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('account_id', accountId)
-        .maybeSingle();
-
-      if (linkError && linkError.code !== 'PGRST116') {
-        // PGRST116 is "no rows returned", which is fine
-        console.error(`[Create Collector] Error checking account link:`, linkError);
-        throw new Error(`Failed to check account link: ${linkError.message}`);
-      }
-
-      if (existingLink) {
-        // User already linked, just send welcome email
-        console.log(`[Create Collector] User ${userId} already linked to account ${accountId}, sending welcome email`);
-        await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
-        return;
-      }
-      
-      // User exists but not linked to this account - link them
-      console.log(`[Create Collector] Linking existing user ${userId} to account ${accountId}`);
-      await accountRepository.linkUserToAccount(userId, accountId, 'officer');
-      await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
-      return;
-    } else {
-      // Create new auth user — skip empty personal account (invite links them to this group only)
-      console.log(`[Create Collector] Creating new auth user for ${member.email}`);
+    if (!userId) {
+      console.log(`[Create Collector] Creating new auth user for ${email}`);
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        email: member.email,
-        email_confirm: true, // Auto-confirm email since it's verified
+        email,
+        email_confirm: true,
         user_metadata: {
           full_name: member.full_name,
           skip_account_creation: 'true',
@@ -264,43 +215,18 @@ export class MemberService {
       });
 
       if (createError) {
-        // Check if error is "user already exists"
-        if (createError.message?.toLowerCase().includes('already been registered') || 
-            createError.message?.toLowerCase().includes('user already exists')) {
-          // User was created between our check and create - query users table
-          console.log(`[Create Collector] User was created between check and create, querying users table`);
-          
-          // Query users table directly to find by email
-          const { data: retryUserData, error: retryError } = await supabase
-            .from('users')
-            .select('user_id')
-            .eq('email', member.email.toLowerCase())
-            .maybeSingle();
-          
-          if (retryError && retryError.code !== 'PGRST116') {
-            throw new Error(`Failed to find existing user: ${retryError.message}`);
-          }
-          
-          if (retryUserData?.user_id) {
-            const foundUserId = retryUserData.user_id;
-            // Check if already linked
-            const { data: existingLink } = await supabase
-              .from('user_accounts')
-              .select('*')
-              .eq('user_id', foundUserId)
-              .eq('account_id', accountId)
-              .maybeSingle();
-            
-            if (existingLink) {
-              await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
-              return;
-            }
-            // Link existing user
-            await accountRepository.linkUserToAccount(foundUserId, accountId, 'officer');
-            await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
-            return;
-          } else {
-            throw new Error(`Failed to create auth user: User exists but could not be found`);
+        const alreadyExists =
+          createError.message?.toLowerCase().includes('already been registered') ||
+          createError.message?.toLowerCase().includes('user already exists') ||
+          createError.message?.toLowerCase().includes('email_exists');
+
+        if (alreadyExists) {
+          console.log(`[Create Collector] Auth reports existing user for ${email}, resolving via Auth API`);
+          userId = await this.findAuthUserIdByEmail(email);
+          if (!userId) {
+            throw new Error(
+              `Failed to create auth user: account exists in Auth but could not be resolved for ${email}`
+            );
           }
         } else {
           throw new Error(`Failed to create auth user: ${createError.message}`);
@@ -310,15 +236,106 @@ export class MemberService {
       } else {
         userId = newUser.user.id;
       }
+    }
 
-      // Safety net: remove any empty auto-created personal accounts (race / old trigger)
-      await this.removeOrphanPersonalAccounts(userId, accountId);
-      
-      // Link new user to account with 'officer' role
+    // Ensure public.users profile exists (auth.users can exist without a profile row)
+    await this.ensureUserProfile(userId, email, member.full_name);
+
+    // Safety net: remove empty auto-created personal accounts from signup trigger
+    await this.removeOrphanPersonalAccounts(userId, accountId);
+
+    // Link to inviting account if not already linked
+    const { data: existingLink, error: linkError } = await supabase
+      .from('user_accounts')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    if (linkError && linkError.code !== 'PGRST116') {
+      throw new Error(`Failed to check account link: ${linkError.message}`);
+    }
+
+    if (!existingLink) {
+      console.log(`[Create Collector] Linking user ${userId} to account ${accountId}`);
       await accountRepository.linkUserToAccount(userId, accountId, 'officer');
-      
-      // Send welcome email with reset password link
-      await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
+    } else {
+      console.log(`[Create Collector] User ${userId} already linked to account ${accountId}`);
+    }
+
+    await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
+  }
+
+  /**
+   * Find auth user id by email via public.users (case-insensitive), then Auth Admin API.
+   */
+  private async findAuthUserIdByEmail(email: string): Promise<string | null> {
+    const normalized = email.toLowerCase().trim();
+
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('user_id')
+      .ilike('email', normalized)
+      .maybeSingle();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('[Create Collector] Error looking up public.users:', profileError);
+    }
+    if (profile?.user_id) {
+      return profile.user_id;
+    }
+
+    // Auth user may exist without a public.users row (or with different casing).
+    // Admin generateLink does not send email; it returns the user when one exists.
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: normalized,
+    });
+
+    if (linkError) {
+      const msg = linkError.message?.toLowerCase() || '';
+      // "User not found" means no auth user — safe to create
+      if (msg.includes('not found') || msg.includes('unable to find') || msg.includes('user not found')) {
+        return null;
+      }
+      console.error('[Create Collector] Auth lookup via generateLink failed:', linkError);
+      return null;
+    }
+
+    return linkData?.user?.id ?? null;
+  }
+
+  /**
+   * Ensure public.users row exists for an auth user (needed for user_accounts FK).
+   */
+  private async ensureUserProfile(userId: string, email: string, fullName?: string | null): Promise<void> {
+    const { data: existing, error: existingError } = await supabase
+      .from('users')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw new Error(`Failed to check user profile: ${existingError.message}`);
+    }
+
+    if (existing?.user_id) {
+      return;
+    }
+
+    const { error: insertError } = await supabase.from('users').insert({
+      user_id: userId,
+      email: email.toLowerCase().trim(),
+      role: 'admin',
+      full_name: fullName?.trim() || null,
+    });
+
+    if (insertError) {
+      // Race: profile created by trigger between check and insert
+      if (insertError.code === '23505') {
+        return;
+      }
+      throw new Error(`Failed to create user profile: ${insertError.message}`);
     }
   }
 
