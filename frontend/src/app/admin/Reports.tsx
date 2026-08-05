@@ -13,6 +13,8 @@ import {
   Download,
   Calendar,
   Loader2,
+  Monitor,
+  User,
 } from "lucide-react";
 import {
   BarChart,
@@ -28,8 +30,15 @@ import {
 } from "recharts";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
-import { reportingApi, MonthlyData, FundBreakdown, NetPosition } from "@/services/reporting.api";
+import {
+  reportingApi,
+  MonthlyData,
+  FundBreakdown,
+  NetPosition,
+  PaymentChannelBreakdown,
+} from "@/services/reporting.api";
 import { useToast } from "@/components/ui/use-toast";
+import { StatCard } from "@/components/ui/stat-card";
 
 const FUND_COLORS = [
   '#f59e0b',
@@ -49,6 +58,7 @@ export default function Reports() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [fundBreakdown, setFundBreakdown] = useState<FundBreakdown[]>([]);
   const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
+  const [paymentChannels, setPaymentChannels] = useState<PaymentChannelBreakdown | null>(null);
 
   useEffect(() => {
     if (account?.account_id) {
@@ -61,15 +71,17 @@ export default function Reports() {
 
     setLoading(true);
     try {
-      const [monthly, funds, net] = await Promise.all([
+      const [monthly, funds, net, channels] = await Promise.all([
         reportingApi.getMonthlyOverview(account.account_id, period),
         reportingApi.getFundBreakdown(account.account_id),
         reportingApi.getNetPosition(account.account_id),
+        reportingApi.getPaymentChannelBreakdown(account.account_id, period),
       ]);
 
       setMonthlyData(monthly);
       setFundBreakdown(funds);
       setNetPosition(net);
+      setPaymentChannels(channels);
     } catch (error) {
       console.error("Error loading reports:", error);
       toast({
@@ -85,6 +97,13 @@ export default function Reports() {
   const totalContributions = monthlyData.reduce((sum, d) => sum + d.contributions, 0);
   const totalExpenses = monthlyData.reduce((sum, d) => sum + d.expenses, 0);
   const netPos = netPosition?.netPosition ?? (totalContributions - totalExpenses);
+  const paystackAmount = paymentChannels?.paystack.amount ?? 0;
+  const manualAmount = paymentChannels?.manual.amount ?? 0;
+  const paystackCount = paymentChannels?.paystack.count ?? 0;
+  const manualCount = paymentChannels?.manual.count ?? 0;
+
+  const formatMoney = (amount: number) =>
+    `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const handlePeriodChange = (value: string) => {
     const monthsMap: Record<string, number> = {
@@ -134,11 +153,11 @@ export default function Reports() {
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         <div className="bg-card border border-border rounded-lg p-5 border-t-2 border-t-amber">
           <p className="text-sm text-muted-foreground">Total Contributions</p>
           <p className="text-2xl font-semibold text-foreground">
-            ${totalContributions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatMoney(totalContributions)}
           </p>
           {netPosition && (
             <p className="text-xs text-success mt-1">
@@ -147,10 +166,24 @@ export default function Reports() {
             </p>
           )}
         </div>
+        <StatCard
+          title="Paystack Payments"
+          value={formatMoney(paystackAmount)}
+          subtitle={`${paystackCount} payment${paystackCount === 1 ? "" : "s"}`}
+          icon={Monitor}
+          accentBorder
+        />
+        <StatCard
+          title="Manual Payments"
+          value={formatMoney(manualAmount)}
+          subtitle={`${manualCount} payment${manualCount === 1 ? "" : "s"}`}
+          icon={User}
+          accentBorder
+        />
         <div className="bg-card border border-border rounded-lg p-5 border-t-2 border-t-charcoal">
           <p className="text-sm text-muted-foreground">Total Expenses</p>
           <p className="text-2xl font-semibold text-foreground">
-            ${totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatMoney(totalExpenses)}
           </p>
           {netPosition && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -162,7 +195,7 @@ export default function Reports() {
         <div className="bg-card border border-border rounded-lg p-5 border-t-2 border-t-success">
           <p className="text-sm text-muted-foreground">Net Position</p>
           <p className={`text-2xl font-semibold ${netPos >= 0 ? 'text-success' : 'text-destructive'}`}>
-            {netPos >= 0 ? '+' : ''}${netPos.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {netPos >= 0 ? '+' : ''}{formatMoney(netPos)}
           </p>
           <p className={`text-xs mt-1 ${netPos >= 0 ? 'text-success' : 'text-destructive'}`}>
             {netPos >= 0 ? 'Surplus' : 'Deficit'}

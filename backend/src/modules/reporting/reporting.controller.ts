@@ -90,3 +90,18 @@ reportingRoutes.get('/net-position', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/reports/payment-channels?accountId=xxx&months=6
+reportingRoutes.get('/payment-channels', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.query.accountId as string;
+    const months = parseInt(req.query.months as string) || 6;
+    if (!accountId) {
+      return sendBadRequest(res, 'Account ID is required');
+    }
+    const breakdown = await reportingService.getPaymentChannelBreakdown(accountId, months);
+    sendSuccess(res, breakdown);
+  } catch (error) {
+    sendError(res, 'Failed to fetch payment channel breakdown');
+  }
+});
+

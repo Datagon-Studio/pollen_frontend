@@ -300,5 +300,41 @@ export const reportingService = {
       trend,
     };
   },
+
+  async getPaymentChannelBreakdown(
+    accountId: string,
+    months = 6
+  ): Promise<{
+    paystack: { amount: number; count: number };
+    manual: { amount: number; count: number };
+  }> {
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+
+    const { data: contributions } = await supabase
+      .from('contributions')
+      .select('amount, channel, payment_method')
+      .eq('account_id', accountId)
+      .eq('status', 'confirmed')
+      .gte('date_received', startDate.toISOString());
+
+    const paystack = { amount: 0, count: 0 };
+    const manual = { amount: 0, count: 0 };
+
+    (contributions || []).forEach((c) => {
+      const isPaystack =
+        c.payment_method === 'Paystack' || c.channel === 'online';
+
+      if (isPaystack) {
+        paystack.amount += c.amount;
+        paystack.count += 1;
+      } else {
+        manual.amount += c.amount;
+        manual.count += 1;
+      }
+    });
+
+    return { paystack, manual };
+  },
 };
 

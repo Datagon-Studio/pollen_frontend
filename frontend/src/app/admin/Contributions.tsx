@@ -32,6 +32,7 @@ import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
+import { StatCard } from "@/components/ui/stat-card";
 
 // Simple cache with TTL
 const cache = {
@@ -482,6 +483,16 @@ export default function Contributions() {
     .filter((c) => c.status === "pending")
     .reduce((sum, c) => sum + c.amount, 0);
 
+  const confirmedContributions = contributions.filter((c) => c.status === "confirmed");
+  const paystackPayments = confirmedContributions.filter(
+    (c) => c.payment_method === "Paystack" || c.channel === "online"
+  );
+  const manualPayments = confirmedContributions.filter(
+    (c) => c.payment_method !== "Paystack" && c.channel !== "online"
+  );
+  const paystackAmount = paystackPayments.reduce((sum, c) => sum + c.amount, 0);
+  const manualAmount = manualPayments.reduce((sum, c) => sum + c.amount, 0);
+
   const fundOptions = [
     { id: "all", fundName: "All Funds" },
     ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
@@ -570,6 +581,24 @@ export default function Contributions() {
           </div>
         }
       />
+
+      {/* Payment Channel Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <StatCard
+          title="Paystack Payments"
+          value={loading ? "..." : formatAmount(paystackAmount)}
+          subtitle={`${paystackPayments.length} confirmed payment${paystackPayments.length === 1 ? "" : "s"}`}
+          icon={Monitor}
+          accentBorder
+        />
+        <StatCard
+          title="Manual Payments"
+          value={loading ? "..." : formatAmount(manualAmount)}
+          subtitle={`${manualPayments.length} confirmed payment${manualPayments.length === 1 ? "" : "s"}`}
+          icon={User}
+          accentBorder
+        />
+      </div>
 
       {/* Pending Alert */}
       {pendingCount > 0 && (

@@ -42,6 +42,11 @@ export interface NetPosition {
   trend: number;
 }
 
+export interface PaymentChannelBreakdown {
+  paystack: { amount: number; count: number };
+  manual: { amount: number; count: number };
+}
+
 export const reportingApi = {
   async getDashboard(accountId: string): Promise<DashboardStats> {
     const response = await request<DashboardStats>(`/reports/dashboard?accountId=${accountId}`, {
@@ -116,6 +121,22 @@ export const reportingApi = {
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch net position');
+    }
+
+    return response.data;
+  },
+
+  async getPaymentChannelBreakdown(
+    accountId: string,
+    months = 6
+  ): Promise<PaymentChannelBreakdown> {
+    const response = await request<PaymentChannelBreakdown>(
+      `/reports/payment-channels?accountId=${accountId}&months=${months}`,
+      { method: 'GET' }
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch payment channel breakdown');
     }
 
     return response.data;
