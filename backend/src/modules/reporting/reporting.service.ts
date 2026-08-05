@@ -313,7 +313,7 @@ export const reportingService = {
 
     const { data: contributions } = await supabase
       .from('contributions')
-      .select('amount, channel, payment_method')
+      .select('amount, payment_method')
       .eq('account_id', accountId)
       .eq('status', 'confirmed')
       .gte('date_received', startDate.toISOString());
@@ -322,8 +322,7 @@ export const reportingService = {
     const manual = { amount: 0, count: 0 };
 
     (contributions || []).forEach((c) => {
-      const isPaystack =
-        c.payment_method === 'Paystack' || c.channel === 'online';
+      const isPaystack = c.payment_method === 'Paystack';
 
       if (isPaystack) {
         paystack.amount += c.amount;

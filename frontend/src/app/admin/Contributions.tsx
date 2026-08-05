@@ -485,10 +485,10 @@ export default function Contributions() {
 
   const confirmedContributions = contributions.filter((c) => c.status === "confirmed");
   const paystackPayments = confirmedContributions.filter(
-    (c) => c.payment_method === "Paystack" || c.channel === "online"
+    (c) => c.payment_method === "Paystack"
   );
   const manualPayments = confirmedContributions.filter(
-    (c) => c.payment_method !== "Paystack" && c.channel !== "online"
+    (c) => c.payment_method !== "Paystack"
   );
   const paystackAmount = paystackPayments.reduce((sum, c) => sum + c.amount, 0);
   const manualAmount = manualPayments.reduce((sum, c) => sum + c.amount, 0);
