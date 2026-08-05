@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2 } from "lucide-react";
+import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -490,6 +490,7 @@ export default function Contributions() {
   const manualPayments = confirmedContributions.filter(
     (c) => c.payment_method !== "Paystack"
   );
+  const confirmedAmount = confirmedContributions.reduce((sum, c) => sum + c.amount, 0);
   const paystackAmount = paystackPayments.reduce((sum, c) => sum + c.amount, 0);
   const manualAmount = manualPayments.reduce((sum, c) => sum + c.amount, 0);
 
@@ -582,8 +583,22 @@ export default function Contributions() {
         }
       />
 
-      {/* Payment Channel Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          title="Total Confirmed"
+          value={loading ? "..." : formatAmount(confirmedAmount)}
+          subtitle={`${confirmedCount} confirmed payment${confirmedCount === 1 ? "" : "s"}`}
+          icon={HandCoins}
+          accentBorder
+        />
+        <StatCard
+          title="Pending"
+          value={loading ? "..." : formatAmount(pendingAmount)}
+          subtitle={`${pendingCount} awaiting confirmation`}
+          icon={Clock}
+          accentBorder
+        />
         <StatCard
           title="Paystack Payments"
           value={loading ? "..." : formatAmount(paystackAmount)}

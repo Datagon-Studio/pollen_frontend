@@ -71,17 +71,20 @@ export default function Reports() {
 
     setLoading(true);
     try {
-      const [monthly, funds, net, channels] = await Promise.all([
+      const [monthly, funds, net, channelsResult] = await Promise.all([
         reportingApi.getMonthlyOverview(account.account_id, period),
         reportingApi.getFundBreakdown(account.account_id),
         reportingApi.getNetPosition(account.account_id),
-        reportingApi.getPaymentChannelBreakdown(account.account_id, period),
+        reportingApi.getPaymentChannelBreakdown(account.account_id, period).catch((err) => {
+          console.error("Error loading payment channel breakdown:", err);
+          return null;
+        }),
       ]);
 
       setMonthlyData(monthly);
       setFundBreakdown(funds);
       setNetPosition(net);
-      setPaymentChannels(channels);
+      setPaymentChannels(channelsResult);
     } catch (error) {
       console.error("Error loading reports:", error);
       toast({
@@ -153,7 +156,7 @@ export default function Reports() {
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <div className="bg-card border border-border rounded-lg p-5 border-t-2 border-t-amber">
           <p className="text-sm text-muted-foreground">Total Contributions</p>
           <p className="text-2xl font-semibold text-foreground">
@@ -166,20 +169,6 @@ export default function Reports() {
             </p>
           )}
         </div>
-        <StatCard
-          title="Paystack Payments"
-          value={formatMoney(paystackAmount)}
-          subtitle={`${paystackCount} payment${paystackCount === 1 ? "" : "s"}`}
-          icon={Monitor}
-          accentBorder
-        />
-        <StatCard
-          title="Manual Payments"
-          value={formatMoney(manualAmount)}
-          subtitle={`${manualCount} payment${manualCount === 1 ? "" : "s"}`}
-          icon={User}
-          accentBorder
-        />
         <div className="bg-card border border-border rounded-lg p-5 border-t-2 border-t-charcoal">
           <p className="text-sm text-muted-foreground">Total Expenses</p>
           <p className="text-2xl font-semibold text-foreground">
@@ -201,6 +190,24 @@ export default function Reports() {
             {netPos >= 0 ? 'Surplus' : 'Deficit'}
           </p>
         </div>
+      </div>
+
+      {/* Payment Method Breakdown */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <StatCard
+          title="Paystack Payments"
+          value={formatMoney(paystackAmount)}
+          subtitle={`${paystackCount} payment${paystackCount === 1 ? "" : "s"}`}
+          icon={Monitor}
+          accentBorder
+        />
+        <StatCard
+          title="Manual Payments"
+          value={formatMoney(manualAmount)}
+          subtitle={`${manualCount} payment${manualCount === 1 ? "" : "s"}`}
+          icon={User}
+          accentBorder
+        />
       </div>
 
       {/* Charts */}
