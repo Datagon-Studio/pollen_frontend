@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity } from "lucide-react";
+import { Loader2, Activity as ActivityIcon } from "lucide-react";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { auditApi, AuditLog } from "@/services/audit.api";
@@ -32,7 +32,7 @@ function statusVariant(status: AuditLog["status"]) {
   return "destructive";
 }
 
-export default function Activity() {
+export default function ActivityPage() {
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
   const { toast } = useToast();
@@ -58,7 +58,7 @@ export default function Activity() {
         });
       })
       .finally(() => setLoading(false));
-  }, [account?.account_id, category, toast]);
+  }, [account?.account_id, category]);
 
   const paymentFailures = useMemo(
     () => logs.filter((log) => log.action_type === "PAYMENT_RECORDING_FAILED"),
@@ -103,7 +103,7 @@ export default function Activity() {
         </div>
       ) : logs.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center text-muted-foreground">
-          <Activity className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <ActivityIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
           <p>No activity recorded yet.</p>
         </div>
       ) : (
