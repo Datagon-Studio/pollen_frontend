@@ -123,7 +123,22 @@ export const contributionRepository = {
     }));
   },
 
-  async create(input: CreateContributionInput): Promise<Contribution | null> {
+  async findByPaymentReference(reference: string): Promise<Contribution | null> {
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('*')
+      .eq('payment_reference', reference)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching contribution by payment reference:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  async create(input: CreateContributionInput): Promise<Contribution> {
     const { data, error } = await supabase
       .from('contributions')
       .insert(input)
@@ -132,8 +147,13 @@ export const contributionRepository = {
 
     if (error) {
       console.error('Error creating contribution:', error);
-      return null;
+      throw new Error(error.message || 'Failed to create contribution');
     }
+
+    if (!data) {
+      throw new Error('Failed to create contribution');
+    }
+
     return data;
   },
 

@@ -18,6 +18,7 @@ import {
   Moon,
   Sun,
   User,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +51,7 @@ const allNavItems: NavItem[] = [
   { label: "Expenses", href: "/expenses", icon: Receipt },
   { label: "Public Settings", href: "/public-settings", icon: Globe },
   { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Activity", href: "/activity", icon: Activity },
   {
     label: "KYC Verification",
     href: "/kyc-verification",

@@ -7,7 +7,7 @@
 
 import { supabase } from '../supabase/client.js';
 
-export type ActionCategory = 'AUTH' | 'MEMBER' | 'CONTRIBUTION' | 'FUND' | 'EXPENSE' | 'ACCOUNT' | 'SYSTEM';
+export type ActionCategory = 'AUTH' | 'MEMBER' | 'CONTRIBUTION' | 'FUND' | 'EXPENSE' | 'ACCOUNT' | 'PAYMENT' | 'SYSTEM';
 
 export type ActionStatus = 'success' | 'failed' | 'error';
 
@@ -292,6 +292,151 @@ class AuditService {
       ipAddress,
       userAgent,
       status: 'success',
+    });
+  }
+
+  /**
+   * Log Paystack payment initialized
+   */
+  async logPaymentInitialized(input: {
+    reference: string;
+    accountId: string;
+    fundId: string;
+    amount: number;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await this.log({
+      actionType: 'PAYMENT_INITIALIZED',
+      actionCategory: 'PAYMENT',
+      accountId: input.accountId,
+      entityType: 'payment',
+      entityId: input.reference,
+      actionDetails: {
+        fund_id: input.fundId,
+        amount: input.amount,
+      },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      status: 'success',
+    });
+  }
+
+  /**
+   * Log Paystack payment verified with Paystack API
+   */
+  async logPaymentVerified(input: {
+    reference: string;
+    accountId?: string | null;
+    amount: number;
+    source: 'verify' | 'webhook';
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await this.log({
+      actionType: 'PAYMENT_VERIFIED',
+      actionCategory: 'PAYMENT',
+      accountId: input.accountId || null,
+      entityType: 'payment',
+      entityId: input.reference,
+      actionDetails: {
+        amount: input.amount,
+        source: input.source,
+      },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      status: 'success',
+    });
+  }
+
+  /**
+   * Log successful contribution recording from Paystack payment
+   */
+  async logPaymentRecorded(input: {
+    reference: string;
+    accountId: string;
+    contributionId: string;
+    amount: number;
+    fundId?: string;
+    memberId?: string | null;
+    source: 'verify' | 'webhook';
+    ipAddress?: string;
+    userAgent?: string;
+    details?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.log({
+      actionType: 'PAYMENT_RECORDED',
+      actionCategory: 'PAYMENT',
+      accountId: input.accountId,
+      entityType: 'contribution',
+      entityId: input.contributionId,
+      actionDetails: {
+        payment_reference: input.reference,
+        amount: input.amount,
+        fund_id: input.fundId,
+        member_id: input.memberId ?? null,
+        source: input.source,
+        ...input.details,
+      },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      status: 'success',
+    });
+  }
+
+  /**
+   * Log failed contribution recording after Paystack payment succeeded
+   */
+  async logPaymentRecordingFailed(input: {
+    reference: string;
+    accountId?: string | null;
+    source: 'verify' | 'webhook';
+    error: string;
+    ipAddress?: string;
+    userAgent?: string;
+    details?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.log({
+      actionType: 'PAYMENT_RECORDING_FAILED',
+      actionCategory: 'PAYMENT',
+      accountId: input.accountId || null,
+      entityType: 'payment',
+      entityId: input.reference,
+      actionDetails: {
+        source: input.source,
+        ...input.details,
+      },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      status: 'error',
+      errorMessage: input.error,
+    });
+  }
+
+  /**
+   * Log Paystack verify/webhook failure
+   */
+  async logPaymentFailed(input: {
+    reference: string;
+    accountId?: string | null;
+    source: 'verify' | 'webhook';
+    error: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await this.log({
+      actionType: 'PAYMENT_FAILED',
+      actionCategory: 'PAYMENT',
+      accountId: input.accountId || null,
+      entityType: 'payment',
+      entityId: input.reference,
+      actionDetails: {
+        source: input.source,
+      },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      status: 'failed',
+      errorMessage: input.error,
     });
   }
 

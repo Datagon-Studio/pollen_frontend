@@ -15,6 +15,8 @@ type ContributionSmsRecipient = {
 
 type CreateContributionOptions = {
   allowBelowFundMinimum?: boolean;
+  allowInactiveFund?: boolean;
+  allowInvalidMember?: boolean;
   smsRecipient?: ContributionSmsRecipient;
 };
 
@@ -276,7 +278,7 @@ export const contributionService = {
     input: CreateContributionInput,
     userId?: string,
     options: CreateContributionOptions = {}
-  ): Promise<Contribution | null> {
+  ): Promise<Contribution> {
     // Validate required fields
     if (!input.fund_id) {
       throw new Error('Fund ID is required');
@@ -294,11 +296,17 @@ export const contributionService = {
     if (memberId) {
       const member = await memberRepository.findById(memberId);
       if (!member) {
-        throw new Error('Member not found');
-      }
-      // Verify member belongs to the same account
-      if (member.account_id !== input.account_id) {
-        throw new Error('Member does not belong to this account');
+        if (options.allowInvalidMember) {
+          input = { ...input, member_id: null };
+        } else {
+          throw new Error('Member not found');
+        }
+      } else if (member.account_id !== input.account_id) {
+        if (options.allowInvalidMember) {
+          input = { ...input, member_id: null };
+        } else {
+          throw new Error('Member does not belong to this account');
+        }
       }
     }
 
@@ -308,13 +316,11 @@ export const contributionService = {
       throw new Error('Fund not found');
     }
 
-    // Verify fund belongs to the same account
     if (fund.account_id !== input.account_id) {
       throw new Error('Fund does not belong to this account');
     }
 
-    // Check if fund is active (only active funds accept contributions)
-    if (!fund.is_active) {
+    if (!fund.is_active && !options.allowInactiveFund) {
       throw new Error(`Fund "${fund.fund_name}" is inactive and cannot accept contributions`);
     }
 
@@ -337,7 +343,7 @@ export const contributionService = {
     // Set defaults
     const contributionData: CreateContributionInput = {
       ...input,
-      member_id: memberId, // Use normalized member_id (null if empty string)
+      member_id: input.member_id && input.member_id.trim() !== '' ? input.member_id : null,
       channel: input.channel || 'offline',
       status: input.status || 'pending',
       date_received: input.date_received || new Date().toISOString(),
@@ -345,6 +351,9 @@ export const contributionService = {
     };
 
     const contribution = await contributionRepository.create(contributionData);
+    if (!contribution) {
+      throw new Error('Failed to save contribution to the database');
+    }
 
     // Notify admins and contributor when contribution is confirmed
     if (contribution && contribution.status === 'confirmed') {

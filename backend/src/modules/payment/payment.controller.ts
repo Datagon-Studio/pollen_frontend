@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { sendSuccess, sendError, sendBadRequest } from '../../shared/utils/api-response.js';
 import { paymentService } from './payment.service.js';
 import { paystackBankService } from './paystack-bank.service.js';
+import { auditService } from '../../shared/services/audit.service.js';
 
 export const paymentRoutes = Router();
 
@@ -33,6 +34,7 @@ paymentRoutes.post('/initialize', async (req: Request, res: Response) => {
       phone: phone || undefined,
       member_id: member_id || undefined,
       frontend_url,
+      requestContext: auditService.extractRequestInfo(req),
     });
 
     if (!result.success) {
@@ -56,7 +58,10 @@ paymentRoutes.get('/verify/:reference', async (req: Request, res: Response) => {
       return sendBadRequest(res, 'Payment reference is required');
     }
 
-    const result = await paymentService.verifyPayment(reference);
+    const result = await paymentService.verifyPayment(
+      reference,
+      auditService.extractRequestInfo(req)
+    );
 
     if (!result.success) {
       return sendBadRequest(res, result.error || 'Failed to verify payment');

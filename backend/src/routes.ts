@@ -11,6 +11,7 @@ import { userRoutes } from './modules/user/user.routes.js';
 import { settlementRoutes } from './modules/settlement/settlement.controller.js';
 import { paymentRoutes } from './modules/payment/payment.controller.js';
 import { accountPublicPageRoutes } from './modules/account-public-page/account-public-page.routes.js';
+import { auditRoutes } from './modules/audit/audit.controller.js';
 
 export const routes = Router();
 
@@ -26,4 +27,5 @@ routes.use('/settlements', settlementRoutes);
 routes.use('/payments', paymentRoutes);
 routes.use('/config', configRoutes);
 routes.use('/account-public-pages', accountPublicPageRoutes);
+routes.use('/audit-logs', auditRoutes);
 

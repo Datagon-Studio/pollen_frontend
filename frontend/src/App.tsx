@@ -22,6 +22,7 @@ import VerifyMemberEmail from "./app/public/VerifyMemberEmail";
 import PaymentCallback from "./app/public/PaymentCallback";
 import Reports from "./app/admin/Reports";
 import Settings from "./app/admin/Settings";
+import Activity from "./app/admin/Activity";
 import KYCVerification from "./app/admin/KYCVerification";
 import UserProfile from "./app/admin/UserProfile";
 import NotFound from "./app/NotFound";
@@ -175,6 +176,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/activity"
+        element={
+          <ProtectedRoute>
+            <Activity />
           </ProtectedRoute>
         }
       />
