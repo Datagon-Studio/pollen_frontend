@@ -1,5 +1,5 @@
 /** Combined platform and payment-processing fee for online contributions. */
-export const PAYMENT_FEE_RATE = 0.025;
+export const PAYMENT_FEE_RATE = 0.02;
 
 export function calculatePaymentAmounts(desiredAmount: number): {
   contributionAmount: number;
