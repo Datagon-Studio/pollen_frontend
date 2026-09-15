@@ -1,4 +1,11 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "development": true,
+      "*": false
+    }
+  },
   "installCommand": "cd frontend && npm install && cd ../backend && npm install",
   "buildCommand": "cd backend && npm run build && cd ../frontend && npm run build",
   "outputDirectory": "frontend/dist",
