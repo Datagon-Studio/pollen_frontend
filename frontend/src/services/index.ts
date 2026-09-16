@@ -4,6 +4,7 @@ export { memberApi, isMemberActive } from './member.api';
 export { fundApi } from './fund.api';
 export { contributionApi } from './contribution.api';
 export { expenseApi } from './expense.api';
+export { fundSettlementApi } from './fund-settlement.api';
 export { reportingApi } from './reporting.api';
 export { userApi } from './user.api';
 
@@ -19,6 +20,13 @@ export type {
   FundContributionStats,
 } from './contribution.api';
 export type { Expense, CreateExpenseInput, UpdateExpenseInput, ExpenseStats } from './expense.api';
+export type {
+  FundSettlement,
+  FundSettlementStatus,
+  CreateFundSettlementInput,
+  UpdateFundSettlementInput,
+  FundSettlementStats,
+} from './fund-settlement.api';
 export type {
   DashboardStats,
   MonthlyData,

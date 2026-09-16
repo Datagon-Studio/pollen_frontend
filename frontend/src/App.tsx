@@ -14,6 +14,7 @@ import Members from "./app/admin/Members";
 import Funds from "./app/admin/Funds";
 import Contributions from "./app/admin/Contributions";
 import Expenses from "./app/admin/Expenses";
+import Settlements from "./app/admin/Settlements";
 import PublicSettings from "./app/admin/PublicSettings";
 import PublicGroupLanding from "./app/public/PublicGroupLanding";
 import PublicGroupPage from "./app/public/PublicGroupPage";
@@ -155,6 +156,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Expenses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settlements"
+        element={
+          <ProtectedRoute>
+            <Settlements />
           </ProtectedRoute>
         }
       />

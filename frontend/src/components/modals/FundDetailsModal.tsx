@@ -8,9 +8,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Wallet, TrendingUp, Users, Calendar, Loader2 } from "lucide-react";
+import { Wallet, TrendingUp, Users, Calendar, Loader2, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
+import { fundSettlementApi, FundSettlement } from "@/services/fund-settlement.api";
 import { format } from "date-fns";
 
 interface Fund {
@@ -37,11 +38,14 @@ interface FundDetailsModalProps {
 
 export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetailsModalProps) {
   const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
+  const [settlements, setSettlements] = useState<FundSettlement[]>([]);
   const [loadingContributions, setLoadingContributions] = useState(false);
+  const [loadingSettlements, setLoadingSettlements] = useState(false);
 
   useEffect(() => {
     if (open && fund?.id) {
       loadContributions();
+      loadSettlements();
     }
   }, [open, fund?.id]);
 
@@ -61,6 +65,21 @@ export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetai
     }
   };
 
+  const loadSettlements = async () => {
+    if (!fund?.id) return;
+
+    try {
+      setLoadingSettlements(true);
+      const data = await fundSettlementApi.getByFund(String(fund.id));
+      setSettlements(data || []);
+    } catch (error) {
+      console.error("Failed to load settlements:", error);
+      setSettlements([]);
+    } finally {
+      setLoadingSettlements(false);
+    }
+  };
+
   if (!fund) return null;
 
   const progress = fund.target ? (fund.collected / fund.target) * 100 : null;
@@ -69,10 +88,14 @@ export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetai
     .filter(c => c.status === 'confirmed')
     .sort((a, b) => new Date(b.date_received).getTime() - new Date(a.date_received).getTime())
     .slice(0, 5);
+  const settlementHistory = settlements
+    .filter((s) => !s.is_archived)
+    .sort((a, b) => new Date(b.settlement_date).getTime() - new Date(a.settlement_date).getTime())
+    .slice(0, 5);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -185,6 +208,44 @@ export function FundDetailsModal({ open, onOpenChange, fund, onEdit }: FundDetai
                       <span className="font-medium text-foreground">
                         ${contribution.amount.toFixed(2)}
                       </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Settlement History */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Landmark className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-medium text-foreground">Settlement History</h4>
+            </div>
+            {loadingSettlements ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {settlementHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No settlements recorded for this fund</p>
+                ) : (
+                  settlementHistory.map((settlement) => (
+                    <div key={settlement.settlement_id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {format(new Date(settlement.settlement_date), "MMM d, yyyy")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {settlement.reference || settlement.notes || "Manual settlement"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={settlement.status} />
+                        <span className="font-medium text-foreground">
+                          ${Number(settlement.amount).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   ))
                 )}

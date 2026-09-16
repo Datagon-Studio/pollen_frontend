@@ -9,6 +9,7 @@ import { expenseCategoryRoutes } from './modules/expense-category/expense-catego
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
 import { settlementRoutes } from './modules/settlement/settlement.controller.js';
+import { fundSettlementRoutesWithAuth } from './modules/fund-settlement/fund-settlement.routes.js';
 import { paymentRoutes } from './modules/payment/payment.controller.js';
 import { accountPublicPageRoutes } from './modules/account-public-page/account-public-page.routes.js';
 import { auditRoutes } from './modules/audit/audit.controller.js';
@@ -24,6 +25,7 @@ routes.use('/expense-categories', expenseCategoryRoutes);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
+routes.use('/fund-settlements', fundSettlementRoutesWithAuth);
 routes.use('/payments', paymentRoutes);
 routes.use('/config', configRoutes);
 routes.use('/account-public-pages', accountPublicPageRoutes);
