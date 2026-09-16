@@ -3,11 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Product | Pollean |
-| Document | System Admin Portal — Product Requirements |
+| Document | System Admin Portal  PRD |
 | Status | Draft |
 | Date | 16 September 2026 |
-| Audience | Product, engineering, design, operations |
-| Related | `PRODUCT.md`, `TechnicalRequirements.md` |
 
 ---
 
@@ -15,9 +13,9 @@
 
 Pollean currently has two customer-facing surfaces: the **group manager / collector dashboard** and the **group member portal**. Platform operations (KYC review, account health, settlements, support) are either missing or squeezed into the group dashboard as a thin superadmin screen.
 
-This PRD defines a third interface: the **System Admin Portal** — a dedicated operations product for the Pollean team. It will live in a **separate repository**, share the same backend and data, and become the only place Pollean staff approve KYC, inspect all accounts, and process settlement requests.
+This PRD defines a third interface: the **System Admin Portal**, a dedicated operations product for the Pollean team. It will live in a **separate repository**, share the same backend and data, and become the only place Pollean staff approve KYC, inspect all accounts, and process settlement requests.
 
-Staff access is **tiered**: not every admin can do everything. Roles follow least privilege — support can search and inspect, operations can process KYC and settlements, and super admins can also change account lifecycle and manage staff.
+Staff access is **tiered**: not every admin can do everything. Roles follow least privilege,so support can search and inspect, operations can process KYC and settlements, and super admins can also change account lifecycle and manage staff.
 
 The portal is **not** for group managers, officers, collectors, or members.
 
@@ -656,7 +654,7 @@ Suggested rollout: API + audit rules first, then admin portal, then remove the o
 
 ---
 
-## 19. Appendix — current state vs this PRD
+## 19. Appendix: current state vs this PRD
 
 | Area | Today | Target |
 | --- | --- | --- |

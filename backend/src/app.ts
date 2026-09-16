@@ -8,17 +8,32 @@ export const app = express();
 
 // Security middleware
 app.use(helmet());
-// CORS: In production (Vercel), frontend and backend are same origin
-// In dev, use configured FRONTEND_URL
-const corsOptions = process.env.VERCEL || process.env.VERCEL_URL
-  ? {
-      origin: true, // Allow same origin in Vercel (frontend and backend same domain)
-      credentials: true,
-    }
-  : {
-      origin: env.FRONTEND_URL,
-      credentials: true,
-    };
+// CORS: group app + system admin portal may run on different origins in dev
+const allowedOrigins = new Set(
+  [env.FRONTEND_URL, env.ADMIN_FRONTEND_URL].filter(Boolean)
+);
+
+const corsOptions =
+  process.env.VERCEL || process.env.VERCEL_URL
+    ? {
+        origin: true,
+        credentials: true,
+      }
+    : {
+        origin: (
+          origin: string | undefined,
+          callback: (err: Error | null, allow?: boolean) => void
+        ) => {
+          // Same-origin or non-browser requests (no Origin header)
+          if (!origin || allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+          }
+          console.warn(`[CORS] Blocked origin: ${origin}. Allowed: ${[...allowedOrigins].join(', ')}`);
+          callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true,
+      };
 app.use(cors(corsOptions));
 
 // Body parsing
