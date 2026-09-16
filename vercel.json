@@ -3,7 +3,7 @@
     "deploymentEnabled": {
       "main": true,
       "development": true,
-      "*": false
+      "*": true
     }
   },
   "installCommand": "cd frontend && npm install && cd ../backend && npm install",
