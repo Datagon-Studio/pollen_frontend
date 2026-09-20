@@ -33,6 +33,8 @@ export interface AdminAccountSummary {
   total_collected: number;
   online_collected: number;
   manual_collected: number;
+  total_disbursed: number;
+  expense_count: number;
 }
 
 export interface AdminAccountDetail extends AdminAccountSummary {
@@ -135,15 +137,17 @@ export const adminService = {
     if (error) throw new Error(error.message);
     if (!accounts?.length) return [];
 
-    const [membersRes, fundsRes, contributionsRes] = await Promise.all([
+    const [membersRes, fundsRes, contributionsRes, expensesRes] = await Promise.all([
       supabase.from('members').select('account_id'),
       supabase.from('funds').select('account_id, is_active'),
       supabase.from('contributions').select('account_id, amount, channel, status'),
+      supabase.from('expenses').select('account_id, amount'),
     ]);
 
     if (membersRes.error) throw new Error(membersRes.error.message);
     if (fundsRes.error) throw new Error(fundsRes.error.message);
     if (contributionsRes.error) throw new Error(contributionsRes.error.message);
+    if (expensesRes.error) throw new Error(expensesRes.error.message);
 
     const memberCounts = new Map<string, number>();
     for (const m of membersRes.data || []) {
@@ -169,9 +173,18 @@ export const adminService = {
       collected.set(c.account_id, cur);
     }
 
+    const disbursed = new Map<string, { total: number; count: number }>();
+    for (const e of expensesRes.data || []) {
+      const cur = disbursed.get(e.account_id) || { total: 0, count: 0 };
+      cur.total += Number(e.amount);
+      cur.count += 1;
+      disbursed.set(e.account_id, cur);
+    }
+
     return accounts.map((a) => {
       const fc = fundCounts.get(a.account_id) || { total: 0, active: 0 };
       const col = collected.get(a.account_id) || { total: 0, online: 0, manual: 0 };
+      const dis = disbursed.get(a.account_id) || { total: 0, count: 0 };
       return {
         account_id: a.account_id,
         account_name: a.account_name,
@@ -185,6 +198,8 @@ export const adminService = {
         total_collected: col.total,
         online_collected: col.online,
         manual_collected: col.manual,
+        total_disbursed: dis.total,
+        expense_count: dis.count,
       };
     });
   },
@@ -204,6 +219,8 @@ export const adminService = {
         total_collected: 0,
         online_collected: 0,
         manual_collected: 0,
+        total_disbursed: 0,
+        expense_count: 0,
         short_url: account.short_url,
         updated_at: account.updated_at,
       };
@@ -216,7 +233,7 @@ export const adminService = {
     };
   },
 
-  accountToSummary(account: Account): Omit<AdminAccountSummary, 'member_count' | 'fund_count' | 'active_fund_count' | 'total_collected' | 'online_collected' | 'manual_collected'> {
+  accountToSummary(account: Account): Omit<AdminAccountSummary, 'member_count' | 'fund_count' | 'active_fund_count' | 'total_collected' | 'online_collected' | 'manual_collected' | 'total_disbursed' | 'expense_count'> {
     return {
       account_id: account.account_id,
       account_name: account.account_name,

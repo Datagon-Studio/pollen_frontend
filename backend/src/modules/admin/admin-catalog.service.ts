@@ -525,7 +525,10 @@ export const adminCatalogService = {
         )
       `)
       .eq('account_id', accountId)
-      .in('role', ['admin', 'officer']);
+      .in('role', ['admin', 'officer'])
+      // Oldest link first: the account's first admin is its creator (there is no
+      // owner column — the signup trigger links the creator as the initial admin).
+      .order('created_at', { ascending: true });
 
     if (error) throw new Error(error.message);
 
