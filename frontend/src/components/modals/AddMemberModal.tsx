@@ -172,6 +172,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     phone: "",
     email: "",
     isCollector: false,
+    sendWelcomeSms: true,
   });
   
   // OTP states
@@ -458,17 +459,26 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
         email_verified: emailVerified,
         membership_number: formData.membershipNumber.trim() || null,
         isCollector: formData.isCollector,
+        send_welcome_sms: formData.sendWelcomeSms,
       });
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to create member');
       }
 
+      const welcomeParts: string[] = [];
+      if (formData.isCollector) {
+        welcomeParts.push(`A welcome email with a password setup link has been sent to ${formData.email}.`);
+      }
+      if (formData.sendWelcomeSms) {
+        welcomeParts.push("A welcome SMS has been sent.");
+      }
+
       toast({
         title: "Member Added",
-        description: formData.isCollector 
-          ? `${formData.fullName} has been added as a collector. A welcome email with password setup link has been sent to ${formData.email}.`
-          : `${formData.fullName} has been added successfully.`,
+        description: formData.isCollector
+          ? `${formData.fullName} has been added as a collector. ${welcomeParts.join(" ")}`
+          : `${formData.fullName} has been added successfully.${welcomeParts.length ? ` ${welcomeParts.join(" ")}` : ""}`,
       });
 
       // Reset form
@@ -491,7 +501,7 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
   };
 
   const resetForm = () => {
-    setFormData({ fullName: "", membershipNumber: "", dob: undefined, phone: "", email: "", isCollector: false });
+    setFormData({ fullName: "", membershipNumber: "", dob: undefined, phone: "", email: "", isCollector: false, sendWelcomeSms: true });
     setEmailOtpSent(false);
     setEmailOtp("");
     setEmailVerified(false);
@@ -747,6 +757,27 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
                   </Button>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="sendWelcomeSms"
+                  checked={formData.sendWelcomeSms}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, sendWelcomeSms: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="sendWelcomeSms"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Send welcome SMS
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                Text the member a welcome message with a link to the group page. Leave this off to add them without sending a message.
+              </p>
             </div>
 
             {/* Collector Option */}

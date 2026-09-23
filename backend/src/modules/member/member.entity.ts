@@ -29,6 +29,8 @@ export interface CreateMemberInput {
   email_verified?: boolean;
   membership_number?: string | null;
   isCollector?: boolean;
+  /** When false, skip the welcome SMS. Omitted or true sends it. */
+  send_welcome_sms?: boolean;
 }
 
 export interface UpdateMemberInput {
