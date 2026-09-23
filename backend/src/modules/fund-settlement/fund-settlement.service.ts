@@ -8,12 +8,19 @@
 
 import { fundSettlementRepository } from './fund-settlement.repository.js';
 import { fundService } from '../fund/fund.service.js';
+import { contributionRepository } from '../contribution/contribution.repository.js';
+import { PAYMENT_FEE_RATE } from '../payment/paystack-fees.js';
 import {
   FundSettlementWithDetails,
   CreateFundSettlementInput,
   UpdateFundSettlementInput,
   FundSettlementStats,
+  FundSettlementAvailability,
 } from './fund-settlement.entity.js';
+
+function roundMoney(amount: number): number {
+  return Math.round((Number(amount) || 0) * 100) / 100;
+}
 
 export class FundSettlementService {
   async getSettlement(settlementId: string): Promise<FundSettlementWithDetails | null> {
@@ -30,6 +37,40 @@ export class FundSettlementService {
       throw new Error('Fund not found');
     }
     return fundSettlementRepository.findByFundId(accountId, fundId);
+  }
+
+  async getAvailability(
+    accountId: string,
+    fundId: string,
+    excludeSettlementId?: string
+  ): Promise<FundSettlementAvailability> {
+    const fund = await fundService.getFund(fundId);
+    if (!fund || fund.account_id !== accountId) {
+      throw new Error('Fund not found');
+    }
+
+    const [breakdown, reservedAmount] = await Promise.all([
+      contributionRepository.getConfirmedBreakdownByFund(fundId),
+      fundSettlementRepository.getReservedAmountByFund(accountId, fundId, excludeSettlementId),
+    ]);
+
+    const collected = roundMoney(breakdown.total);
+    const onlineCollected = roundMoney(breakdown.online);
+    const offlineCollected = roundMoney(breakdown.offline);
+    const feeAmount = roundMoney(onlineCollected * PAYMENT_FEE_RATE);
+    const reserved = roundMoney(reservedAmount);
+    // Contribution amounts already exclude donor-paid transaction fees.
+    const availableAmount = roundMoney(Math.max(0, collected - reserved));
+
+    return {
+      fund_id: fundId,
+      collected,
+      onlineCollected,
+      offlineCollected,
+      feeAmount,
+      reservedAmount: reserved,
+      availableAmount,
+    };
   }
 
   async createSettlement(input: CreateFundSettlementInput): Promise<FundSettlementWithDetails> {
@@ -55,6 +96,8 @@ export class FundSettlementService {
     if (status !== 'pending' && status !== 'successful') {
       throw new Error('New settlements must be pending or successful');
     }
+
+    await this.assertAmountWithinAvailable(input.account_id, input.fund_id, input.amount);
 
     return fundSettlementRepository.create({
       ...input,
@@ -83,12 +126,21 @@ export class FundSettlementService {
       throw new Error('Amount must be greater than 0');
     }
 
+    const nextFundId = input.fund_id || existing.fund_id;
     if (input.fund_id && input.fund_id !== existing.fund_id) {
       const fund = await fundService.getFund(input.fund_id);
       if (!fund || fund.account_id !== accountId) {
         throw new Error('Fund not found');
       }
     }
+
+    const nextAmount = input.amount !== undefined ? input.amount : Number(existing.amount);
+    await this.assertAmountWithinAvailable(
+      accountId,
+      nextFundId,
+      nextAmount,
+      existing.settlement_id
+    );
 
     const updateData: UpdateFundSettlementInput = { ...input };
     if (updateData.reference !== undefined) {
@@ -168,6 +220,20 @@ export class FundSettlementService {
     }
     if (settlement.status !== 'pending') {
       throw new Error('Only pending settlements can change status');
+    }
+  }
+
+  private async assertAmountWithinAvailable(
+    accountId: string,
+    fundId: string,
+    amount: number,
+    excludeSettlementId?: string
+  ): Promise<void> {
+    const availability = await this.getAvailability(accountId, fundId, excludeSettlementId);
+    if (roundMoney(amount) > availability.availableAmount) {
+      throw new Error(
+        `Amount exceeds the maximum requestable for this fund (${availability.availableAmount.toFixed(2)})`
+      );
     }
   }
 }

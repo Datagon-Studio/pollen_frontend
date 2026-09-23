@@ -46,6 +46,16 @@ export interface FundSettlementStats {
   successfulAmount: number;
 }
 
+export interface FundSettlementAvailability {
+  fund_id: string;
+  collected: number;
+  onlineCollected: number;
+  offlineCollected: number;
+  feeAmount: number;
+  reservedAmount: number;
+  availableAmount: number;
+}
+
 export const fundSettlementApi = {
   async getAll(): Promise<FundSettlement[]> {
     const response = await request<FundSettlement[]>('/fund-settlements', {
@@ -90,6 +100,22 @@ export const fundSettlementApi = {
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch settlement stats');
+    }
+
+    return response.data;
+  },
+
+  async getAvailability(fundId: string, excludeSettlementId?: string): Promise<FundSettlementAvailability> {
+    const query = excludeSettlementId
+      ? `?excludeSettlementId=${encodeURIComponent(excludeSettlementId)}`
+      : '';
+    const response = await request<FundSettlementAvailability>(
+      `/fund-settlements/fund/${fundId}/availability${query}`,
+      { method: 'GET' }
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch settlement availability');
     }
 
     return response.data;

@@ -26,6 +26,7 @@ export type {
   CreateFundSettlementInput,
   UpdateFundSettlementInput,
   FundSettlementStats,
+  FundSettlementAvailability,
 } from './fund-settlement.api';
 export type {
   DashboardStats,

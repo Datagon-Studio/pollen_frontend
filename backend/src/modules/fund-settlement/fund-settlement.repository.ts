@@ -163,6 +163,27 @@ export const fundSettlementRepository = {
     return mapWithFundName(data);
   },
 
+  async getReservedAmountByFund(
+    accountId: string,
+    fundId: string,
+    excludeSettlementId?: string
+  ): Promise<number> {
+    const { data, error } = await supabase
+      .from('fund_settlements')
+      .select('settlement_id, amount')
+      .eq('account_id', accountId)
+      .eq('fund_id', fundId)
+      .in('status', ['pending', 'successful']);
+
+    if (error) {
+      throw new Error(`Failed to fetch reserved settlement amount: ${error.message}`);
+    }
+
+    return (data || [])
+      .filter((row: { settlement_id: string }) => row.settlement_id !== excludeSettlementId)
+      .reduce((sum: number, row: { amount: number }) => sum + Number(row.amount), 0);
+  },
+
   async unarchive(settlementId: string): Promise<FundSettlementWithDetails> {
     const { data, error } = await supabase
       .from('fund_settlements')

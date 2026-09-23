@@ -84,6 +84,36 @@ fundSettlementRoutes.get('/stats', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/v1/fund-settlements/fund/:fundId/availability
+ */
+fundSettlementRoutes.get('/fund/:fundId/availability', async (req: Request, res: Response) => {
+  try {
+    const ctx = await requireUserAccount(req, res);
+    if (!ctx) return;
+
+    const excludeSettlementId =
+      typeof req.query.excludeSettlementId === 'string' ? req.query.excludeSettlementId : undefined;
+
+    const availability = await fundSettlementService.getAvailability(
+      ctx.account.account_id,
+      req.params.fundId,
+      excludeSettlementId
+    );
+    res.status(200).json({
+      success: true,
+      data: availability,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch settlement availability';
+    const statusCode = message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
  * GET /api/v1/fund-settlements/fund/:fundId
  */
 fundSettlementRoutes.get('/fund/:fundId', async (req: Request, res: Response) => {

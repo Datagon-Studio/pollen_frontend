@@ -196,6 +196,36 @@ export const contributionRepository = {
     return (data || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0);
   },
 
+  async getConfirmedBreakdownByFund(fundId: string): Promise<{
+    total: number;
+    online: number;
+    offline: number;
+  }> {
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('amount, channel')
+      .eq('fund_id', fundId)
+      .eq('status', 'confirmed');
+
+    if (error) {
+      throw new Error(`Failed to fetch fund contribution totals: ${error.message}`);
+    }
+
+    return (data || []).reduce(
+      (acc, row: { amount: number; channel: string }) => {
+        const amount = Number(row.amount) || 0;
+        if (row.channel === 'online') {
+          acc.online += amount;
+        } else {
+          acc.offline += amount;
+        }
+        acc.total += amount;
+        return acc;
+      },
+      { total: 0, online: 0, offline: 0 }
+    );
+  },
+
   async getTotalByMember(memberId: string): Promise<number> {
     const { data, error } = await supabase
       .from('contributions')

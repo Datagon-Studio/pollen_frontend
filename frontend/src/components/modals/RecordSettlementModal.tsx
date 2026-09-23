@@ -28,9 +28,10 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { fundApi, Fund } from "@/services";
-import { fundSettlementApi, FundSettlementStatus } from "@/services/fund-settlement.api";
+import { fundSettlementApi, FundSettlementAvailability, FundSettlementStatus } from "@/services/fund-settlement.api";
 import { configApi } from "@/services/config.api";
 import { getCurrencySymbol } from "@/lib/currencies";
+import { SettlementAvailabilitySummary } from "@/components/modals/SettlementAvailabilitySummary";
 
 interface RecordSettlementModalProps {
   open: boolean;
@@ -54,6 +55,8 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
+  const [availability, setAvailability] = useState<FundSettlementAvailability | null>(null);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -82,7 +85,34 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
     };
 
     loadFunds();
+    setAvailability(null);
   }, [open, toast]);
+
+  useEffect(() => {
+    if (!open || !formData.fundId) {
+      setAvailability(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadAvailability = async () => {
+      try {
+        setLoadingAvailability(true);
+        const data = await fundSettlementApi.getAvailability(formData.fundId);
+        if (!cancelled) setAvailability(data);
+      } catch (error) {
+        console.error("Failed to load settlement availability:", error);
+        if (!cancelled) setAvailability(null);
+      } finally {
+        if (!cancelled) setLoadingAvailability(false);
+      }
+    };
+
+    loadAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, formData.fundId]);
 
   const formatAmount = (amount: number) => {
     return `${getCurrencySymbol(currencyCode)}${amount.toFixed(2)}`;
@@ -105,6 +135,15 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
       toast({
         title: "Validation Error",
         description: "Please enter a valid amount greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (availability && amount > availability.availableAmount) {
+      toast({
+        title: "Validation Error",
+        description: `Amount cannot exceed the maximum requestable (${formatAmount(availability.availableAmount)}).`,
         variant: "destructive",
       });
       return;
@@ -144,13 +183,14 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
       setFormData(emptyForm);
+      setAvailability(null);
     }
     onOpenChange(isOpen);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
+      <DialogContent className="sm:max-w-md bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Settlement</DialogTitle>
         </DialogHeader>
@@ -163,7 +203,10 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <Select value={formData.fundId} onValueChange={(v) => setFormData({ ...formData, fundId: v })}>
+                <Select
+                  value={formData.fundId}
+                  onValueChange={(v) => setFormData({ ...formData, fundId: v, amount: "" })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select fund" />
                   </SelectTrigger>
@@ -177,6 +220,18 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
                 </Select>
               )}
             </div>
+
+            {formData.fundId && (
+              <SettlementAvailabilitySummary
+                availability={availability}
+                loading={loadingAvailability}
+                currencyCode={currencyCode}
+                onUseMax={() =>
+                  availability &&
+                  setFormData({ ...formData, amount: availability.availableAmount.toFixed(2) })
+                }
+              />
+            )}
 
             <div className="space-y-2">
               <Label>Date *</Label>
@@ -205,8 +260,12 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
                 id="settlement-amount"
                 currencyCode={currencyCode}
                 placeholder="0.00"
+                step="0.01"
+                min="0.01"
+                max={availability?.availableAmount}
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                disabled={!formData.fundId || availability?.availableAmount === 0}
               />
             </div>
 
@@ -255,7 +314,10 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
             <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || loadingFunds}>
+            <Button
+              type="submit"
+              disabled={saving || loadingFunds || loadingAvailability || availability?.availableAmount === 0}
+            >
               {saving ? "Saving..." : "Record Settlement"}
             </Button>
           </DialogFooter>

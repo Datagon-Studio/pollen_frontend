@@ -55,3 +55,13 @@ export interface FundSettlementStats {
   pendingAmount: number;
   successfulAmount: number;
 }
+
+export interface FundSettlementAvailability {
+  fund_id: string;
+  collected: number;
+  onlineCollected: number;
+  offlineCollected: number;
+  feeAmount: number;
+  reservedAmount: number;
+  availableAmount: number;
+}
