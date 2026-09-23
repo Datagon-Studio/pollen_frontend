@@ -197,7 +197,14 @@ memberRoutes.post('/bulk', async (req: Request, res: Response) => {
       });
     }
 
-    const result = await memberService.bulkCreateMembers(account.account_id, members);
+    const baseUrl = req.headers.origin ||
+                    (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
+                    process.env.FRONTEND_URL;
+
+    const result = await memberService.bulkCreateMembers(account.account_id, members, {
+      send_welcome_sms: req.body.send_welcome_sms !== false,
+      baseUrl: baseUrl || undefined,
+    });
     res.status(201).json({
       success: true,
       data: result,
@@ -294,6 +301,7 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
       email_verified: req.body.email_verified,
       membership_number: req.body.membership_number,
       isCollector: req.body.isCollector || false,
+      send_welcome_sms: req.body.send_welcome_sms !== false,
     };
 
     // Get base URL dynamically from request headers or environment

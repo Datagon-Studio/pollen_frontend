@@ -17,6 +17,7 @@ export interface Member {
 
 export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'> & {
   isCollector?: boolean;
+  send_welcome_sms?: boolean;
 };
 export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>> & {
   baseUrl?: string;
@@ -61,8 +62,11 @@ export const memberApi = {
     return apiClient.post<Member>('/members', data);
   },
 
-  async bulkCreate(members: BulkCreateMemberRow[]) {
-    return apiClient.post<BulkCreateMemberResult>('/members/bulk', { members });
+  async bulkCreate(members: BulkCreateMemberRow[], options?: { send_welcome_sms?: boolean }) {
+    return apiClient.post<BulkCreateMemberResult>('/members/bulk', {
+      members,
+      send_welcome_sms: options?.send_welcome_sms,
+    });
   },
 
   async bulkDelete(memberIds: string[]) {

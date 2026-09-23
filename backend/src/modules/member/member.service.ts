@@ -92,12 +92,13 @@ export class MemberService {
 
     const member = await memberRepository.create(memberData);
 
-    // Send one welcome message when the member is added, regardless of
-    // whether their phone was verified before creation.
-    try {
-      await this.sendWelcomeSMS(member, baseUrl);
-    } catch (error) {
-      console.error('[Create Member] Failed to send welcome SMS:', error);
+    // Send one welcome message when the member is added, unless the caller opted out.
+    if (input.send_welcome_sms !== false) {
+      try {
+        await this.sendWelcomeSMS(member, baseUrl);
+      } catch (error) {
+        console.error('[Create Member] Failed to send welcome SMS:', error);
+      }
     }
 
     // If collector, create user account and send welcome email
@@ -569,7 +570,8 @@ If you didn't expect this email, please contact the administrator.
    */
   async bulkCreateMembers(
     accountId: string,
-    rows: BulkCreateMemberRow[]
+    rows: BulkCreateMemberRow[],
+    options?: { send_welcome_sms?: boolean; baseUrl?: string }
   ): Promise<BulkCreateMemberResult> {
     if (!accountId) {
       throw new Error('Account ID is required');
@@ -639,7 +641,8 @@ If you didn't expect this email, please contact the administrator.
           membership_number: membershipNumber,
           phone_verified: false,
           email_verified: false,
-        });
+          send_welcome_sms: options?.send_welcome_sms,
+        }, options?.baseUrl);
         created.push(member);
         seenPhones.add(normalizedPhone);
         if (membershipNumber) {

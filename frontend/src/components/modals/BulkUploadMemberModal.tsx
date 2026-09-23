@@ -18,6 +18,8 @@ import {
   BulkCreateMemberResult,
   Member,
 } from "@/services/member.api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { FileSpreadsheet, Loader2, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface BulkUploadMemberModalProps {
@@ -137,6 +139,7 @@ export function BulkUploadMemberModal({
     added: 0,
     currentName: "",
   });
+  const [sendWelcomeSms, setSendWelcomeSms] = useState(true);
 
   const resetState = () => {
     setParsedRows([]);
@@ -144,6 +147,7 @@ export function BulkUploadMemberModal({
     setFileName(null);
     setUploading(false);
     setImportProgress({ current: 0, total: 0, added: 0, currentName: "" });
+    setSendWelcomeSms(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -156,7 +160,10 @@ export function BulkUploadMemberModal({
     onOpenChange(nextOpen);
   };
 
-  const importMembers = async (rows: ParsedRow[]): Promise<BulkCreateMemberResult> => {
+  const importMembers = async (
+    rows: ParsedRow[],
+    shouldSendWelcomeSms: boolean
+  ): Promise<BulkCreateMemberResult> => {
     if (!account?.account_id) {
       throw new Error("Account not found");
     }
@@ -225,6 +232,7 @@ export function BulkUploadMemberModal({
           membership_number: null,
           phone_verified: false,
           email_verified: false,
+          send_welcome_sms: shouldSendWelcomeSms,
         });
 
         if (response.success && response.data) {
@@ -269,12 +277,17 @@ export function BulkUploadMemberModal({
       const rows = await parseSpreadsheet(file);
       setParsedRows(rows);
 
-      const importResult = await importMembers(rows);
+      const importResult = await importMembers(rows, sendWelcomeSms);
       setResult(importResult);
 
       if (importResult.created.length > 0) {
         onSuccess?.();
       }
+
+      const welcomeNote =
+        sendWelcomeSms && importResult.created.length > 0
+          ? " A welcome SMS was sent to each added member."
+          : "";
 
       toast({
         title: "Import complete",
@@ -282,7 +295,7 @@ export function BulkUploadMemberModal({
           importResult.failed.length
             ? `, ${importResult.failed.length} failed`
             : ""
-        }.`,
+        }.${welcomeNote}`,
         variant: importResult.created.length === 0 ? "destructive" : "default",
       });
     } catch (error) {
@@ -312,6 +325,25 @@ export function BulkUploadMemberModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="bulkSendWelcomeSms"
+                checked={sendWelcomeSms}
+                disabled={uploading}
+                onCheckedChange={(checked) => setSendWelcomeSms(checked === true)}
+              />
+              <Label
+                htmlFor="bulkSendWelcomeSms"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Send welcome SMS
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground pl-6">
+              Text each imported member a welcome message with a link to the group page. Leave this off to add them without sending a message.
+            </p>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
