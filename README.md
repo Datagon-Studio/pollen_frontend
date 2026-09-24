@@ -1,6 +1,6 @@
 # PollenHive
 
-A modular-monolith architecture application for community contribution management.
+A modular-monolith architecture application for community contribution management.  
 
 ## Architecture
 
