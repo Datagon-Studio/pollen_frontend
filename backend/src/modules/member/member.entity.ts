@@ -31,6 +31,8 @@ export interface CreateMemberInput {
   isCollector?: boolean;
   /** When false, skip the welcome SMS. Omitted or true sends it. */
   send_welcome_sms?: boolean;
+  /** When true, an existing phone number keeps the member and takes this name. */
+  replace_existing_name?: boolean;
 }
 
 export interface UpdateMemberInput {
@@ -51,6 +53,7 @@ export interface BulkCreateMemberRow {
 
 export interface BulkCreateMemberResult {
   created: Member[];
+  updated: Member[];
   failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
 }
 

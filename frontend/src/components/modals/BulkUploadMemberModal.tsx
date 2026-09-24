@@ -32,6 +32,7 @@ interface ParsedRow {
   row: number;
   full_name: string;
   phone: string;
+  membership_number: string;
 }
 
 function normalizeHeader(value: unknown): string {
@@ -71,15 +72,26 @@ function parseSpreadsheet(file: File): Promise<ParsedRow[]> {
           return (
             normalized === "number" ||
             normalized === "phone" ||
-            normalized === "phone number" ||
-            normalized === "membership number"
+            normalized === "phone number"
+          );
+        });
+        const idHeader = headers.find((header) => {
+          const normalized = normalizeHeader(header);
+          return (
+            normalized === "id" ||
+            normalized === "ids" ||
+            normalized === "member id" ||
+            normalized === "membership id" ||
+            normalized === "membership number" ||
+            normalized === "membership no" ||
+            normalized === "membership #"
           );
         });
 
         if (!nameHeader || !numberHeader) {
           reject(
             new Error(
-              'Spreadsheet must have "Name" and "Number" columns in the first row'
+              'Spreadsheet must have "Name" and "Number" columns in the first row. "ID" is optional.'
             )
           );
           return;
@@ -89,8 +101,11 @@ function parseSpreadsheet(file: File): Promise<ParsedRow[]> {
         rows.forEach((row, index) => {
           const fullName = String(row[nameHeader] ?? "").trim();
           const phone = String(row[numberHeader] ?? "").trim();
+          const membershipNumber = idHeader
+            ? String(row[idHeader] ?? "").trim()
+            : "";
 
-          if (!fullName && !phone) {
+          if (!fullName && !phone && !membershipNumber) {
             return;
           }
 
@@ -98,6 +113,7 @@ function parseSpreadsheet(file: File): Promise<ParsedRow[]> {
             row: index + 2,
             full_name: fullName,
             phone,
+            membership_number: membershipNumber,
           });
         });
 
@@ -137,6 +153,7 @@ export function BulkUploadMemberModal({
     current: 0,
     total: 0,
     added: 0,
+    updated: 0,
     currentName: "",
   });
   const [sendWelcomeSms, setSendWelcomeSms] = useState(true);
@@ -146,7 +163,7 @@ export function BulkUploadMemberModal({
     setResult(null);
     setFileName(null);
     setUploading(false);
-    setImportProgress({ current: 0, total: 0, added: 0, currentName: "" });
+    setImportProgress({ current: 0, total: 0, added: 0, updated: 0, currentName: "" });
     setSendWelcomeSms(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -169,13 +186,16 @@ export function BulkUploadMemberModal({
     }
 
     const created: Member[] = [];
+    const updated: Member[] = [];
     const failed: BulkCreateMemberResult["failed"] = [];
     const seenPhones = new Set<string>();
+    const seenMembershipNumbers = new Set<string>();
 
     setImportProgress({
       current: 0,
       total: rows.length,
       added: 0,
+      updated: 0,
       currentName: rows[0]?.full_name ?? "",
     });
 
@@ -185,11 +205,13 @@ export function BulkUploadMemberModal({
         current: index + 1,
         total: rows.length,
         added: created.length,
+        updated: updated.length,
         currentName: row.full_name || "Member",
       });
 
       const fullName = row.full_name.trim();
       const phone = row.phone.trim();
+      const membershipNumber = row.membership_number.trim();
       const normalizedPhone = phone.replace(/[\s\-+]/g, "");
 
       if (!fullName) {
@@ -222,6 +244,16 @@ export function BulkUploadMemberModal({
         continue;
       }
 
+      if (membershipNumber && seenMembershipNumbers.has(membershipNumber)) {
+        failed.push({
+          row: row.row,
+          full_name: fullName,
+          phone,
+          error: "Duplicate membership ID in upload file",
+        });
+        continue;
+      }
+
       try {
         const response = await memberApi.create({
           account_id: account.account_id,
@@ -229,19 +261,28 @@ export function BulkUploadMemberModal({
           phone,
           email: null,
           dob: null,
-          membership_number: null,
+          membership_number: membershipNumber || null,
           phone_verified: false,
           email_verified: false,
           send_welcome_sms: shouldSendWelcomeSms,
+          replace_existing_name: true,
         });
 
         if (response.success && response.data) {
-          created.push(response.data);
+          if (response.name_replaced) {
+            updated.push(response.data);
+          } else {
+            created.push(response.data);
+          }
           seenPhones.add(normalizedPhone);
+          if (membershipNumber) {
+            seenMembershipNumbers.add(membershipNumber);
+          }
           setImportProgress({
             current: index + 1,
             total: rows.length,
             added: created.length,
+            updated: updated.length,
             currentName: row.full_name,
           });
         } else {
@@ -262,7 +303,7 @@ export function BulkUploadMemberModal({
       }
     }
 
-    return { created, failed };
+    return { created, updated, failed };
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,23 +321,31 @@ export function BulkUploadMemberModal({
       const importResult = await importMembers(rows, sendWelcomeSms);
       setResult(importResult);
 
-      if (importResult.created.length > 0) {
+      if (importResult.created.length > 0 || importResult.updated.length > 0) {
         onSuccess?.();
       }
 
       const welcomeNote =
         sendWelcomeSms && importResult.created.length > 0
-          ? " A welcome SMS was sent to each added member."
+          ? " A welcome SMS was sent to each newly added member."
+          : "";
+
+      const updatedNote =
+        importResult.updated.length > 0
+          ? `, ${importResult.updated.length} existing name(s) replaced`
           : "";
 
       toast({
         title: "Import complete",
-        description: `${importResult.created.length} member(s) added${
+        description: `${importResult.created.length} member(s) added${updatedNote}${
           importResult.failed.length
             ? `, ${importResult.failed.length} failed`
             : ""
         }.${welcomeNote}`,
-        variant: importResult.created.length === 0 ? "destructive" : "default",
+        variant:
+          importResult.created.length === 0 && importResult.updated.length === 0
+            ? "destructive"
+            : "default",
       });
     } catch (error) {
       toast({
@@ -318,9 +367,11 @@ export function BulkUploadMemberModal({
         <DialogHeader>
           <DialogTitle>Bulk Add Members</DialogTitle>
           <DialogDescription>
-            Upload an Excel or CSV file with two columns: <strong>Name</strong> and{" "}
-            <strong>Number</strong>. Members are added automatically once the file
-            is uploaded.
+            Upload an Excel or CSV file with <strong>Name</strong> and{" "}
+            <strong>Number</strong> columns. Add an <strong>ID</strong> column when
+            members have membership IDs. Rows without an ID are left blank. If a
+            phone number is already in Pollean, the name in the file replaces the
+            name on that member.
           </DialogDescription>
         </DialogHeader>
 
@@ -363,7 +414,8 @@ export function BulkUploadMemberModal({
                 <Loader2 className="h-8 w-8 animate-spin text-amber" />
                 <div className="text-center space-y-1">
                   <p className="text-sm font-medium text-foreground">
-                    {importProgress.added}/{importProgress.total} added
+                    {importProgress.added} added, {importProgress.updated} updated of{" "}
+                    {importProgress.total}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Importing from {fileName}
@@ -386,7 +438,7 @@ export function BulkUploadMemberModal({
                   Click to upload Excel or CSV
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  .xlsx, .xls, or .csv with Name and Number columns
+                  .xlsx, .xls, or .csv with Name, Number, and optional ID
                 </p>
               </div>
             )}
@@ -412,6 +464,17 @@ export function BulkUploadMemberModal({
                   <div>
                     <p className="font-medium text-foreground">
                       {result.created.length} member(s) added successfully
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {result.updated.length > 0 && (
+                <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {result.updated.length} existing contact(s) updated to the official name
                     </p>
                   </div>
                 </div>

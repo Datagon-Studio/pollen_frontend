@@ -117,6 +117,54 @@ export class MemberService {
   }
 
   /**
+   * Create a member, or replace the stored name when the phone already exists.
+   * Welcome SMS is sent only for newly created members.
+   */
+  async importMember(
+    input: CreateMemberInput,
+    baseUrl?: string
+  ): Promise<{ member: Member; nameReplaced: boolean }> {
+    if (input.replace_existing_name && input.phone?.trim() && input.account_id) {
+      const existing = await this.findExistingMemberByPhone(input.phone.trim(), input.account_id);
+      if (existing) {
+        const officialName = input.full_name?.trim() ?? '';
+        if (!officialName) {
+          throw new Error('Full name is required');
+        }
+        if (existing.full_name.trim() === officialName) {
+          return { member: existing, nameReplaced: true };
+        }
+        const member = await this.updateMember(existing.member_id, { full_name: officialName });
+        return { member, nameReplaced: true };
+      }
+    }
+
+    const member = await this.createMember({ ...input, replace_existing_name: false }, baseUrl);
+    return { member, nameReplaced: false };
+  }
+
+  private normalizeMemberPhone(phone: string): string {
+    let normalized = phone.replace(/[\s\-+()]/g, '');
+    if (normalized.startsWith('00233') && normalized.length === 14) {
+      normalized = '0' + normalized.substring(5);
+    } else if (normalized.startsWith('233') && normalized.length === 12) {
+      normalized = '0' + normalized.substring(3);
+    }
+    return normalized;
+  }
+
+  private async findExistingMemberByPhone(phone: string, accountId: string): Promise<Member | null> {
+    const exact = await memberRepository.findByPhone(phone, accountId);
+    if (exact) return exact;
+
+    const normalized = this.normalizeMemberPhone(phone);
+    if (!normalized) return null;
+
+    const members = await this.getMembersByAccount(accountId);
+    return members.find((member) => this.normalizeMemberPhone(member.phone) === normalized) ?? null;
+  }
+
+  /**
    * Resolve group page URL and account name for SMS notifications.
    * Uses a persisted Bitly short URL when available; creates one once per account.
    */
@@ -581,6 +629,7 @@ If you didn't expect this email, please contact the administrator.
     }
 
     const created: Member[] = [];
+    const updated: Member[] = [];
     const failed: BulkCreateMemberResult['failed'] = [];
     const seenPhones = new Set<string>();
     const seenMembershipNumbers = new Set<string>();
@@ -634,7 +683,7 @@ If you didn't expect this email, please contact the administrator.
       }
 
       try {
-        const member = await this.createMember({
+        const { member, nameReplaced } = await this.importMember({
           account_id: accountId,
           full_name: fullName,
           phone,
@@ -642,8 +691,13 @@ If you didn't expect this email, please contact the administrator.
           phone_verified: false,
           email_verified: false,
           send_welcome_sms: options?.send_welcome_sms,
+          replace_existing_name: true,
         }, options?.baseUrl);
-        created.push(member);
+        if (nameReplaced) {
+          updated.push(member);
+        } else {
+          created.push(member);
+        }
         seenPhones.add(normalizedPhone);
         if (membershipNumber) {
           seenMembershipNumbers.add(membershipNumber);
@@ -658,7 +712,7 @@ If you didn't expect this email, please contact the administrator.
       }
     }
 
-    return { created, failed };
+    return { created, updated, failed };
   }
 
   /**
