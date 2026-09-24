@@ -18,6 +18,7 @@ export interface Member {
 export type CreateMemberInput = Omit<Member, 'member_id' | 'created_at' | 'updated_at' | 'total_contributed'> & {
   isCollector?: boolean;
   send_welcome_sms?: boolean;
+  replace_existing_name?: boolean;
 };
 export type UpdateMemberInput = Partial<Omit<CreateMemberInput, 'account_id'>> & {
   baseUrl?: string;
@@ -37,6 +38,7 @@ export interface BulkCreateMemberRow {
 
 export interface BulkCreateMemberResult {
   created: Member[];
+  updated: Member[];
   failed: Array<{ row: number; full_name: string; phone: string; error: string }>;
 }
 

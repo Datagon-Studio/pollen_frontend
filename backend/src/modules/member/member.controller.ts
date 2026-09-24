@@ -208,7 +208,7 @@ memberRoutes.post('/bulk', async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       data: result,
-      message: `Imported ${result.created.length} member(s)${result.failed.length ? `, ${result.failed.length} failed` : ''}`,
+      message: `Imported ${result.created.length} member(s), updated ${result.updated.length} existing name(s)${result.failed.length ? `, ${result.failed.length} failed` : ''}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to bulk import members';
@@ -302,6 +302,7 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
       membership_number: req.body.membership_number,
       isCollector: req.body.isCollector || false,
       send_welcome_sms: req.body.send_welcome_sms !== false,
+      replace_existing_name: req.body.replace_existing_name === true,
     };
 
     // Get base URL dynamically from request headers or environment
@@ -312,11 +313,14 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
     
     console.log(`[Create Member] Base URL: ${baseUrl} (origin: ${req.headers.origin}, referer: ${req.headers.referer})`);
     
-    const member = await memberService.createMember(input, baseUrl);
-    res.status(201).json({
+    const { member, nameReplaced } = await memberService.importMember(input, baseUrl);
+    res.status(nameReplaced ? 200 : 201).json({
       success: true,
       data: member,
-      message: 'Member created successfully',
+      name_replaced: nameReplaced,
+      message: nameReplaced
+        ? 'Existing member name updated to the official name'
+        : 'Member created successfully',
     });
   } catch (error) {
     console.error('[Create Member] Error:', error);
