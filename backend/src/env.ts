@@ -14,6 +14,8 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   FRONTEND_URL: z.string().default('http://localhost:8080'),
+  /** System Admin Portal origin (local dev default :8081) */
+  ADMIN_FRONTEND_URL: z.string().default('http://localhost:8081'),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   EMAIL_VERIFICATION_SECRET: z.string().optional(),

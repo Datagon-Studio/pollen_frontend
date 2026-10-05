@@ -13,7 +13,11 @@ import { UpdateAccountInput } from './account.entity.js';
 import { accountKYCService } from './account-kyc.service.js';
 import { CreateAccountKYCInput, UpdateAccountKYCInput } from './account-kyc.entity.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
-import { userService } from '../user/user.service.js';
+import {
+  assertStaffUser,
+  assertComplianceStaff,
+  handleStaffError,
+} from '../../shared/middleware/staff.middleware.js';
 
 export class AccountController {
   /**
@@ -293,25 +297,7 @@ export class AccountController {
   async getAllKYC(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          error: 'Unauthorized',
-        });
-        return;
-      }
-
-      // Check if user is superadmin
-      const userProfile = await userService.getUserProfile(userId);
-      if (!userProfile || userProfile.role !== 'superadmin') {
-        res.status(403).json({
-          success: false,
-          error: 'Forbidden: Superadmin access required',
-        });
-        return;
-      }
+      await assertStaffUser(authReq.user?.id);
 
       const kycList = await accountKYCService.getAllKYC();
 
@@ -332,37 +318,22 @@ export class AccountController {
         data: enrichedKYC,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch KYC list';
-      res.status(500).json({
-        success: false,
-        error: message,
-      });
+      handleStaffError(error, res);
     }
   }
 
   /**
    * POST /api/v1/accounts/:accountId/kyc/verify
-   * Verify a KYC submission (admin only)
+   * Verify a KYC submission (compliance staff)
    */
   async verifyKYC(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          error: 'Unauthorized',
-        });
-        return;
-      }
-
-      // TODO: Add admin role check here later
-      // For now, allow all authenticated users
+      const profile = await assertComplianceStaff(authReq.user?.id);
 
       const { accountId } = req.params;
 
-      const kyc = await accountKYCService.verifyKYC(accountId, userId);
+      const kyc = await accountKYCService.verifyKYC(accountId, profile.user_id);
 
       res.status(200).json({
         success: true,
@@ -385,24 +356,7 @@ export class AccountController {
   async getKYCDocumentUrl(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          error: 'Unauthorized',
-        });
-        return;
-      }
-
-      const userProfile = await userService.getUserProfile(userId);
-      if (!userProfile || userProfile.role !== 'superadmin') {
-        res.status(403).json({
-          success: false,
-          error: 'Forbidden: Superadmin access required',
-        });
-        return;
-      }
+      await assertStaffUser(authReq.user?.id);
 
       const filePath = req.query.path;
       if (typeof filePath !== 'string' || !filePath.trim()) {
@@ -420,44 +374,22 @@ export class AccountController {
         data: { signedUrl },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to generate document URL';
-      res.status(400).json({
-        success: false,
-        error: message,
-      });
+      handleStaffError(error, res);
     }
   }
 
   /**
    * POST /api/v1/accounts/:accountId/kyc/reject
-   * Reject a KYC submission (superadmin only)
+   * Reject a KYC submission (compliance staff)
    */
   async rejectKYC(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          error: 'Unauthorized',
-        });
-        return;
-      }
-
-      // Check if user is superadmin
-      const userProfile = await userService.getUserProfile(userId);
-      if (!userProfile || userProfile.role !== 'superadmin') {
-        res.status(403).json({
-          success: false,
-          error: 'Forbidden: Superadmin access required',
-        });
-        return;
-      }
+      const profile = await assertComplianceStaff(authReq.user?.id);
 
       const { accountId } = req.params;
 
-      await accountKYCService.rejectKYC(accountId, userId);
+      await accountKYCService.rejectKYC(accountId, profile.user_id);
 
       res.status(200).json({
         success: true,
