@@ -27,18 +27,23 @@ import { RecordContributionModal } from "@/components/modals/RecordContributionM
 import { EditContributionModal } from "@/components/modals/EditContributionModal";
 import { DeleteContributionModal } from "@/components/modals/DeleteContributionModal";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
-import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 import { StatCard } from "@/components/ui/stat-card";
+import {
+  managerApi,
+  ManagerContribution,
+  ManagerFund,
+} from "@/services/manager.api";
 
 // Simple cache with TTL
 const cache = {
-  contributions: null as ContributionWithDetails[] | null,
+  contributions: null as ManagerContribution[] | null,
   contributionsTimestamp: 0,
-  funds: null as Fund[] | null,
+  funds: null as ManagerFund[] | null,
   fundsTimestamp: 0,
   CACHE_TTL: 5 * 60 * 1000, // 5 minutes
 };
@@ -48,6 +53,8 @@ interface ContributionRow {
   dateReceived: string;
   dateValue: Date;
   memberName: string;
+  accountName: string;
+  accountId: string;
   fundName: string;
   fundId: string;
   amount: string;
@@ -64,9 +71,10 @@ interface ContributionRow {
 export default function Contributions() {
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
+  const { isOfficer } = useRoles();
   const { toast } = useToast();
-  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
-  const [funds, setFunds] = useState<Fund[]>([]);
+  const [contributions, setContributions] = useState<ManagerContribution[]>([]);
+  const [funds, setFunds] = useState<ManagerFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -86,8 +94,6 @@ export default function Contributions() {
 
   // Load contributions with caching — always fetch the full list; tabs filter client-side.
   const loadContributions = useCallback(async (forceRefresh = false) => {
-    if (!account?.account_id) return;
-    
     const now = Date.now();
     
     if (!forceRefresh && cache.contributions && (now - cache.contributionsTimestamp) < cache.CACHE_TTL) {
@@ -104,13 +110,10 @@ export default function Contributions() {
       }
       abortControllerRef.current = new AbortController();
       
-      const response = await contributionApi.getByAccount(account.account_id);
-      
-      if (response.success && response.data) {
-        setContributions(response.data);
-        cache.contributions = response.data;
-        cache.contributionsTimestamp = now;
-      }
+      const data = await managerApi.getContributions();
+      setContributions(data);
+      cache.contributions = data;
+      cache.contributionsTimestamp = now;
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       toast({
@@ -121,15 +124,10 @@ export default function Contributions() {
     } finally {
       setLoading(false);
     }
-  }, [account?.account_id, toast]);
+  }, [toast]);
 
   // Load funds with caching
   const loadFunds = useCallback(async (forceRefresh = false) => {
-    if (!account?.account_id) {
-      setFunds([]);
-      return;
-    }
-    
     const now = Date.now();
     
     // Use cache if valid and not forcing refresh
@@ -139,7 +137,7 @@ export default function Contributions() {
     }
     
     try {
-      const data = await fundApi.getAll();
+      const data = await managerApi.getFunds();
       if (Array.isArray(data)) {
         setFunds(data);
         cache.funds = data;
@@ -153,22 +151,22 @@ export default function Contributions() {
         variant: "destructive",
       });
     }
-  }, [account?.account_id, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       loadContributions();
       configApi.getMyConfig()
         .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
         .catch(() => setCurrencyCode("GHS"));
     }
-  }, [account?.account_id, loadContributions]);
+  }, [user?.id, account?.account_id, loadContributions]);
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       loadFunds();
     }
-  }, [account?.account_id, loadFunds]);
+  }, [user?.id, loadFunds]);
 
   // Optimistic update handlers
   const handleConfirm = useCallback(async (id: string) => {
@@ -257,7 +255,7 @@ export default function Contributions() {
         ),
       });
     }
-  }, [contributions, toast]);
+  }, [contributions, formatAmount, toast]);
 
   const handleEdit = useCallback((id: string) => {
     const contribution = contributions.find(c => c.contribution_id === id);
@@ -293,6 +291,11 @@ export default function Contributions() {
       render: (item: ContributionRow) => (
         <span className="font-medium text-foreground">{item.memberName}</span>
       ),
+    },
+    {
+      key: "accountName",
+      header: "Account",
+      sortable: true,
     },
     {
       key: "fundName",
@@ -364,7 +367,7 @@ export default function Contributions() {
             <DropdownMenuItem onClick={() => handleViewDetails(item.contribution_id)}>
               View Details
             </DropdownMenuItem>
-            {item.status === "pending" && (
+            {!isOfficer && item.accountId === account?.account_id && item.status === "pending" && (
               <>
                 <DropdownMenuItem 
                   className="text-success"
@@ -382,21 +385,25 @@ export default function Contributions() {
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="text-destructive"
-              onClick={() => handleDelete(item.contribution_id)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {!isOfficer && item.accountId === account?.account_id && (
+              <>
+                <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(item.contribution_id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
-  ], [handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete]);
+  ], [account?.account_id, handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete, isOfficer]);
 
   const contributionRows: ContributionRow[] = useMemo(() => {
     if (!contributions || contributions.length === 0) return [];
@@ -408,6 +415,8 @@ export default function Contributions() {
         dateReceived: format(dateValue, "MMM d, yyyy"),
         dateValue: dateValue,
         memberName: c.member_name || "Anonymous",
+        accountName: c.account_name,
+        accountId: c.account_id,
         fundName: c.fund_name || "",
         fundId: c.fund_id,
         amount: formatAmount(c.amount),
@@ -427,7 +436,8 @@ export default function Contributions() {
     const filtered = contributionRows.filter((c) => {
       const matchesSearch =
         c.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.fundName.toLowerCase().includes(searchQuery.toLowerCase());
+        c.fundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.accountName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesTab =
         activeTab === "all" ||
         (activeTab === "pending" && c.status === "pending") ||
@@ -496,7 +506,10 @@ export default function Contributions() {
 
   const fundOptions = [
     { id: "all", fundName: "All Funds" },
-    ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
+    ...funds.map((f) => ({
+      id: f.fund_id,
+      fundName: `${f.fund_name} · ${f.account_name}`,
+    })),
   ];
 
   const handleExportToExcel = () => {
@@ -504,6 +517,7 @@ export default function Contributions() {
       const exportData = filteredContributions.map((contribution) => ({
         "Date Received": contribution.dateReceived,
         Member: contribution.memberName,
+        Account: contribution.accountName,
         Fund: contribution.fundName,
         Amount: contribution.amount,
         Comment: contribution.comment || "—",
@@ -563,7 +577,9 @@ export default function Contributions() {
     <AppLayout>
       <PageHeader
         title="Contributions"
-        description="Track and manage all member contributions"
+        description={isOfficer
+          ? "View contributions across your assigned accounts."
+          : "Contributions across all managed accounts. Actions apply to the current account."}
         actions={
           <div className="flex gap-2">
             <Button 
@@ -575,10 +591,12 @@ export default function Contributions() {
               <Download className="h-4 w-4 mr-2" />
               Export Excel
             </Button>
-            <Button size="sm" onClick={() => setShowRecordContribution(true)}>
-              <HandCoins className="h-4 w-4 mr-2" />
-              Record Contribution
-            </Button>
+            {!isOfficer && (
+              <Button size="sm" onClick={() => setShowRecordContribution(true)}>
+                <HandCoins className="h-4 w-4 mr-2" />
+                Record Contribution
+              </Button>
+            )}
           </div>
         }
       />
@@ -714,38 +732,42 @@ export default function Contributions() {
         </>
       )}
 
-      <RecordContributionModal 
-        open={showRecordContribution} 
-        onOpenChange={setShowRecordContribution}
-        onSuccess={() => {
-          cache.contributions = null;
-          cache.contributionsTimestamp = 0;
-          loadContributions(true);
-          loadFunds(true);
-        }}
-      />
+      {!isOfficer && (
+        <>
+          <RecordContributionModal
+            open={showRecordContribution}
+            onOpenChange={setShowRecordContribution}
+            onSuccess={() => {
+              cache.contributions = null;
+              cache.contributionsTimestamp = 0;
+              loadContributions(true);
+              loadFunds(true);
+            }}
+          />
 
-      <EditContributionModal
-        open={!!editingContribution}
-        onOpenChange={(open) => !open && setEditingContribution(null)}
-        contribution={editingContribution}
-        onSuccess={() => {
-          cache.contributions = null; // Invalidate cache
-          loadContributions(true);
-          setEditingContribution(null);
-        }}
-      />
+          <EditContributionModal
+            open={!!editingContribution}
+            onOpenChange={(open) => !open && setEditingContribution(null)}
+            contribution={editingContribution}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              setEditingContribution(null);
+            }}
+          />
 
-      <DeleteContributionModal
-        open={!!deletingContribution}
-        onOpenChange={(open) => !open && setDeletingContribution(null)}
-        contribution={deletingContribution}
-        onSuccess={() => {
-          cache.contributions = null; // Invalidate cache
-          loadContributions(true);
-          setDeletingContribution(null);
-        }}
-      />
+          <DeleteContributionModal
+            open={!!deletingContribution}
+            onOpenChange={(open) => !open && setDeletingContribution(null)}
+            contribution={deletingContribution}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              setDeletingContribution(null);
+            }}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }

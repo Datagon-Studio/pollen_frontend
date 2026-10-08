@@ -30,12 +30,17 @@ import { EditMemberModal } from "@/components/modals/EditMemberModal";
 import { DeleteMemberModal } from "@/components/modals/DeleteMemberModal";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { memberApi, Member, isMemberActive } from "@/services/member.api";
-import { contributionApi, Contribution } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { configApi } from "@/services/config.api";
 import { getCurrencySymbol } from "@/lib/currencies";
+import {
+  managerApi,
+  ManagerContribution,
+  ManagerMember,
+} from "@/services/manager.api";
 
 interface MemberActionsProps {
   member: Member;
@@ -64,8 +69,9 @@ function MemberActions({ member, onEdit, onDelete }: MemberActionsProps) {
 export default function Members() {
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const { isOfficer } = useRoles();
+  const [members, setMembers] = useState<ManagerMember[]>([]);
+  const [contributions, setContributions] = useState<ManagerContribution[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingContributions, setLoadingContributions] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,17 +93,10 @@ export default function Members() {
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
 
   const fetchMembers = async () => {
-    if (!account?.account_id) return;
-    
     try {
       setLoading(true);
       setError(null);
-      const response = await memberApi.getByAccount(account.account_id);
-      if (response.success && response.data) {
-        setMembers(response.data);
-      } else {
-        throw new Error(response.error || 'Failed to load members');
-      }
+      setMembers(await managerApi.getMembers());
     } catch (err) {
       console.error('Failed to fetch members:', err);
       setError(err instanceof Error ? err.message : 'Failed to load members');
@@ -107,14 +106,9 @@ export default function Members() {
   };
 
   const fetchContributions = async () => {
-    if (!account?.account_id) return;
-    
     try {
       setLoadingContributions(true);
-      const response = await contributionApi.getByAccount(account.account_id);
-      if (response.success && response.data) {
-        setContributions(response.data);
-      }
+      setContributions(await managerApi.getContributions());
     } catch (err) {
       console.error('Failed to fetch contributions:', err);
     } finally {
@@ -123,7 +117,7 @@ export default function Members() {
   };
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       // Parallelize data loading for better performance
       Promise.all([
         fetchMembers(),
@@ -136,7 +130,7 @@ export default function Members() {
         .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
         .catch(() => setCurrencyCode("GHS"));
     }
-  }, [account?.account_id]);
+  }, [user?.id, account?.account_id]);
 
   // All-time confirmed contribution totals per member
   const memberContributions = useMemo(() => {
@@ -182,7 +176,8 @@ export default function Members() {
       const fullName = member.full_name.toLowerCase();
       const matchesSearch = fullName.includes(searchQuery.toLowerCase()) ||
         (member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+        (member.membership_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        member.account_name.toLowerCase().includes(searchQuery.toLowerCase());
       const isActive = isMemberActive(member);
       const matchesStatus = statusFilter === "all" ||
         (statusFilter === "active" && isActive) ||
@@ -228,7 +223,13 @@ export default function Members() {
       setSelectedIds(new Set());
       return;
     }
-    setSelectedIds(new Set(filteredMembers.map((member) => member.member_id)));
+    setSelectedIds(
+      new Set(
+        filteredMembers
+          .filter((member) => member.account_id === account?.account_id)
+          .map((member) => member.member_id)
+      )
+    );
   };
 
   const handleBulkDeleteSuccess = () => {
@@ -244,6 +245,7 @@ export default function Members() {
       render: (item: Member) => (
         <Checkbox
           checked={selectedIds.has(item.member_id)}
+          disabled={item.account_id !== account?.account_id}
           onCheckedChange={(checked) =>
             toggleMemberSelection(item.member_id, checked === true)
           }
@@ -287,6 +289,15 @@ export default function Members() {
           </div>
         );
       },
+    },
+    {
+      key: "account_name",
+      header: "Account",
+      render: (item: ManagerMember) => (
+        <span className="text-sm font-medium text-foreground">
+          {item.account_name}
+        </span>
+      ),
     },
   {
     key: "phone",
@@ -342,23 +353,27 @@ export default function Members() {
     key: "actions",
     header: "",
     className: "w-12",
-    render: (item: Member) => (
-      <MemberActions 
-        member={item} 
-        onEdit={() => setEditingMember(item)} 
-        onDelete={() => setDeletingMember(item)} 
-      />
-    ),
+    render: (item: Member) =>
+      item.account_id === account?.account_id ? (
+        <MemberActions
+          member={item}
+          onEdit={() => setEditingMember(item)}
+          onDelete={() => setDeletingMember(item)}
+        />
+      ) : null,
   },
-], [memberContributions, selectedIds, formatAmount, setEditingMember, setDeletingMember]);
+].filter((column) => !isOfficer || (column.key !== "select" && column.key !== "actions")),
+  [account?.account_id, memberContributions, selectedIds, formatAmount, setEditingMember, setDeletingMember, isOfficer]);
 
   return (
     <AppLayout>
       <PageHeader
         title="Members"
-        description="Manage your group members and their contributions"
+        description={isOfficer
+          ? "View members across your assigned accounts."
+          : "Members across all accounts you manage. Actions apply to the current account."}
         actions={
-          <div className="flex gap-2">
+          !isOfficer ? <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowBulkUpload(true)}>
               <FileSpreadsheet className="h-4 w-4 mr-2" />
               Bulk Add
@@ -367,7 +382,7 @@ export default function Members() {
               <UserPlus className="h-4 w-4 mr-2" />
               Add/Invite Member
             </Button>
-          </div>
+          </div> : undefined
         }
       />
 
@@ -469,7 +484,7 @@ export default function Members() {
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
+        {!isOfficer && selectedIds.size > 0 && (
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">
               {selectedIds.size} selected
@@ -486,7 +501,7 @@ export default function Members() {
         )}
       </div>
 
-      {filteredMembers.length > 0 && (
+      {!isOfficer && filteredMembers.length > 0 && (
         <div className="flex items-center gap-2 mb-3">
           <Checkbox
             checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
@@ -525,30 +540,34 @@ export default function Members() {
         </>
       )}
 
-      <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />
-      <BulkUploadMemberModal
-        open={showBulkUpload}
-        onOpenChange={setShowBulkUpload}
-        onSuccess={fetchMembers}
-      />
-      <BulkDeleteMemberModal
-        open={showBulkDelete}
-        onOpenChange={setShowBulkDelete}
-        members={selectedMembers}
-        onSuccess={handleBulkDeleteSuccess}
-      />
-      <EditMemberModal 
-        open={!!editingMember} 
-        onOpenChange={(open) => !open && setEditingMember(null)} 
-        member={editingMember}
-        onSuccess={fetchMembers}
-      />
-      <DeleteMemberModal 
-        open={!!deletingMember} 
-        onOpenChange={(open) => !open && setDeletingMember(null)} 
-        member={deletingMember}
-        onSuccess={fetchMembers}
-      />
+      {!isOfficer && (
+        <>
+          <AddMemberModal open={showAddMember} onOpenChange={setShowAddMember} onSuccess={fetchMembers} />
+          <BulkUploadMemberModal
+            open={showBulkUpload}
+            onOpenChange={setShowBulkUpload}
+            onSuccess={fetchMembers}
+          />
+          <BulkDeleteMemberModal
+            open={showBulkDelete}
+            onOpenChange={setShowBulkDelete}
+            members={selectedMembers}
+            onSuccess={handleBulkDeleteSuccess}
+          />
+          <EditMemberModal
+            open={!!editingMember}
+            onOpenChange={(open) => !open && setEditingMember(null)}
+            member={editingMember}
+            onSuccess={fetchMembers}
+          />
+          <DeleteMemberModal
+            open={!!deletingMember}
+            onOpenChange={(open) => !open && setDeletingMember(null)}
+            member={deletingMember}
+            onSuccess={fetchMembers}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }

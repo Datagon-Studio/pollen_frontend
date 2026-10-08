@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { contributionRoutes } from './contribution.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const contributionRoutesWithAuth = Router();
 
@@ -19,4 +20,5 @@ contributionRoutesWithAuth.get('/fund/:fundId/stats', contributionRoutes);
 
 // All other contribution routes require authentication
 contributionRoutesWithAuth.use(authenticateToken);
+contributionRoutesWithAuth.use(requireAccountAdminForWrites);
 contributionRoutesWithAuth.use('/', contributionRoutes);

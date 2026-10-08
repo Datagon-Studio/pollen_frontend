@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -10,9 +10,7 @@ import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { EditFundModal } from "@/components/modals/EditFundModal";
 import { DeleteFundModal } from "@/components/modals/DeleteFundModal";
 import { FundDetailsModal } from "@/components/modals/FundDetailsModal";
-import { fundApi, Fund } from "@/services";
 import { configApi } from "@/services/config.api";
-import { contributionApi, FundContributionStats } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -25,8 +23,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
+import { managerApi, ManagerFund } from "@/services/manager.api";
 
-interface FundWithStats extends Fund {
+interface FundWithStats extends ManagerFund {
   totalCollected?: number;
   contributorCount?: number;
 }
@@ -54,30 +53,21 @@ function FundCard({
   onEdit, 
   onDelete,
   currencyCode,
+  canEdit,
 }: { 
   fund: FundWithStats; 
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
   currencyCode: string;
+  canEdit: boolean;
 }) {
   const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
   return (
-    <div className="bg-card border border-border rounded-lg p-5 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-md bg-amber/10 flex items-center justify-center">
-            <Wallet className="h-5 w-5 text-amber" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-medium text-foreground">{fund.fund_name}</h3>
-            {fund.default_amount && (
-              <p className="text-xs text-muted-foreground">
-                Default: {prefix}
-                {fund.default_amount}
-              </p>
-            )}
-          </div>
+    <div className="bg-card border border-border rounded-lg p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="h-7 w-7 shrink-0 rounded-md bg-amber/10 flex items-center justify-center">
+          <Wallet className="h-3.5 w-3.5 text-amber" />
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={fund.is_active ? "active" : "inactive"} />
@@ -100,24 +90,32 @@ function FundCard({
                 <ArrowRight className="h-4 w-4 mr-2" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Fund
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Fund
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem onClick={onEdit}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Fund
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Fund
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {fund.description && (
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-          {fund.description}
-        </p>
-      )}
+      <div className="mb-4">
+        <h3 className="font-medium text-foreground">{fund.fund_name}</h3>
+        {fund.default_amount && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Default: {prefix}
+            {fund.default_amount}
+          </p>
+        )}
+      </div>
 
       {(() => {
         // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
@@ -159,6 +157,9 @@ function FundCard({
       })()}
 
       <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">
+          {prefix}{(fund.totalCollected || 0).toLocaleString()} collected
+        </p>
         <Button 
           variant="ghost" 
           size="sm" 
@@ -185,71 +186,16 @@ export default function Funds() {
   const { toast } = useToast();
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
-  useEffect(() => {
-    if (account?.account_id) {
-      loadFunds();
-      configApi
-        .getMyConfig()
-        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
-        .catch(() => setCurrencyCode("GHS"));
-    }
-  }, [account?.account_id]);
-
-  const loadFunds = async () => {
-    if (!account?.account_id) {
-      setLoading(false);
-      return;
-    }
-    
+  const loadFunds = useCallback(async () => {
     try {
       setLoading(true);
-      const fundsData = await fundApi.getAll();
-      
-      // Fetch stats for each fund (with error handling)
-      const fundsWithStats = await Promise.all(
-        fundsData.map(async (fund) => {
-          try {
-            const statsResponse = await contributionApi.getFundStats(fund.fund_id);
-            if (statsResponse.success && statsResponse.data) {
-              return {
-                ...fund,
-                totalCollected: statsResponse.data.totalCollected || 0,
-                contributorCount: statsResponse.data.contributorCount || 0,
-              };
-            }
-            return { ...fund, totalCollected: 0, contributorCount: 0 };
-          } catch (error) {
-            console.error(`Failed to load stats for fund ${fund.fund_id}:`, error);
-            return { ...fund, totalCollected: 0, contributorCount: 0 };
-          }
-        })
+      const fundsData = await managerApi.getFunds();
+      setFunds(
+        fundsData.map((fund) => ({
+          ...fund,
+          totalCollected: fund.collected,
+        }))
       );
-      
-      setFunds(fundsWithStats);
-      
-      // Debug: Log fund_goal values
-      console.log("Funds loaded with fund_goal values:", fundsWithStats.map(f => {
-        const goalValue = f.fund_goal;
-        let numericValue = null;
-        if (goalValue != null) {
-          if (typeof goalValue === 'number') {
-            numericValue = goalValue;
-          } else if (typeof goalValue === 'string') {
-            numericValue = parseFloat(goalValue);
-          } else if (typeof goalValue === 'object' && goalValue !== null) {
-            // Handle Decimal/object types - try to extract numeric value
-            const obj = goalValue as { valueOf?: () => unknown };
-            numericValue = obj.valueOf ? Number(obj.valueOf()) : Number(goalValue);
-          }
-        }
-        return {
-          name: f.fund_name,
-          fund_goal: goalValue,
-          fund_goal_type: typeof goalValue,
-          fund_goal_value: numericValue,
-          hasGoal: goalValue != null && numericValue != null && !isNaN(numericValue)
-        };
-      }));
     } catch (error) {
       console.error("Failed to load funds:", error);
       toast({
@@ -261,7 +207,17 @@ export default function Funds() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadFunds();
+      configApi
+        .getMyConfig()
+        .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+        .catch(() => setCurrencyCode("GHS"));
+    }
+  }, [user?.id, account?.account_id, loadFunds]);
 
   const handleFundCreated = () => {
     setShowCreateFund(false);
@@ -303,7 +259,7 @@ export default function Funds() {
     <AppLayout>
       <PageHeader
         title="Funds"
-        description="Manage contribution funds and track collection progress"
+        description="Fund details and collection progress across all managed accounts"
         actions={
           <Button size="sm" onClick={() => setShowCreateFund(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -353,6 +309,7 @@ export default function Funds() {
                     onEdit={() => handleEdit(fund)}
                     onDelete={() => handleDelete(fund)}
                     currencyCode={currencyCode}
+                    canEdit={fund.account_id === account?.account_id}
                   />
                 ))}
               </div>
@@ -380,6 +337,7 @@ export default function Funds() {
                     onEdit={() => handleEdit(fund)}
                     onDelete={() => handleDelete(fund)}
                     currencyCode={currencyCode}
+                    canEdit={fund.account_id === account?.account_id}
                   />
                 ))}
               </div>

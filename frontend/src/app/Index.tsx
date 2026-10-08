@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import {
   Wallet,
-  TrendingUp,
   CalendarDays,
   Clock,
   FolderOpen,
@@ -21,24 +20,35 @@ import {
   Plus,
   UserPlus,
   HandCoins,
+  Building2,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { AddMemberModal } from "@/components/modals/AddMemberModal";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { KycSetupBanner } from "@/components/banners/KycSetupBanner";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
-import { fundApi, Fund } from "@/services";
-import {
-  contributionApi,
-  ContributionWithDetails,
-} from "@/services/contribution.api";
-import { reportingApi, DashboardStats } from "@/services/reporting.api";
 import { configApi } from "@/services/config.api";
+import {
+  managerApi,
+  ManagerContribution,
+  ManagerDashboardStats,
+  ManagerFund,
+} from "@/services/manager.api";
 import { format } from "date-fns";
 
 interface ContributionRow {
   member: string;
+  account: string;
   fund: string;
   amount: string;
   date: string;
@@ -48,6 +58,7 @@ interface ContributionRow {
 
 const columns = [
   { key: "member", header: "Member" },
+  { key: "account", header: "Account" },
   { key: "fund", header: "Fund" },
   { key: "amount", header: "Amount", className: "text-right font-medium" },
   { key: "date", header: "Date" },
@@ -71,28 +82,27 @@ export default function Dashboard() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showCreateFund, setShowCreateFund] = useState(false);
   const [showRecordContribution, setShowRecordContribution] = useState(false);
-  const [funds, setFunds] = useState<Fund[]>([]);
-  const [contributions, setContributions] = useState<ContributionWithDetails[]>(
+  const [funds, setFunds] = useState<ManagerFund[]>([]);
+  const [contributions, setContributions] = useState<ManagerContribution[]>(
     [],
   );
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<ManagerDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = useCallback((amount: number) => {
     const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
     return `${prefix}${amount.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  };
+  }, [currencyCode]);
 
   const loadFunds = async () => {
     try {
-      // Get all funds for admin dashboard (not just active)
-      const data = await fundApi.getAll();
+      const data = await managerApi.getFunds();
       setFunds(data);
     } catch (error) {
       console.error("Failed to load funds:", error);
@@ -100,20 +110,15 @@ export default function Dashboard() {
   };
 
   const loadContributions = async () => {
-    if (!account?.account_id) return;
-
     try {
-      const response = await contributionApi.getByAccount(account.account_id);
-      if (response.success && response.data) {
-        setContributions(response.data);
-      }
+      setContributions(await managerApi.getContributions());
     } catch (error) {
       console.error("Failed to load contributions:", error);
     }
   };
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       // Parallelize data loading for better performance
       Promise.all([
         loadFunds(),
@@ -127,16 +132,12 @@ export default function Dashboard() {
         setCurrencyCode("GHS");
       });
     }
-  }, [account?.account_id]);
+  }, [user?.id, account?.account_id]);
 
   const loadStats = async () => {
-    if (!account?.account_id) return;
-
     try {
       setLoading(true);
-      const dashboardStats = await reportingApi.getDashboard(
-        account.account_id,
-      );
+      const dashboardStats = await managerApi.getDashboard();
       setStats(dashboardStats);
     } catch (error) {
       console.error("Failed to load stats:", error);
@@ -156,7 +157,7 @@ export default function Dashboard() {
       { fund_id: "all", fund_name: "All Funds" },
       ...activeFunds.map((f) => ({
         fund_id: f.fund_id,
-        fund_name: f.fund_name,
+        fund_name: `${f.fund_name} · ${f.account_name}`,
       })),
     ];
   }, [activeFunds]);
@@ -175,13 +176,14 @@ export default function Dashboard() {
       .slice(0, 10)
       .map((c) => ({
         member: c.member_name || "Anonymous",
+        account: c.account_name,
         fund: c.fund_name,
         amount: formatAmount(c.amount),
         date: format(new Date(c.date_received), "MMM d, yyyy"),
         status: c.status,
         fundId: c.fund_id,
       }));
-  }, [contributions]);
+  }, [contributions, formatAmount]);
 
   const filteredContributions =
     selectedFund === "all"
@@ -200,11 +202,13 @@ export default function Dashboard() {
         totalFunds: funds.length,
         members: 0,
         newMembers: 0,
+        activeAccounts: 0,
+        totalAccounts: 0,
       };
     }
     return {
-      balance: stats.totalBalance,
-      month: stats.thisMonth,
+      balance: stats.overallCollected,
+      month: stats.collectedThisMonth,
       monthContributions: stats.monthContributions,
       pending: stats.pending,
       pendingCount: stats.pendingCount,
@@ -212,6 +216,8 @@ export default function Dashboard() {
       totalFunds: stats.totalFunds,
       members: stats.members,
       newMembers: stats.newMembersThisMonth,
+      activeAccounts: stats.activeAccounts,
+      totalAccounts: stats.totalAccounts,
     };
   }, [stats, funds, activeFunds]);
 
@@ -232,10 +238,10 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {selectedFundName}
+            {selectedFund === "all" ? "Manager overview" : selectedFundName}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Overview of your group's financial activity
+            Financial activity across all accounts you manage
           </p>
         </div>
 
@@ -260,7 +266,14 @@ export default function Dashboard() {
         className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${xlCols} gap-4 mb-8`}
       >
         <StatCard
-          title="Total Balance"
+          title="Active Accounts"
+          value={loading ? "..." : displayStats.activeAccounts.toString()}
+          subtitle={`of ${displayStats.totalAccounts} managed`}
+          icon={Building2}
+          accentBorder
+        />
+        <StatCard
+          title="Overall Collected"
           value={loading ? "..." : formatAmount(displayStats.balance)}
           icon={Wallet}
           accentBorder
@@ -306,6 +319,52 @@ export default function Dashboard() {
           accentBorder
         />
       </div>
+
+      {stats && stats.monthlyCollections.length > 0 && (
+        <div className="bg-card border border-border rounded-lg p-5 mb-8">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              Monthly collections
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Confirmed contributions across all managed accounts
+            </p>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.monthlyCollections}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="month"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickFormatter={(value: string) =>
+                    format(new Date(`${value}-01T00:00:00Z`), "MMM")
+                  }
+                />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <Tooltip
+                  formatter={(value: number) => formatAmount(Number(value))}
+                  labelFormatter={(value: string) =>
+                    format(new Date(`${value}-01T00:00:00Z`), "MMMM yyyy")
+                  }
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                  }}
+                />
+                <Bar
+                  dataKey="amount"
+                  name="Collected"
+                  fill="hsl(38, 95%, 55%)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">

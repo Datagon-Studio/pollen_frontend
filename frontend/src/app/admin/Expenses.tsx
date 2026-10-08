@@ -28,6 +28,7 @@ import { DeleteExpenseModal } from "@/components/modals/DeleteExpenseModal";
 import { expenseApi, Expense, ExpenseStats } from "@/services";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
+import { useRoles } from "@/hooks/useRoles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,6 +140,7 @@ const baseColumns: Column<DisplayExpense>[] = [
 ];
 
 export default function Expenses() {
+  const { isOfficer } = useRoles();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -228,6 +230,10 @@ export default function Expenses() {
 
   // Create columns with handlers
   const columnsWithHandlers = useMemo(() => {
+    if (isOfficer) {
+      return baseColumns;
+    }
+
     return [
       ...baseColumns,
       {
@@ -259,7 +265,7 @@ export default function Expenses() {
         },
       },
     ];
-  }, [expenses, handleEdit, handleDelete]);
+  }, [expenses, handleEdit, handleDelete, isOfficer]);
 
   const filteredExpenses = useMemo(() => {
     if (!expenses || expenses.length === 0) {
@@ -396,7 +402,7 @@ export default function Expenses() {
     <AppLayout>
       <PageHeader
         title="Expenses"
-        description="Track and categorize group expenses"
+        description={isOfficer ? "View group expenses" : "Track and categorize group expenses"}
         actions={
           <div className="flex gap-2">
             <Button 
@@ -409,10 +415,12 @@ export default function Expenses() {
               <Download className="h-4 w-4 mr-2" />
               Export Excel
             </Button>
-            <Button size="sm" onClick={() => setShowRecordExpense(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
+            {!isOfficer && (
+              <Button size="sm" onClick={() => setShowRecordExpense(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            )}
           </div>
         }
       />
@@ -528,23 +536,27 @@ export default function Expenses() {
         </>
       )}
 
-      <RecordExpenseModal 
-        open={showRecordExpense} 
-        onOpenChange={setShowRecordExpense}
-        onSuccess={handleExpenseCreated}
-      />
-      <EditExpenseModal
-        open={showEditExpense}
-        onOpenChange={setShowEditExpense}
-        expense={selectedExpense}
-        onSuccess={handleExpenseUpdated}
-      />
-      <DeleteExpenseModal 
-        open={showDeleteExpense} 
-        onOpenChange={setShowDeleteExpense} 
-        expense={selectedExpense}
-        onSuccess={handleExpenseDeleted}
-      />
+      {!isOfficer && (
+        <>
+          <RecordExpenseModal
+            open={showRecordExpense}
+            onOpenChange={setShowRecordExpense}
+            onSuccess={handleExpenseCreated}
+          />
+          <EditExpenseModal
+            open={showEditExpense}
+            onOpenChange={setShowEditExpense}
+            expense={selectedExpense}
+            onSuccess={handleExpenseUpdated}
+          />
+          <DeleteExpenseModal
+            open={showDeleteExpense}
+            onOpenChange={setShowDeleteExpense}
+            expense={selectedExpense}
+            onSuccess={handleExpenseDeleted}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }

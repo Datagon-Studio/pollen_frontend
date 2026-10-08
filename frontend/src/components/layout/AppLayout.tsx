@@ -44,6 +44,13 @@ interface NavItem {
   superAdminOnly?: boolean;
 }
 
+const collectorNavPaths = new Set([
+  "/",
+  "/members",
+  "/contributions",
+  "/expenses",
+]);
+
 const allNavItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Members", href: "/members", icon: Users },
@@ -94,15 +101,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Only recompute when roles actually change (not when loading state changes)
   const navItems = useMemo(() => {
     return allNavItems.filter((item) => {
-      // Hide superadmin-only items from non-superadmins
-      if (item.superAdminOnly && !isSuperAdmin) {
+      if (isOfficer && !collectorNavPaths.has(item.href)) {
         return false;
       }
-      // Hide Settings and Public Settings from collectors (officers)
-      if (
-        (item.href === "/settings" || item.href === "/public-settings") &&
-        isOfficer
-      ) {
+      // Hide superadmin-only items from non-superadmins
+      if (item.superAdminOnly && !isSuperAdmin) {
         return false;
       }
       return true;

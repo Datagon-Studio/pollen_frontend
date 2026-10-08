@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { accountPublicPageController } from './account-public-page.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const accountPublicPageRoutes = Router();
 
@@ -18,6 +19,7 @@ accountPublicPageRoutes.get('/public/:accountId', async (req, res) => {
 
 // All other account public page routes require authentication
 accountPublicPageRoutes.use(authenticateToken);
+accountPublicPageRoutes.use(requireAccountAdminForWrites);
 
 // GET /api/v1/account-public-pages/me - Get current user's account public page
 accountPublicPageRoutes.get('/me', async (req, res) => {

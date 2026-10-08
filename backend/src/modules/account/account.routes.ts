@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { accountController } from './account.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const accountRoutes = Router();
 
@@ -50,6 +51,7 @@ accountRoutes.get('/public/:accountId', async (req, res) => {
 
 // All other account routes require authentication
 accountRoutes.use(authenticateToken);
+accountRoutes.use(requireAccountAdminForWrites);
 
 // GET /api/v1/accounts/me - Get current user's account
 accountRoutes.get('/me', async (req, res) => {

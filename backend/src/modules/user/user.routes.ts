@@ -7,11 +7,13 @@
 import { Router } from 'express';
 import { userController } from './user.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const userRoutes = Router();
 
 // All user routes require authentication
 userRoutes.use(authenticateToken);
+userRoutes.use(requireAccountAdminForWrites);
 
 // GET /api/v1/users/profile
 userRoutes.get('/profile', async (req, res) => {

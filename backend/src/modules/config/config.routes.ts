@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { configController } from './config.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const configRoutes = Router();
 
@@ -18,6 +19,7 @@ configRoutes.get('/public/:accountId', async (req, res) => {
 
 // All other config routes require authentication
 configRoutes.use(authenticateToken);
+configRoutes.use(requireAccountAdminForWrites);
 
 // GET /api/v1/config/me - Get current user's account config
 configRoutes.get('/me', async (req, res) => {

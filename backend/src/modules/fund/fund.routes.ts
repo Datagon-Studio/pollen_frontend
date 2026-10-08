@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { fundRoutes } from './fund.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 import { fundService } from './fund.service.js';
 
 export const fundRoutesWithAuth = Router();
@@ -73,6 +74,7 @@ fundRoutesWithAuth.get('/:id', async (req: Request, res: Response) => {
 
 // All other fund routes require authentication
 fundRoutesWithAuth.use(authenticateToken);
+fundRoutesWithAuth.use(requireAccountAdminForWrites);
 fundRoutesWithAuth.use('/', fundRoutes);
 
 
