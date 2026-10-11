@@ -56,16 +56,14 @@ function monthKey(date: Date): string {
 export const adminService = {
   async getPlatformDashboard(): Promise<PlatformDashboard> {
     const now = new Date();
-    const startTrend = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
     const [accountsRes, fundsRes, contributionsRes, kycPendingRes] = await Promise.all([
       supabase.from('accounts').select('account_id, status'),
       supabase.from('funds').select('fund_id, is_active'),
       supabase
         .from('contributions')
-        .select('amount, channel, status, date_received, created_at')
-        .eq('status', 'confirmed')
-        .gte('date_received', startTrend.toISOString()),
+        .select('amount, channel, date_received, created_at')
+        .eq('status', 'confirmed'),
       supabase.from('accounts').select('account_id').eq('kyc_status', 'pending'),
     ]);
 
@@ -76,16 +74,7 @@ export const adminService = {
 
     const accounts = accountsRes.data || [];
     const funds = fundsRes.data || [];
-    const contributions = contributionsRes.data || [];
-
-    // All-time confirmed for totals (separate query — trend query is last 12 months only)
-    const { data: allConfirmed, error: allErr } = await supabase
-      .from('contributions')
-      .select('amount, channel, status, date_received, created_at')
-      .eq('status', 'confirmed');
-
-    if (allErr) throw new Error(allErr.message);
-    const allRows = allConfirmed || [];
+    const allRows = contributionsRes.data || [];
 
     const totalCollected = allRows.reduce((s, c) => s + Number(c.amount), 0);
     const collectedThisMonth = allRows
@@ -98,7 +87,7 @@ export const adminService = {
       trendMap.set(monthKey(d), { online: 0, manual: 0 });
     }
 
-    for (const c of contributions) {
+    for (const c of allRows) {
       const key = monthKey(new Date(c.date_received || c.created_at));
       if (!trendMap.has(key)) continue;
       const bucket = trendMap.get(key)!;

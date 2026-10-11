@@ -41,8 +41,14 @@ export const managerController = {
     await sendManagerData(req, res, (userId) => managerService.getFunds(userId));
   },
 
+  async getContributionAmounts(req: AuthenticatedRequest, res: Response): Promise<void> {
+    await sendManagerData(req, res, (userId) => managerService.getContributionAmounts(userId));
+  },
+
   async getContributions(req: AuthenticatedRequest, res: Response): Promise<void> {
-    await sendManagerData(req, res, (userId) => managerService.getContributions(userId));
+    const parsed = parseInt(String(req.query.limit ?? ''), 10);
+    const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : undefined;
+    await sendManagerData(req, res, (userId) => managerService.getContributions(userId, limit));
   },
 
   async getSettlements(req: AuthenticatedRequest, res: Response): Promise<void> {

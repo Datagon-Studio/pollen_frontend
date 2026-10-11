@@ -21,6 +21,9 @@ managerRoutes.get('/members', (req, res) =>
 managerRoutes.get('/funds', (req, res) =>
   managerController.getFunds(req as AuthenticatedRequest, res)
 );
+managerRoutes.get('/contribution-amounts', (req, res) =>
+  managerController.getContributionAmounts(req as AuthenticatedRequest, res)
+);
 managerRoutes.get('/contributions', (req, res) =>
   managerController.getContributions(req as AuthenticatedRequest, res)
 );

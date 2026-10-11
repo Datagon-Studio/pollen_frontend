@@ -5,6 +5,14 @@ import { clearAccountCache } from "./useAccount";
 
 const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes in milliseconds
 
+let cachedAuthUser: User | null = null;
+let authKnown = false;
+
+function rememberAuthUser(next: User | null) {
+  cachedAuthUser = next;
+  authKnown = true;
+}
+
 // Helper function to check if current route is public
 const isPublicRoute = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -17,8 +25,8 @@ const isPublicRoute = (): boolean => {
 };
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(cachedAuthUser);
+  const [loading, setLoading] = useState(!authKnown);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
@@ -29,6 +37,7 @@ export function useAuth() {
         console.error('Logout error:', error);
         // Still clear user state even if signOut fails
       }
+      rememberAuthUser(null);
       setUser(null);
       // Clear timer on logout
       if (inactivityTimerRef.current) {
@@ -42,6 +51,7 @@ export function useAuth() {
     } catch (error) {
       console.error('Failed to logout:', error);
       // Force clear user state even on error
+      rememberAuthUser(null);
       setUser(null);
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
@@ -100,6 +110,7 @@ export function useAuth() {
           console.error('Error getting session:', error);
         }
         
+        rememberAuthUser(session?.user ?? null);
         setUser(session?.user ?? null);
         setLoading(false);
         if (session?.user && !isPublicRoute()) {
@@ -113,6 +124,7 @@ export function useAuth() {
         }
         console.error('Failed to get session:', error);
         if (mounted) {
+          rememberAuthUser(null);
           setUser(null);
           setLoading(false);
         }
@@ -125,13 +137,13 @@ export function useAuth() {
       if (!mounted) return;
       
       const newUser = session?.user ?? null;
-      const previousUser = user;
-      
-      // Clear account cache if user changed or logged out
-      if (!newUser || (previousUser && newUser?.id !== previousUser.id)) {
+      const previousUser = cachedAuthUser;
+
+      if (!newUser || (previousUser && newUser.id !== previousUser.id)) {
         clearAccountCache();
       }
-      
+
+      rememberAuthUser(newUser);
       setUser(newUser);
       setLoading(false);
       if (session?.user && !isPublicRoute()) {

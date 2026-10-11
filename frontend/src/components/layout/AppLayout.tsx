@@ -75,6 +75,9 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
+let cachedProfile: UserProfile | null = null;
+let cachedProfileUserId: string | null = null;
+
 export function AppLayout({ children }: AppLayoutProps) {
   const { theme, setTheme } = useTheme();
   const location = useLocation();
@@ -93,9 +96,11 @@ export function AppLayout({ children }: AppLayoutProps) {
     accountRole,
     loading: rolesLoading,
   } = useRoles();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(cachedProfile);
+  const [profileLoading, setProfileLoading] = useState(!cachedProfile);
+  const [profileImage, setProfileImage] = useState<string | null>(
+    cachedProfile?.profile_image_url ?? null
+  );
 
   // Filter nav items based on role - memoize to prevent recalculation on every render
   // Only recompute when roles actually change (not when loading state changes)
@@ -112,40 +117,32 @@ export function AppLayout({ children }: AppLayoutProps) {
     });
   }, [isSuperAdmin, isOfficer]);
 
-  // Cache user profile to avoid refetching on navigation
-  const userProfileRef = useRef<UserProfile | null>(null);
   const userProfileLoadingRef = useRef(false);
 
   useEffect(() => {
     if (user) {
-      // Load profile image from user metadata as an initial fallback
       const profileImageUrl = user.user_metadata?.profile_image_url;
-      if (profileImageUrl) {
+      if (profileImageUrl && !cachedProfile?.profile_image_url) {
         setProfileImage(profileImageUrl);
       }
 
-      // If we already have a cached profile for this user, use it
-      if (
-        userProfileRef.current &&
-        userProfileRef.current.user_id === user.id
-      ) {
-        setUserProfile(userProfileRef.current);
+      if (cachedProfile && cachedProfileUserId === user.id) {
+        setUserProfile(cachedProfile);
         setProfileLoading(false);
         return;
       }
 
-      // If already loading, don't start another fetch
       if (userProfileLoadingRef.current) {
         return;
       }
 
-      // Fetch user profile when user is logged in
-      setProfileLoading(true);
+      setProfileLoading(!cachedProfile);
       userProfileLoadingRef.current = true;
       userApi
         .getProfile()
         .then((profile) => {
-          userProfileRef.current = profile;
+          cachedProfile = profile;
+          cachedProfileUserId = user.id;
           setUserProfile(profile);
           if (profile.profile_image_url) {
             setProfileImage(profile.profile_image_url);
@@ -157,7 +154,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           console.error("Failed to fetch user profile:", error);
           setProfileLoading(false);
           userProfileLoadingRef.current = false;
-          // Set default profile if fetch fails
           const defaultProfile: UserProfile = {
             user_id: user.id,
             email: user.email || "",
@@ -167,11 +163,13 @@ export function AppLayout({ children }: AppLayoutProps) {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
-          userProfileRef.current = defaultProfile;
+          cachedProfile = defaultProfile;
+          cachedProfileUserId = user.id;
           setUserProfile(defaultProfile);
         });
     } else {
-      userProfileRef.current = null;
+      cachedProfile = null;
+      cachedProfileUserId = null;
       setUserProfile(null);
       setProfileImage(null);
       setProfileLoading(false);

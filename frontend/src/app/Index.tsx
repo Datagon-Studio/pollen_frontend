@@ -111,7 +111,7 @@ export default function Dashboard() {
 
   const loadContributions = async () => {
     try {
-      setContributions(await managerApi.getContributions());
+      setContributions(await managerApi.getContributions(10));
     } catch (error) {
       console.error("Failed to load contributions:", error);
     }

@@ -67,8 +67,20 @@ export const managerApi = {
     return getManagerData<ManagerFund[]>('/manager/funds');
   },
 
-  getContributions() {
-    return getManagerData<ManagerContribution[]>('/manager/contributions');
+  getContributionAmounts() {
+    return getManagerData<
+      Array<{
+        member_id: string | null;
+        fund_id: string;
+        amount: number;
+        status: string;
+      }>
+    >('/manager/contribution-amounts');
+  },
+
+  getContributions(limit?: number) {
+    const query = limit ? `?limit=${limit}` : '';
+    return getManagerData<ManagerContribution[]>(`/manager/contributions${query}`);
   },
 
   getSettlements() {

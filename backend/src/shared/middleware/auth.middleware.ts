@@ -26,6 +26,34 @@ const authClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY,
   },
 });
 
+type VerifiedUser = { id: string; email: string };
+
+const verifiedUsers = new Map<string, { user: VerifiedUser; expiresAt: number }>();
+const pendingVerifications = new Map<string, Promise<VerifiedUser | null>>();
+const AUTH_CACHE_MS = 60_000;
+
+async function verifyToken(token: string): Promise<VerifiedUser | null> {
+  const cached = verifiedUsers.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.user;
+  }
+
+  const pending = pendingVerifications.get(token);
+  if (pending) return pending;
+
+  const verification = authClient.auth.getUser(token).then(({ data, error }) => {
+    if (error || !data.user) return null;
+    const user = { id: data.user.id, email: data.user.email || '' };
+    verifiedUsers.set(token, { user, expiresAt: Date.now() + AUTH_CACHE_MS });
+    return user;
+  }).finally(() => {
+    pendingVerifications.delete(token);
+  });
+
+  pendingVerifications.set(token, verification);
+  return verification;
+}
+
 export async function authenticateToken(
   req: Request,
   res: Response,
@@ -43,10 +71,10 @@ export async function authenticateToken(
       return;
     }
 
-    // Verify token with Supabase (service role can verify any user's token)
-    const { data: { user }, error } = await authClient.auth.getUser(token);
+    const user = await verifyToken(token);
 
-    if (error || !user) {
+    if (!user) {
+      verifiedUsers.delete(token);
       res.status(401).json({
         success: false,
         error: 'Invalid or expired token',
@@ -54,11 +82,7 @@ export async function authenticateToken(
       return;
     }
 
-    // Attach user to request
-    (req as AuthenticatedRequest).user = {
-      id: user.id,
-      email: user.email || '',
-    };
+    (req as AuthenticatedRequest).user = user;
 
     next();
   } catch (error) {

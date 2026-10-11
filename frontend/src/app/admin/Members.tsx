@@ -38,7 +38,6 @@ import { configApi } from "@/services/config.api";
 import { getCurrencySymbol } from "@/lib/currencies";
 import {
   managerApi,
-  ManagerContribution,
   ManagerMember,
 } from "@/services/manager.api";
 
@@ -71,7 +70,9 @@ export default function Members() {
   const { account } = useAccount(user?.id);
   const { isOfficer } = useRoles();
   const [members, setMembers] = useState<ManagerMember[]>([]);
-  const [contributions, setContributions] = useState<ManagerContribution[]>([]);
+  const [contributions, setContributions] = useState<
+    Array<{ member_id: string | null; amount: number; status: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadingContributions, setLoadingContributions] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export default function Members() {
   const fetchContributions = async () => {
     try {
       setLoadingContributions(true);
-      setContributions(await managerApi.getContributions());
+      setContributions(await managerApi.getContributionAmounts());
     } catch (err) {
       console.error('Failed to fetch contributions:', err);
     } finally {

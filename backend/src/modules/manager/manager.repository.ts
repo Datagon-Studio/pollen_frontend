@@ -29,10 +29,22 @@ export const managerRepository = {
     return data || [];
   },
 
-  async findContributions(accountIds: string[]) {
+  async findContributionAmounts(accountIds: string[]) {
     if (accountIds.length === 0) return [];
 
     const { data, error } = await supabase
+      .from('contributions')
+      .select('member_id, fund_id, amount, status, date_received, created_at')
+      .in('account_id', accountIds);
+
+    throwQueryError('Failed to fetch contribution totals', error);
+    return data || [];
+  },
+
+  async findContributions(accountIds: string[], limit?: number) {
+    if (accountIds.length === 0) return [];
+
+    let query = supabase
       .from('contributions')
       .select(`
         *,
@@ -41,6 +53,12 @@ export const managerRepository = {
       `)
       .in('account_id', accountIds)
       .order('date_received', { ascending: false });
+
+    if (limit && limit > 0) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
 
     throwQueryError('Failed to fetch managed contributions', error);
     return data || [];

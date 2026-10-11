@@ -31,7 +31,7 @@ export const managerService = {
     const accounts = await managerRepository.findManagedAccounts(userId);
     const accountIds = accounts.map((account) => account.account_id);
     const [contributions, expenses, funds, members] = await Promise.all([
-      managerRepository.findContributions(accountIds),
+      managerRepository.findContributionAmounts(accountIds),
       managerRepository.findExpenses(accountIds),
       managerRepository.findFunds(accountIds),
       managerRepository.findMembers(accountIds),
@@ -117,7 +117,7 @@ export const managerService = {
     const names = accountNameMap(accounts);
     const [funds, contributions] = await Promise.all([
       managerRepository.findFunds(accountIds),
-      managerRepository.findContributions(accountIds),
+      managerRepository.findContributionAmounts(accountIds),
     ]);
 
     const totals = new Map<string, number>();
@@ -137,11 +137,19 @@ export const managerService = {
     }));
   },
 
-  async getContributions(userId: string) {
+  async getContributionAmounts(userId: string) {
+    const accounts = await managerRepository.findManagedAccounts(userId);
+    return managerRepository.findContributionAmounts(
+      accounts.map((account) => account.account_id)
+    );
+  },
+
+  async getContributions(userId: string, limit?: number) {
     const accounts = await managerRepository.findManagedAccounts(userId);
     const names = accountNameMap(accounts);
     const contributions = await managerRepository.findContributions(
-      accounts.map((account) => account.account_id)
+      accounts.map((account) => account.account_id),
+      limit
     );
 
     return contributions.map((row: any) => {
