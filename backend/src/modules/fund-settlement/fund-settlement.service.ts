@@ -7,6 +7,7 @@
  */
 
 import { fundSettlementRepository } from './fund-settlement.repository.js';
+import { settlementRequestRepository } from '../settlement-request/settlement-request.repository.js';
 import { fundService } from '../fund/fund.service.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { PAYMENT_FEE_RATE } from '../payment/paystack-fees.js';
@@ -49,16 +50,17 @@ export class FundSettlementService {
       throw new Error('Fund not found');
     }
 
-    const [breakdown, reservedAmount] = await Promise.all([
+    const [breakdown, recordedAmount, requestedAmount] = await Promise.all([
       contributionRepository.getConfirmedBreakdownByFund(fundId),
       fundSettlementRepository.getReservedAmountByFund(accountId, fundId, excludeSettlementId),
+      settlementRequestRepository.sumReservedForFund(fundId),
     ]);
 
     const collected = roundMoney(breakdown.total);
     const onlineCollected = roundMoney(breakdown.online);
     const offlineCollected = roundMoney(breakdown.offline);
     const feeAmount = roundMoney(onlineCollected * PAYMENT_FEE_RATE);
-    const reserved = roundMoney(reservedAmount);
+    const reserved = roundMoney(recordedAmount + requestedAmount);
     // Contribution amounts already exclude donor-paid transaction fees.
     const availableAmount = roundMoney(Math.max(0, collected - reserved));
 
@@ -232,7 +234,7 @@ export class FundSettlementService {
     const availability = await this.getAvailability(accountId, fundId, excludeSettlementId);
     if (roundMoney(amount) > availability.availableAmount) {
       throw new Error(
-        `Amount exceeds the maximum requestable for this fund (${availability.availableAmount.toFixed(2)})`
+        `Amount exceeds the maximum withdrawable for this fund (${availability.availableAmount.toFixed(2)})`
       );
     }
   }

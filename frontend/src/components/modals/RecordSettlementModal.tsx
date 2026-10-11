@@ -143,7 +143,7 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
     if (availability && amount > availability.availableAmount) {
       toast({
         title: "Validation Error",
-        description: `Amount cannot exceed the maximum requestable (${formatAmount(availability.availableAmount)}).`,
+        description: `Amount cannot exceed the maximum withdrawable (${formatAmount(availability.availableAmount)}).`,
         variant: "destructive",
       });
       return;

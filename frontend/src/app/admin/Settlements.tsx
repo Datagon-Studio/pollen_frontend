@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAccount } from "@/hooks/useAccount";
 import { useToast } from "@/hooks/use-toast";
 import { configApi } from "@/services/config.api";
-import { managerApi, ManagerFund } from "@/services/manager.api";
+import { fundApi, Fund } from "@/services/fund.api";
 import {
   SettlementRequest,
   SettlementRequestStatus,
@@ -50,22 +50,18 @@ export default function Settlements() {
   const { account } = useAccount(user?.id);
   const { toast } = useToast();
   const [requests, setRequests] = useState<SettlementRequest[]>([]);
-  const [funds, setFunds] = useState<ManagerFund[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | SettlementRequestStatus>("all");
   const [search, setSearch] = useState("");
   const [currencyCode, setCurrencyCode] = useState("GHS");
 
-  const loadData = useCallback(async () => {
+  const loadRequests = useCallback(async (initial: boolean) => {
     try {
-      setLoading(true);
-      const [requestData, fundData] = await Promise.all([
-        settlementRequestApi.list(),
-        managerApi.getFunds(),
-      ]);
+      if (initial) setLoading(true);
+      const requestData = await settlementRequestApi.list();
       setRequests(requestData);
-      setFunds(fundData);
     } catch (error) {
       toast({
         title: "Unable to load settlement requests",
@@ -73,18 +69,19 @@ export default function Settlements() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
     if (!user?.id) return;
-    loadData();
+    loadRequests(true);
+    fundApi.getAll().then(setFunds).catch(() => setFunds([]));
     configApi
       .getMyConfig()
       .then((config) => setCurrencyCode(config.currency_code || "GHS"))
       .catch(() => setCurrencyCode("GHS"));
-  }, [loadData, user?.id]);
+  }, [loadRequests, user?.id]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -314,7 +311,7 @@ export default function Settlements() {
           accountName={account.account_name || "Current account"}
           funds={funds}
           currencyCode={currencyCode}
-          onSuccess={loadData}
+          onSuccess={() => loadRequests(false)}
         />
       )}
     </AppLayout>

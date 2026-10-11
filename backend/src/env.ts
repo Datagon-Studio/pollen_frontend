@@ -16,6 +16,8 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:8080'),
   /** System Admin Portal origin (local dev default :8081) */
   ADMIN_FRONTEND_URL: z.string().default('http://localhost:8081'),
+  /** Ops inbox for new settlement requests. Email is skipped when unset. */
+  OPS_SETTLEMENT_EMAIL: z.string().email().optional(),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   EMAIL_VERIFICATION_SECRET: z.string().optional(),

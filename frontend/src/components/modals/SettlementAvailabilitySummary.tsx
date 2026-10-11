@@ -49,7 +49,7 @@ export function SettlementAvailabilitySummary({
         <span>{formatAmount(availability.reservedAmount)}</span>
       </div>
       <div className="flex items-center justify-between font-medium text-foreground pt-1 border-t border-border">
-        <span>Maximum requestable</span>
+        <span>Maximum withdrawable</span>
         <span>{formatAmount(availability.availableAmount)}</span>
       </div>
       {availability.feeAmount > 0 && (

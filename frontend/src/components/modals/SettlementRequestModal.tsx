@@ -19,18 +19,20 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ManagerFund } from "@/services/manager.api";
+import { Fund } from "@/services/fund.api";
+import { fundSettlementApi, FundSettlementAvailability } from "@/services/fund-settlement.api";
 import {
   settlementRequestApi,
 } from "@/services/settlement-request.api";
 import type { SettlementDetails } from "@/services/settlement.api";
+import { SettlementAvailabilitySummary } from "@/components/modals/SettlementAvailabilitySummary";
 
 interface SettlementRequestModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string;
   accountName: string;
-  funds: ManagerFund[];
+  funds: Fund[];
   currencyCode: string;
   onSuccess: () => void;
 }
@@ -50,6 +52,8 @@ export function SettlementRequestModal({
   const [note, setNote] = useState("");
   const [destination, setDestination] = useState<SettlementDetails | null>(null);
   const [loadingContext, setLoadingContext] = useState(false);
+  const [availability, setAvailability] = useState<FundSettlementAvailability | null>(null);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const accountFunds = useMemo(
@@ -84,11 +88,42 @@ export function SettlementRequestModal({
     };
   }, [accountId, open, toast]);
 
+  useEffect(() => {
+    if (!open || !fundId) {
+      setAvailability(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingAvailability(true);
+    fundSettlementApi
+      .getAvailability(fundId)
+      .then((data) => {
+        if (!cancelled) setAvailability(data);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAvailability(null);
+          toast({
+            title: "Unable to calculate withdrawable balance",
+            description: error instanceof Error ? error.message : "Try again.",
+            variant: "destructive",
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAvailability(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fundId, open, toast]);
+
   const reset = () => {
     setFundId("");
     setAmount("");
     setNote("");
     setDestination(null);
+    setAvailability(null);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -111,6 +146,14 @@ export function SettlementRequestModal({
       toast({
         title: "Payment details required",
         description: "Add active bank or mobile money details in Settings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (availability && requestedAmount > availability.availableAmount) {
+      toast({
+        title: "Amount is above the maximum withdrawable",
+        description: `This fund can withdraw up to ${availability.availableAmount.toFixed(2)}.`,
         variant: "destructive",
       });
       return;
@@ -144,7 +187,7 @@ export function SettlementRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-card sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Request settlement</DialogTitle>
         </DialogHeader>
@@ -169,6 +212,17 @@ export function SettlementRequestModal({
               </SelectContent>
             </Select>
           </div>
+
+          {fundId && (
+            <SettlementAvailabilitySummary
+              availability={availability}
+              loading={loadingAvailability}
+              currencyCode={currencyCode}
+              onUseMax={() =>
+                availability && setAmount(availability.availableAmount.toFixed(2))
+              }
+            />
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="request-amount">Requested amount</Label>
@@ -223,7 +277,14 @@ export function SettlementRequestModal({
             </Button>
             <Button
               type="submit"
-              disabled={saving || loadingContext || !destination}
+              disabled={
+                saving ||
+                loadingContext ||
+                loadingAvailability ||
+                !destination ||
+                !availability ||
+                availability.availableAmount <= 0
+              }
             >
               {saving ? "Submitting..." : "Submit request"}
             </Button>

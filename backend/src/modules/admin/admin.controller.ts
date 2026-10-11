@@ -5,8 +5,14 @@ import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js
 import {
   assertStaffUser,
   assertPlatformAdmin,
+  assertComplianceStaff,
   handleStaffError,
 } from '../../shared/middleware/staff.middleware.js';
+import {
+  SettlementRequestError,
+  settlementRequestService,
+} from '../settlement-request/settlement-request.service.js';
+import type { SettlementRequestStatus } from '../settlement-request/settlement-request.entity.js';
 import { accountRepository } from '../account/account.repository.js';
 import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
@@ -278,5 +284,85 @@ adminRoutes.post('/accounts/:accountId/reactivate', async (req: Request, res: Re
     });
   } catch (error) {
     handleStaffError(error, res);
+  }
+});
+
+const SETTLEMENT_STATUSES: SettlementRequestStatus[] = [
+  'pending',
+  'approved',
+  'rejected',
+  'disbursed',
+];
+
+function isSettlementStatus(value: string): value is SettlementRequestStatus {
+  return SETTLEMENT_STATUSES.includes(value as SettlementRequestStatus);
+}
+
+function handleSettlementError(error: unknown, res: Response): void {
+  if (error instanceof SettlementRequestError) {
+    res.status(error.statusCode).json({ success: false, error: error.message });
+    return;
+  }
+  handleStaffError(error, res);
+}
+
+/** GET /api/v1/admin/settlement-requests */
+adminRoutes.get('/settlement-requests', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const statusQuery = typeof req.query.status === 'string' ? req.query.status : undefined;
+    if (statusQuery && !isSettlementStatus(statusQuery)) {
+      res.status(400).json({ success: false, error: 'Invalid settlement status' });
+      return;
+    }
+    const data = await settlementRequestService.listForAdmin({
+      accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
+      fundId: typeof req.query.fundId === 'string' ? req.query.fundId : undefined,
+      status: statusQuery,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/settlement-requests/:requestId */
+adminRoutes.get('/settlement-requests/:requestId', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const data = await settlementRequestService.getForAdmin(req.params.requestId);
+    if (!data) {
+      res.status(404).json({ success: false, error: 'Settlement request not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/settlement-requests/:requestId/status */
+adminRoutes.post('/settlement-requests/:requestId/status', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertComplianceStaff(authReq.user?.id);
+    const status = req.body?.status;
+    if (status !== 'approved' && status !== 'rejected' && status !== 'disbursed') {
+      res.status(400).json({ success: false, error: 'Invalid settlement status' });
+      return;
+    }
+    const data = await settlementRequestService.updateStatus(staff.user_id, req.params.requestId, {
+      status,
+      note: typeof req.body?.note === 'string' ? req.body.note : undefined,
+      disbursement_reference:
+        typeof req.body?.disbursement_reference === 'string'
+          ? req.body.disbursement_reference
+          : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
   }
 });

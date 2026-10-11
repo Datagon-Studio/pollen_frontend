@@ -15,6 +15,7 @@ import { accountPublicPageRoutes } from './modules/account-public-page/account-p
 import { auditRoutes } from './modules/audit/audit.controller.js';
 import { adminRoutesWithAuth } from './modules/admin/admin.routes.js';
 import { managerRoutes } from './modules/manager/manager.routes.js';
+import { settlementRequestRoutes } from './modules/settlement-request/settlement-request.controller.js';
 
 export const routes = Router();
 
@@ -27,6 +28,7 @@ routes.use('/expense-categories', expenseCategoryRoutes);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
+routes.use('/settlement-requests', settlementRequestRoutes);
 routes.use('/fund-settlements', fundSettlementRoutesWithAuth);
 routes.use('/payments', paymentRoutes);
 routes.use('/config', configRoutes);

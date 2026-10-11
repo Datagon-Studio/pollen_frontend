@@ -173,6 +173,7 @@ export const fundSettlementRepository = {
       .select('settlement_id, amount')
       .eq('account_id', accountId)
       .eq('fund_id', fundId)
+      .eq('is_archived', false)
       .in('status', ['pending', 'successful']);
 
     if (error) {
