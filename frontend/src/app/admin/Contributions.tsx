@@ -519,7 +519,7 @@ export default function Contributions() {
         Member: contribution.memberName,
         Account: contribution.accountName,
         Fund: contribution.fundName,
-        Amount: contribution.amount,
+        Amount: contribution.amountValue.toFixed(2),
         Comment: contribution.comment || "—",
         "Payment Method": contribution.paymentMethod || contribution.channel,
         Status: contribution.status,
@@ -538,9 +538,14 @@ export default function Contributions() {
       };
 
       const csvRows = [
+        `Currency,${currencyCode}`,
         headers.join(","),
         ...exportData.map((row) =>
-          headers.map((header) => escapeValue((row as any)[header])).join(",")
+          headers
+            .map((header) =>
+              header === "Amount" ? row.Amount : escapeValue(row[header as keyof typeof row])
+            )
+            .join(",")
         ),
       ];
 
