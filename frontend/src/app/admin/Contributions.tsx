@@ -38,7 +38,7 @@ import {
   ManagerContribution,
   ManagerFund,
 } from "@/services/manager.api";
-import { compareSortValues } from "@/lib/table-sort";
+import { sortByColumn } from "@/lib/table-sort";
 
 // Simple cache with TTL
 const cache = {
@@ -470,13 +470,7 @@ export default function Contributions() {
 
     // Apply sorting
     if (sortColumn && sortDirection && filtered.length > 0) {
-      return [...filtered].sort((a, b) => {
-        const comparison = compareSortValues(
-          contributionSortValue(a, sortColumn),
-          contributionSortValue(b, sortColumn),
-        );
-        return sortDirection === "asc" ? comparison : -comparison;
-      });
+      return sortByColumn(filtered, sortColumn, sortDirection, contributionSortValue);
     }
 
     return filtered;

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
-import { compareSortValues } from "@/lib/table-sort";
+import { sortByColumn } from "@/lib/table-sort";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
 import { Button } from "@/components/ui/button";
@@ -293,36 +293,28 @@ export default function Expenses() {
     try {
       const formatted = expenses.map(formatExpenseForDisplay);
       
-      return formatted
-        .filter((expense) => {
-          const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
-          const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
-          
-          // Safe date comparison
-          let matchesDateFrom = true;
-          let matchesDateTo = true;
-          if (dateFrom && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
-            matchesDateFrom = expense.dateValue >= dateFrom;
-          }
-          if (dateTo && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
-            matchesDateTo = expense.dateValue <= dateTo;
-          }
-          
-          return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
-        })
-    .sort((a, b) => {
+      const filtered = formatted.filter((expense) => {
+        const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
+
+        let matchesDateFrom = true;
+        let matchesDateTo = true;
+        if (dateFrom && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+          matchesDateFrom = expense.dateValue >= dateFrom;
+        }
+        if (dateTo && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+          matchesDateTo = expense.dateValue <= dateTo;
+        }
+
+        return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
+      });
+
       if (!sortColumn || !sortDirection) {
-        // Default: newest first
-        return b.dateValue.getTime() - a.dateValue.getTime();
+        return filtered.slice().sort((a, b) => b.dateValue.getTime() - a.dateValue.getTime());
       }
 
-      const comparison = compareSortValues(
-        expenseSortValue(a, sortColumn),
-        expenseSortValue(b, sortColumn),
-      );
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+      return sortByColumn(filtered, sortColumn, sortDirection, expenseSortValue);
     } catch (error) {
       console.error("Error filtering expenses:", error);
       return [];

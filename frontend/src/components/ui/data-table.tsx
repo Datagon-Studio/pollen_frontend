@@ -102,12 +102,12 @@ export function DataTable<T extends object>({
     if (controlled || !activeColumn || !activeDirection) return data;
     const column = columns.find((item) => item.key === activeColumn);
     if (!column || !isSortableColumn(column)) return data;
-    return [...data].sort((a, b) => {
-      const comparison = column.sortFn
+    const sorted = [...data].sort((a, b) =>
+      column.sortFn
         ? column.sortFn(a, b)
-        : compareSortValues(columnSortValue(a, column), columnSortValue(b, column));
-      return activeDirection === "asc" ? comparison : -comparison;
-    });
+        : compareSortValues(columnSortValue(a, column), columnSortValue(b, column)),
+    );
+    return activeDirection === "desc" ? sorted.reverse() : sorted;
   }, [activeColumn, activeDirection, columns, controlled, data]);
 
   const getSortIcon = (column: Column<T>) => {

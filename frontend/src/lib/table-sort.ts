@@ -33,10 +33,10 @@ export function sortByColumn<T>(
   valueFor: (row: T, column: string) => SortableValue,
 ): T[] {
   if (!column || !direction) return rows;
-  return [...rows].sort((a, b) => {
-    const comparison = compareSortValues(valueFor(a, column), valueFor(b, column));
-    return direction === "asc" ? comparison : -comparison;
-  });
+  const sorted = [...rows].sort((a, b) =>
+    compareSortValues(valueFor(a, column), valueFor(b, column)),
+  );
+  return direction === "desc" ? sorted.reverse() : sorted;
 }
 
 export function useSortedRows<T>(
@@ -49,14 +49,12 @@ export function useSortedRows<T>(
   valueForRef.current = valueFor;
 
   const onSort = (column: string) => {
-    setSortColumn((current) => {
-      if (current === column) {
-        setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
-        return current;
-      }
-      setSortDirection("asc");
-      return column;
-    });
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection("asc");
   };
 
   const sorted = useMemo(
