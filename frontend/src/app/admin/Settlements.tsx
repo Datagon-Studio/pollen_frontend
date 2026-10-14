@@ -14,6 +14,8 @@ import {
   Send,
   WalletCards,
   RotateCcw,
+  TrendingUp,
+  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +29,7 @@ import {
   settlementRequestApi,
 } from "@/services/settlement-request.api";
 import { SettlementRequestModal } from "@/components/modals/SettlementRequestModal";
+import { managerApi } from "@/services/manager.api";
 import { getCurrencyPrefix } from "@/lib/currencies";
 import { useSortedRows } from "@/lib/table-sort";
 import { SortableTh } from "@/components/ui/sortable-th";
@@ -58,6 +61,10 @@ export default function Settlements() {
   const [statusFilter, setStatusFilter] = useState<"all" | SettlementRequestStatus>("all");
   const [search, setSearch] = useState("");
   const [currencyCode, setCurrencyCode] = useState("GHS");
+  const [overallIncome, setOverallIncome] = useState(0);
+  const [recordedDisbursed, setRecordedDisbursed] = useState(0);
+  const [recordedDisbursedCount, setRecordedDisbursedCount] = useState(0);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   const loadRequests = useCallback(async (initial: boolean) => {
     try {
@@ -83,6 +90,24 @@ export default function Settlements() {
       .getMyConfig()
       .then((config) => setCurrencyCode(config.currency_code || "GHS"))
       .catch(() => setCurrencyCode("GHS"));
+    setSummaryLoading(true);
+    Promise.all([managerApi.getDashboard(), managerApi.getSettlements()])
+      .then(([dashboard, settlements]) => {
+        const paidOut = settlements.filter(
+          (settlement) => !settlement.is_archived && settlement.status === "successful"
+        );
+        setOverallIncome(Number(dashboard.overallCollected) || 0);
+        setRecordedDisbursed(
+          paidOut.reduce((sum, settlement) => sum + Number(settlement.amount), 0)
+        );
+        setRecordedDisbursedCount(paidOut.length);
+      })
+      .catch(() => {
+        setOverallIncome(0);
+        setRecordedDisbursed(0);
+        setRecordedDisbursedCount(0);
+      })
+      .finally(() => setSummaryLoading(false));
   }, [loadRequests, user?.id]);
 
   const filtered = useMemo(() => {
@@ -122,6 +147,10 @@ export default function Settlements() {
       .filter((request) => request.status === status)
       .reduce((sum, request) => sum + Number(request.amount), 0);
 
+  const disbursedRequestCount = requests.filter((item) => item.status === "disbursed").length;
+  const totalDisbursedBalance = amountFor("disbursed") + recordedDisbursed;
+  const totalDisbursedCount = disbursedRequestCount + recordedDisbursedCount;
+
   const formatAmount = (amount: number) =>
     `${getCurrencyPrefix(currencyCode)}${amount.toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -151,7 +180,25 @@ export default function Settlements() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          title="Overall income"
+          value={summaryLoading ? "..." : formatAmount(overallIncome)}
+          subtitle="Confirmed contributions"
+          icon={TrendingUp}
+          accentBorder
+        />
+        <StatCard
+          title="Total disbursed balance"
+          value={summaryLoading || loading ? "..." : formatAmount(totalDisbursedBalance)}
+          subtitle={
+            summaryLoading || loading
+              ? "..."
+              : `${totalDisbursedCount} completed payout${totalDisbursedCount === 1 ? "" : "s"}`
+          }
+          icon={Banknote}
+          accentBorder
+        />
         <StatCard
           title="Pending"
           value={formatAmount(amountFor("pending"))}
