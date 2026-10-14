@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
+import { configApi } from "@/services/config.api";
 import {
   reportingApi,
   MonthlyData,
@@ -392,11 +393,20 @@ export default function Reports() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [currencyCode, setCurrencyCode] = useState("GHS");
   const [applied, setApplied] = useState<AppliedFilter>({ kind: "preset", preset: "6months" });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [fundBreakdown, setFundBreakdown] = useState<FundBreakdown[]>([]);
   const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
   const [paymentChannels, setPaymentChannels] = useState<PaymentChannelBreakdown | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    configApi
+      .getMyConfig()
+      .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
+      .catch(() => setCurrencyCode("GHS"));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!account?.account_id) return;
@@ -455,7 +465,7 @@ export default function Reports() {
   const denseAxis = monthlyData.length > 8;
 
   const formatMoney = (amount: number) =>
-    `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${currencyCode} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   if (accountLoading || (loading && !hasLoaded)) {
     return (
@@ -562,7 +572,7 @@ export default function Reports() {
                       />
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <Tooltip
-                        formatter={(value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        formatter={(value: number) => formatMoney(Number(value))}
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
@@ -613,7 +623,7 @@ export default function Reports() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        formatter={(value: number) => formatMoney(Number(value))}
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
