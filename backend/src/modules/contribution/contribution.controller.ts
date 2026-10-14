@@ -4,6 +4,22 @@ import { sendSuccess, sendError, sendCreated, sendNotFound, sendBadRequest } fro
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import { accountService } from '../account/account.service.js';
+import { auditService } from '../../shared/services/audit.service.js';
+
+function ledgerRuleStatus(message: string): number | null {
+  if (
+    message.includes('cannot be deleted') ||
+    message.includes('Reverse them instead') ||
+    message.includes('kept as a record') ||
+    message.includes('Only confirmed contributions') ||
+    message.includes('reason is required') ||
+    message.includes('Use reverse to record') ||
+    message.includes('stay on the record')
+  ) {
+    return 400;
+  }
+  return null;
+}
 
 export const contributionRoutes = Router();
 
@@ -182,6 +198,10 @@ contributionRoutes.put('/:id', async (req: Request, res: Response) => {
     sendSuccess(res, contribution, 'Contribution updated successfully');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update contribution';
+    const status = ledgerRuleStatus(message);
+    if (status) {
+      return sendBadRequest(res, message);
+    }
     sendError(res, message);
   }
 });
@@ -246,6 +266,55 @@ contributionRoutes.post('/:id/reject', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/v1/contributions/:id/reverse
+contributionRoutes.post('/:id/reverse', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    const existing = await contributionService.getContribution(req.params.id);
+    if (!existing) {
+      return sendNotFound(res, 'Contribution not found');
+    }
+
+    const userAccount = await accountService.getUserAccount(userId);
+    if (!userAccount || userAccount.account_id !== existing.account_id) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+    const contribution = await contributionService.reverseContribution(req.params.id, userId, reason);
+
+    await auditService.logContributionReversed(
+      contribution.contribution_id,
+      contribution.account_id,
+      userId,
+      contribution.amount,
+      contribution.reversal_reason || reason.trim(),
+      contribution.member_id,
+      contribution.fund_id,
+      req.ip,
+      req.get('user-agent') || undefined
+    );
+
+    sendSuccess(res, contribution, 'Contribution reversed successfully');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to reverse contribution';
+    if (message === 'Contribution not found') {
+      return sendNotFound(res, message);
+    }
+    const status = ledgerRuleStatus(message);
+    if (status) {
+      return sendBadRequest(res, message);
+    }
+    sendError(res, message);
+  }
+});
+
 // DELETE /api/v1/contributions/:id
 contributionRoutes.delete('/:id', async (req: Request, res: Response) => {
   try {
@@ -272,6 +341,13 @@ contributionRoutes.delete('/:id', async (req: Request, res: Response) => {
     sendSuccess(res, null, 'Contribution deleted successfully');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete contribution';
+    if (message === 'Contribution not found') {
+      return sendNotFound(res, message);
+    }
+    const status = ledgerRuleStatus(message);
+    if (status) {
+      return sendBadRequest(res, message);
+    }
     sendError(res, message);
   }
 });

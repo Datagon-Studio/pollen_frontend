@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type StatusType = "pending" | "approved" | "disbursed" | "confirmed" | "active" | "inactive" | "verified" | "unverified" | "rejected" | "successful" | "canceled";
+type StatusType = "pending" | "approved" | "disbursed" | "confirmed" | "active" | "inactive" | "verified" | "unverified" | "rejected" | "successful" | "canceled" | "reversed";
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -20,6 +20,7 @@ const statusStyles: Record<StatusType, string> = {
   rejected: "bg-destructive/15 text-destructive border-destructive/40",
   successful: "bg-success/15 text-success border-success/40",
   canceled: "bg-destructive/15 text-destructive border-destructive/40",
+  reversed: "bg-muted text-muted-foreground border-border",
 };
 
 const statusLabels: Record<StatusType, string> = {
@@ -34,6 +35,7 @@ const statusLabels: Record<StatusType, string> = {
   rejected: "Rejected",
   successful: "Successful",
   canceled: "Canceled",
+  reversed: "Reversed",
 };
 
 export function StatusBadge({ status, label, className }: StatusBadgeProps) {

@@ -64,6 +64,22 @@ export const managerRepository = {
     return data || [];
   },
 
+  async findReversalAudits(contributionIds: string[]) {
+    if (contributionIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('entity_id, action_details, created_at, user_id')
+      .eq('action_type', 'CONTRIBUTION_REVERSED')
+      .in('entity_id', contributionIds);
+
+    if (error) {
+      console.error('Failed to fetch reversal records:', error);
+      return [];
+    }
+    return data || [];
+  },
+
   async findExpenses(accountIds: string[]) {
     if (accountIds.length === 0) return [];
 

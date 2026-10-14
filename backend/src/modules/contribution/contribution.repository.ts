@@ -12,7 +12,10 @@ export interface Contribution {
   received_by_user_id: string | null;
   comment: string | null;
   payment_reference: string | null;
-  status: 'pending' | 'confirmed' | 'failed' | 'reversed';
+  status: 'pending' | 'confirmed' | 'failed' | 'reversed' | 'pledge';
+  reversal_reason?: string | null;
+  reversed_at?: string | null;
+  reversed_by_user_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -182,6 +185,59 @@ export const contributionRepository = {
       return null;
     }
     return data;
+  },
+
+  async reverse(
+    id: string,
+    input: { reversal_reason: string; reversed_at: string; reversed_by_user_id: string }
+  ): Promise<Contribution> {
+    const { data, error } = await supabase
+      .from('contributions')
+      .update({
+        status: 'reversed',
+        reversal_reason: input.reversal_reason,
+        reversed_at: input.reversed_at,
+        reversed_by_user_id: input.reversed_by_user_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('contribution_id', id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      return data;
+    }
+
+    const message = error?.message || '';
+    const missingColumn =
+      error?.code === '42703' ||
+      error?.code === 'PGRST204' ||
+      /reversal_reason|reversed_at|reversed_by_user_id/.test(message);
+
+    if (!missingColumn) {
+      throw new Error(message || 'Failed to reverse contribution');
+    }
+
+    const { data: statusOnly, error: statusError } = await supabase
+      .from('contributions')
+      .update({
+        status: 'reversed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('contribution_id', id)
+      .select()
+      .single();
+
+    if (statusError || !statusOnly) {
+      throw new Error(statusError?.message || 'Failed to reverse contribution');
+    }
+
+    return {
+      ...statusOnly,
+      reversal_reason: input.reversal_reason,
+      reversed_at: input.reversed_at,
+      reversed_by_user_id: input.reversed_by_user_id,
+    };
   },
 
   async delete(id: string): Promise<boolean> {

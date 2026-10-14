@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2, Clock } from "lucide-react";
+import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import {
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { EditContributionModal } from "@/components/modals/EditContributionModal";
 import { DeleteContributionModal } from "@/components/modals/DeleteContributionModal";
+import { ReverseContributionModal } from "@/components/modals/ReverseContributionModal";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
@@ -106,6 +107,7 @@ export default function Contributions() {
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [editingContribution, setEditingContribution] = useState<ContributionWithDetails | null>(null);
   const [deletingContribution, setDeletingContribution] = useState<ContributionWithDetails | null>(null);
+  const [reversingContribution, setReversingContribution] = useState<ContributionWithDetails | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>("dateReceived");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -275,6 +277,8 @@ export default function Contributions() {
             <p><strong>Date:</strong> {format(new Date(contribution.date_received), "PPP")}</p>
             {contribution.comment && <p><strong>Comment:</strong> {contribution.comment}</p>}
             {contribution.payment_reference && <p><strong>Reference:</strong> {contribution.payment_reference}</p>}
+            {contribution.reversal_reason && <p><strong>Reversal reason:</strong> {contribution.reversal_reason}</p>}
+            {contribution.reversed_at && <p><strong>Reversed:</strong> {format(new Date(contribution.reversed_at), "PPP")}</p>}
           </div>
         ),
       });
@@ -292,6 +296,13 @@ export default function Contributions() {
     const contribution = contributions.find(c => c.contribution_id === id);
     if (contribution) {
       setDeletingContribution(contribution);
+    }
+  }, [contributions]);
+
+  const handleReverse = useCallback((id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (contribution) {
+      setReversingContribution(contribution);
     }
   }, [contributions]);
 
@@ -368,9 +379,11 @@ export default function Contributions() {
         const badgeStatus =
           item.status === "confirmed"
             ? "confirmed"
-            : item.status === "pending" || item.status === "pledge"
-              ? "pending"
-              : "rejected";
+            : item.status === "reversed"
+              ? "reversed"
+              : item.status === "pending" || item.status === "pledge"
+                ? "pending"
+                : "rejected";
         return <StatusBadge status={badgeStatus} />;
       },
     },
@@ -412,20 +425,28 @@ export default function Contributions() {
                 <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => handleDelete(item.contribution_id)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
+                {item.status === "confirmed" && (
+                  <DropdownMenuItem onClick={() => handleReverse(item.contribution_id)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reverse
+                  </DropdownMenuItem>
+                )}
+                {(item.status === "pending" || item.status === "failed" || item.status === "pledge") && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(item.contribution_id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
-  ], [account?.account_id, handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete, isOfficer]);
+  ], [account?.account_id, handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete, handleReverse, isOfficer]);
 
   const contributionRows: ContributionRow[] = useMemo(() => {
     if (!contributions || contributions.length === 0) return [];
@@ -760,10 +781,24 @@ export default function Contributions() {
             open={!!deletingContribution}
             onOpenChange={(open) => !open && setDeletingContribution(null)}
             contribution={deletingContribution}
+            amountLabel={deletingContribution ? formatAmount(deletingContribution.amount) : undefined}
             onSuccess={() => {
               cache.contributions = null;
               loadContributions(true);
               setDeletingContribution(null);
+            }}
+          />
+
+          <ReverseContributionModal
+            open={!!reversingContribution}
+            onOpenChange={(open) => !open && setReversingContribution(null)}
+            contribution={reversingContribution}
+            amountLabel={reversingContribution ? formatAmount(reversingContribution.amount) : ""}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              loadFunds(true);
+              setReversingContribution(null);
             }}
           />
         </>

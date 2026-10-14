@@ -215,6 +215,39 @@ class AuditService {
   }
 
   /**
+   * Log contribution reversed event
+   */
+  async logContributionReversed(
+    contributionId: string,
+    accountId: string,
+    userId: string,
+    amount: number,
+    reason: string,
+    memberId?: string | null,
+    fundId?: string | null,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    await this.log({
+      actionType: 'CONTRIBUTION_REVERSED',
+      actionCategory: 'CONTRIBUTION',
+      userId,
+      accountId,
+      entityType: 'contribution',
+      entityId: contributionId,
+      actionDetails: {
+        amount,
+        reason,
+        member_id: memberId || null,
+        fund_id: fundId || null,
+      },
+      ipAddress,
+      userAgent,
+      status: 'success',
+    });
+  }
+
+  /**
    * Log contribution deleted event
    */
   async logContributionDeleted(

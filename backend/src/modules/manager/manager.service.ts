@@ -152,13 +152,40 @@ export const managerService = {
       limit
     );
 
-    return contributions.map((row: any) => {
+    const mapped = contributions.map((row: any) => {
       const { members, funds, ...contribution } = row;
       return {
         ...contribution,
         account_name: names.get(row.account_id) || 'Unknown account',
         member_name: members?.full_name || 'Anonymous',
         fund_name: funds?.fund_name || 'Unknown fund',
+      };
+    });
+
+    const missingReasonIds = mapped
+      .filter((row: any) => row.status === 'reversed' && !row.reversal_reason)
+      .map((row: any) => row.contribution_id);
+    if (missingReasonIds.length === 0) return mapped;
+
+    const audits = await managerRepository.findReversalAudits(missingReasonIds);
+    const latest = new Map<string, (typeof audits)[number]>();
+    for (const audit of audits) {
+      const current = latest.get(audit.entity_id);
+      if (!current || audit.created_at > current.created_at) {
+        latest.set(audit.entity_id, audit);
+      }
+    }
+
+    return mapped.map((row: any) => {
+      if (row.status !== 'reversed' || row.reversal_reason) return row;
+      const audit = latest.get(row.contribution_id);
+      if (!audit) return row;
+      const details = audit.action_details || {};
+      return {
+        ...row,
+        reversal_reason: details.reason || null,
+        reversed_at: row.reversed_at || audit.created_at,
+        reversed_by_user_id: row.reversed_by_user_id || audit.user_id,
       };
     });
   },

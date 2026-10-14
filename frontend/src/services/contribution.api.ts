@@ -13,6 +13,9 @@ export interface Contribution {
   comment: string | null;
   payment_reference: string | null;
   status: 'pending' | 'confirmed' | 'failed' | 'reversed' | 'pledge';
+  reversal_reason?: string | null;
+  reversed_at?: string | null;
+  reversed_by_user_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +83,10 @@ export const contributionApi = {
 
   async reject(id: string) {
     return apiClient.post<Contribution>(`/contributions/${id}/reject`);
+  },
+
+  async reverse(id: string, reason: string) {
+    return apiClient.post<Contribution>(`/contributions/${id}/reverse`, { reason });
   },
 
   async delete(id: string) {
