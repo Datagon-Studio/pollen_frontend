@@ -51,7 +51,7 @@ export const contributionApi = {
   },
 
   async getByFund(fundId: string) {
-    return apiClient.get<Contribution[]>(`/contributions/fund/${fundId}`);
+    return apiClient.get<ContributionWithDetails[]>(`/contributions/fund/${fundId}`);
   },
 
   async getById(id: string) {

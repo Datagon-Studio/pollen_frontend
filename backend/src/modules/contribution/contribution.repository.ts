@@ -85,10 +85,14 @@ export const contributionRepository = {
     });
   },
 
-  async findByFundId(fundId: string): Promise<Contribution[]> {
+  async findByFundId(fundId: string): Promise<ContributionWithDetails[]> {
     const { data, error } = await supabase
       .from('contributions')
-      .select('*')
+      .select(`
+        *,
+        members(full_name),
+        funds(fund_name)
+      `)
       .eq('fund_id', fundId)
       .order('date_received', { ascending: false });
 
@@ -96,7 +100,15 @@ export const contributionRepository = {
       console.error('Error fetching fund contributions:', error);
       return [];
     }
-    return data || [];
+
+    return (data || []).map((c: any) => {
+      const { members, funds, ...contribution } = c;
+      return {
+        ...contribution,
+        member_name: members?.full_name?.trim() || '',
+        fund_name: funds?.fund_name || '',
+      };
+    });
   },
 
   async findPendingByAccountId(accountId: string): Promise<ContributionWithDetails[]> {

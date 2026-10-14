@@ -263,7 +263,7 @@ export const contributionService = {
     })) as ContributionWithDetails[];
   },
 
-  async getContributionsByFund(fundId: string): Promise<Contribution[]> {
+  async getContributionsByFund(fundId: string): Promise<ContributionWithDetails[]> {
     return contributionRepository.findByFundId(fundId);
   },
 

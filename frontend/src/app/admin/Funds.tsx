@@ -47,6 +47,21 @@ const mapFundToModalFormat = (fund: FundWithStats, currencyCode: string) => {
   };
 };
 
+function numericFundGoal(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value === "object") {
+    const obj = value as { valueOf?: () => unknown };
+    const parsed = obj.valueOf ? Number(obj.valueOf()) : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function FundCard({ 
   fund, 
   onViewDetails, 
@@ -63,6 +78,9 @@ function FundCard({
   canEdit: boolean;
 }) {
   const prefix = `${currencyCode} `;
+  const totalCollected = fund.totalCollected || 0;
+  const fundGoal = numericFundGoal(fund.fund_goal);
+  const hasGoal = fundGoal != null && fundGoal > 0;
   return (
     <div className="bg-card border border-border rounded-lg p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -116,47 +134,27 @@ function FundCard({
         )}
       </div>
 
-      {(() => {
-        // Extract numeric value from fund_goal (handles number, string, object/Decimal types)
-        let fundGoal: number | null = null;
-        if (fund.fund_goal != null) {
-          if (typeof fund.fund_goal === 'number') {
-            fundGoal = fund.fund_goal;
-          } else if (typeof fund.fund_goal === 'string') {
-            fundGoal = parseFloat(fund.fund_goal);
-          } else if (typeof fund.fund_goal === 'object') {
-            // Handle Decimal/object types from database
-            const obj = fund.fund_goal as { valueOf?: () => unknown };
-            fundGoal = obj.valueOf ? Number(obj.valueOf()) : Number(fund.fund_goal);
-          }
-        }
-        
-        // If no valid goal, don't show progress
-        if (fundGoal == null || isNaN(fundGoal) || fundGoal <= 0) return null;
-        
-        const totalCollected = fund.totalCollected || 0;
-        const progressValue = (totalCollected / fundGoal) * 100;
-        
-        return (
-          <div className="mb-4">
-            <Progress 
-              value={Math.min(progressValue, 100)} 
-              className="h-2 mb-1"
-            />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Goal</span>
-              <span className="font-medium text-foreground">
-                {prefix}{totalCollected.toLocaleString()} out of {prefix}{fundGoal.toLocaleString()}
-              </span>
-            </div>
+      {hasGoal && fundGoal != null && (
+        <div className="mb-4">
+          <Progress
+            value={Math.min((totalCollected / fundGoal) * 100, 100)}
+            className="h-2 mb-1"
+          />
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Goal</span>
+            <span className="font-medium text-foreground">
+              {prefix}{totalCollected.toLocaleString()} out of {prefix}{fundGoal.toLocaleString()}
+            </span>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">
-          {prefix}{(fund.totalCollected || 0).toLocaleString()} collected
-        </p>
+      <div className={cn("flex items-center", hasGoal ? "justify-end" : "justify-between")}>
+        {!hasGoal && (
+          <p className="text-sm font-medium text-foreground">
+            {prefix}{totalCollected.toLocaleString()} collected
+          </p>
+        )}
         <Button 
           variant="ghost" 
           size="sm" 
@@ -375,6 +373,7 @@ export default function Funds() {
         open={!!selectedFund && !showEditFund && !showDeleteFund} 
         onOpenChange={(open) => !open && setSelectedFund(null)} 
         fund={selectedFund ? mapFundToModalFormat(selectedFund, currencyCode) : null}
+        currencyCode={currencyCode}
         onEdit={() => selectedFund && handleEdit(selectedFund)}
       />
     </AppLayout>
