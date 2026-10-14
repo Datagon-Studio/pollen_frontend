@@ -32,7 +32,7 @@ interface FundWithStats extends ManagerFund {
 
 // For FundDetailsModal compatibility
 const mapFundToModalFormat = (fund: FundWithStats, currencyCode: string) => {
-  const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+  const prefix = `${currencyCode} `;
   return {
   id: fund.fund_id,
   name: fund.fund_name,
@@ -62,7 +62,7 @@ function FundCard({
   currencyCode: string;
   canEdit: boolean;
 }) {
-  const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+  const prefix = `${currencyCode} `;
   return (
     <div className="bg-card border border-border rounded-lg p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -111,8 +111,7 @@ function FundCard({
         <h3 className="font-medium text-foreground">{fund.fund_name}</h3>
         {fund.default_amount && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Default: {prefix}
-            {fund.default_amount}
+            Default: {prefix}{fund.default_amount}
           </p>
         )}
       </div>
@@ -147,9 +146,7 @@ function FundCard({
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Goal</span>
               <span className="font-medium text-foreground">
-                {prefix}
-                {totalCollected.toLocaleString()} out of {prefix}
-                {fundGoal.toLocaleString()}
+                {prefix}{totalCollected.toLocaleString()} out of {prefix}{fundGoal.toLocaleString()}
               </span>
             </div>
           </div>
@@ -281,7 +278,7 @@ export default function Funds() {
           <p className="text-2xl font-semibold text-foreground">
             {loading
               ? "..."
-              : `${currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}${totalCollected.toLocaleString()}`}
+              : `${currencyCode} ${totalCollected.toLocaleString()}`}
           </p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">

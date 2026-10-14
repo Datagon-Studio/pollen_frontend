@@ -7,7 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { CurrencyInput, getCurrencySymbol } from "@/components/ui/currency-input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { getCurrencyPrefix } from "@/lib/currencies";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
@@ -52,7 +53,7 @@ export function PaystackPaymentModal({
     !isNaN(amountNum) && amountNum > 0
       ? calculatePaymentAmounts(amountNum)
       : null;
-  const currencySymbol = getCurrencySymbol("GHS");
+  const currencySymbol = getCurrencyPrefix("GHS");
 
   // Load member details when modal opens
   useEffect(() => {
@@ -120,7 +121,7 @@ export function PaystackPaymentModal({
     if (fund.default_amount && amountNum < fund.default_amount) {
       toast({
         title: "Amount too low",
-        description: `The minimum contribution for ${fund.fund_name} is ${getCurrencySymbol("GHS")}${fund.default_amount.toFixed(2)}.`,
+        description: `The minimum contribution for ${fund.fund_name} is ${getCurrencyPrefix("GHS")}${fund.default_amount.toFixed(2)}.`,
         variant: "destructive",
       });
       return;

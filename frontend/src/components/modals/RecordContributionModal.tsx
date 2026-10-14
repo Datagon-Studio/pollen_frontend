@@ -42,7 +42,7 @@ import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { contributionApi } from "@/services/contribution.api";
 import { configApi } from "@/services/config.api";
-import { getCurrencySymbol } from "@/lib/currencies";
+import { getCurrencyPrefix } from "@/lib/currencies";
 
 interface RecordContributionModalProps {
   open: boolean;
@@ -137,7 +137,7 @@ export function RecordContributionModal({ open, onOpenChange, onSuccess }: Recor
   }, [open]);
 
   const formatAmount = (amount: number) => {
-    return `${getCurrencySymbol(currencyCode)}${amount.toFixed(2)}`;
+    return `${getCurrencyPrefix(currencyCode)}${amount.toFixed(2)}`;
   };
 
   const selectedMember = members.find(m => m.member_id === formData.member);

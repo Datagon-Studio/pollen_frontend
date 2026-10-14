@@ -88,7 +88,7 @@ export default function Contributions() {
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = useCallback((amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    const prefix = `${currencyCode} `;
     return `${prefix}${amount.toFixed(2)}`;
   }, [currencyCode]);
 

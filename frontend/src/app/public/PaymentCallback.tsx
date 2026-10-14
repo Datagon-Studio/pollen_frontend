@@ -103,7 +103,7 @@ export default function PaymentCallback() {
             }
           }
 
-          const prefix = resolvedCurrency === "GHS" ? "GH₵" : `${resolvedCurrency} `;
+          const prefix = `${resolvedCurrency} `;
           const formattedAmount = `${prefix}${result.amount.toFixed(2)}`;
           setStatus("success");
 

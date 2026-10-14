@@ -1,5 +1,5 @@
 import { FundSettlementAvailability } from "@/services/fund-settlement.api";
-import { getCurrencySymbol } from "@/lib/currencies";
+import { getCurrencyPrefix } from "@/lib/currencies";
 import { Button } from "@/components/ui/button";
 
 interface SettlementAvailabilitySummaryProps {
@@ -16,7 +16,7 @@ export function SettlementAvailabilitySummary({
   onUseMax,
 }: SettlementAvailabilitySummaryProps) {
   const formatAmount = (amount: number) =>
-    `${getCurrencySymbol(currencyCode)}${amount.toFixed(2)}`;
+    `${getCurrencyPrefix(currencyCode)}${amount.toFixed(2)}`;
 
   if (loading) {
     return (

@@ -27,7 +27,7 @@ import {
   settlementRequestApi,
 } from "@/services/settlement-request.api";
 import { SettlementRequestModal } from "@/components/modals/SettlementRequestModal";
-import { getCurrencySymbol } from "@/lib/currencies";
+import { getCurrencyPrefix } from "@/lib/currencies";
 
 const statuses: Array<"all" | SettlementRequestStatus> = [
   "all",
@@ -102,7 +102,7 @@ export default function Settlements() {
       .reduce((sum, request) => sum + Number(request.amount), 0);
 
   const formatAmount = (amount: number) =>
-    `${getCurrencySymbol(currencyCode)}${amount.toLocaleString(undefined, {
+    `${getCurrencyPrefix(currencyCode)}${amount.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

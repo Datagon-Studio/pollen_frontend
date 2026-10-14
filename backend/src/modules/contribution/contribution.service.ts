@@ -57,6 +57,7 @@ async function sendContributionConfirmationEmail(contribution: Contribution): Pr
     const formattedAmount = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
+      currencyDisplay: 'code',
     }).format(contribution.amount);
 
     // Format date
@@ -203,6 +204,7 @@ async function sendContributionConfirmationSMS(
     const formattedAmount = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
+      currencyDisplay: 'code',
     }).format(contribution.amount);
 
     const transactionDate = new Date(contribution.date_received);

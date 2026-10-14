@@ -90,7 +90,7 @@ export const paymentService = {
       }
 
       // Apply one combined 2% payment fee.
-      // e.g. contribute GHS 1000 → fee ₵25 → charge ₵1025
+      // e.g. contribute GHS 1000 → fee GHS 25 → charge GHS 1025
       const { contributionAmount, feeAmount, chargedAmount } =
         calculatePaymentAmounts(input.amount);
 

@@ -129,9 +129,9 @@ function DashboardMockup() {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, padding: '14px 20px 10px' }}>
         {[
-          { label: 'Total Collected', val: 'GH₵ 9,450', sub: '+GH₵ 600 this week', col: SUC },
+          { label: 'Total Collected', val: 'GHS 9,450', sub: '+GHS 600 this week', col: SUC },
           { label: 'Members', val: '14', sub: '2 pending verification', col: CHL },
-          { label: 'Pending', val: 'GH₵ 1,200', sub: '4 members', col: DNG },
+          { label: 'Pending', val: 'GHS 1,200', sub: '4 members', col: DNG },
         ].map((s, i) => (
           <div key={i} style={{ backgroundColor: CRA, borderRadius: 8, padding: '10px 12px', border: `1px solid ${BOR}` }}>
             <div style={{ fontSize: 9, color: CHL, marginBottom: 3, fontFamily: sans, fontWeight: 500 }}>{s.label}</div>
@@ -155,7 +155,7 @@ function DashboardMockup() {
             <div style={{ height: 6, backgroundColor: BOR, borderRadius: 3 }}>
               <div style={{ width: `${f.pct}%`, height: '100%', backgroundColor: G, borderRadius: 3 }} />
             </div>
-            <div style={{ fontSize: 9, color: CHL, marginTop: 3, fontFamily: mono }}>GH₵ {f.col} / GH₵ {f.tar}</div>
+            <div style={{ fontSize: 9, color: CHL, marginTop: 3, fontFamily: mono }}>GHS {f.col} / GHS {f.tar}</div>
           </div>
         ))}
       </div>
@@ -163,9 +163,9 @@ function DashboardMockup() {
       <div style={{ padding: '0 20px 16px' }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: CH, marginBottom: 8, fontFamily: sans }}>Recent Contributions</div>
         {[
-          { name: 'Kofi Mensah', amount: 'GH₵ 200', ok: true, date: 'Jun 28' },
-          { name: 'Ama Boateng', amount: 'GH₵ 150', ok: true, date: 'Jun 27' },
-          { name: 'Kwame Asante', amount: 'GH₵ 200', ok: false, date: 'Jun 25' },
+          { name: 'Kofi Mensah', amount: 'GHS 200', ok: true, date: 'Jun 28' },
+          { name: 'Ama Boateng', amount: 'GHS 150', ok: true, date: 'Jun 27' },
+          { name: 'Kwame Asante', amount: 'GHS 200', ok: false, date: 'Jun 25' },
         ].map((r, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 2 ? `1px solid ${BOR}` : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -217,8 +217,8 @@ function FundsMockupUI() {
               <div style={{ width: `${f.pct}%`, height: '100%', backgroundColor: f.pct === 100 ? SUC : G, borderRadius: 3 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 9, fontFamily: mono, color: CHL }}>GH₵ {f.col} collected</span>
-              <span style={{ fontSize: 9, fontFamily: mono, color: CHL }}>Target: GH₵ {f.target}</span>
+              <span style={{ fontSize: 9, fontFamily: mono, color: CHL }}>GHS {f.col} collected</span>
+              <span style={{ fontSize: 9, fontFamily: mono, color: CHL }}>Target: GHS {f.target}</span>
             </div>
           </div>
         ))}
@@ -230,11 +230,11 @@ function FundsMockupUI() {
 
 function ContributionsMockupUI() {
   const rows = [
-    { name: 'Kofi Mensah', amount: 'GH₵ 200', fund: 'Annual Dues', ok: true, pledge: false, date: 'Jun 28' },
-    { name: 'Ama Boateng', amount: 'GH₵ 150', fund: 'Annual Dues', ok: true, pledge: false, date: 'Jun 27' },
-    { name: 'Kwame Asante', amount: 'GH₵ 200', fund: 'Annual Dues', ok: false, pledge: false, date: 'Jun 25' },
-    { name: 'Abena Frimpong', amount: 'GH₵ 300', fund: 'Building Fund', ok: true, pledge: false, date: 'Jun 24' },
-    { name: 'Yaw Darko', amount: 'GH₵ 150', fund: 'Annual Dues', ok: false, pledge: true, date: 'Jun 22' },
+    { name: 'Kofi Mensah', amount: 'GHS 200', fund: 'Annual Dues', ok: true, pledge: false, date: 'Jun 28' },
+    { name: 'Ama Boateng', amount: 'GHS 150', fund: 'Annual Dues', ok: true, pledge: false, date: 'Jun 27' },
+    { name: 'Kwame Asante', amount: 'GHS 200', fund: 'Annual Dues', ok: false, pledge: false, date: 'Jun 25' },
+    { name: 'Abena Frimpong', amount: 'GHS 300', fund: 'Building Fund', ok: true, pledge: false, date: 'Jun 24' },
+    { name: 'Yaw Darko', amount: 'GHS 150', fund: 'Annual Dues', ok: false, pledge: true, date: 'Jun 22' },
   ]
   return (
     <div className="landing-mock">
@@ -273,11 +273,11 @@ function ContributionsMockupUI() {
 
 function MembersMockupUI() {
   const members = [
-    { name: 'Kofi Mensah', role: 'Collector', paid: true, total: 'GH₵ 800' },
-    { name: 'Ama Boateng', role: 'Member', paid: true, total: 'GH₵ 600' },
-    { name: 'Kwame Asante', role: 'Member', paid: false, total: 'GH₵ 400' },
-    { name: 'Abena Frimpong', role: 'Member', paid: true, total: 'GH₵ 1,200' },
-    { name: 'Yaw Darko', role: 'Member', paid: false, total: 'GH₵ 300' },
+    { name: 'Kofi Mensah', role: 'Collector', paid: true, total: 'GHS 800' },
+    { name: 'Ama Boateng', role: 'Member', paid: true, total: 'GHS 600' },
+    { name: 'Kwame Asante', role: 'Member', paid: false, total: 'GHS 400' },
+    { name: 'Abena Frimpong', role: 'Member', paid: true, total: 'GHS 1,200' },
+    { name: 'Yaw Darko', role: 'Member', paid: false, total: 'GHS 300' },
   ]
   return (
     <div className="landing-mock">
@@ -288,7 +288,7 @@ function MembersMockupUI() {
           <div style={{ backgroundColor: G, borderRadius: 5, padding: '3px 9px', fontSize: 10, fontWeight: 700, color: ON_GOLD, fontFamily: sans }}>Export CSV</div>
         </div>
         <div style={{ display: 'flex', gap: 14 }}>
-          {[{ l: 'Members', v: '14' }, { l: 'Collected', v: 'GH₵ 9,450' }, { l: 'Expenses', v: 'GH₵ 2,340' }, { l: 'Net', v: 'GH₵ 7,110' }].map((s, i) => (
+          {[{ l: 'Members', v: '14' }, { l: 'Collected', v: 'GHS 9,450' }, { l: 'Expenses', v: 'GHS 2,340' }, { l: 'Net', v: 'GHS 7,110' }].map((s, i) => (
             <div key={i}>
               <div style={{ fontSize: 9, color: INK_MUTED, fontFamily: sans }}>{s.l}</div>
               <div style={{ fontSize: 11, fontWeight: 700, fontFamily: mono, color: INK_FG }}>{s.v}</div>
@@ -616,7 +616,7 @@ function TrustStrip() {
         </svg>
       ),
       title: 'Built for Ghana',
-      body: 'Currency in GH₵. Context that fits churches, associations, and welfare groups.',
+      body: 'Currency in GHS. Context that fits churches, associations, and welfare groups.',
     },
     {
       icon: (

@@ -35,7 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { configApi } from "@/services/config.api";
-import { getCurrencySymbol } from "@/lib/currencies";
+import { getCurrencyPrefix } from "@/lib/currencies";
 import {
   managerApi,
   ManagerMember,
@@ -88,7 +88,7 @@ export default function Members() {
 
   const formatAmount = useCallback((amount: number | null | undefined) => {
     const value = amount ?? 0;
-    return `${getCurrencySymbol(currencyCode)}${value.toFixed(2)}`;
+    return `${getCurrencyPrefix(currencyCode)}${value.toFixed(2)}`;
   }, [currencyCode]);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);

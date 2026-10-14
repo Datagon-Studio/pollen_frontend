@@ -63,7 +63,7 @@ export function RecordExpenseModal({ open, onOpenChange, onSuccess }: RecordExpe
   }, [open]);
 
   const formatAmount = (amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    const prefix = `${currencyCode} `;
     return `${prefix}${amount.toFixed(2)}`;
   };
 

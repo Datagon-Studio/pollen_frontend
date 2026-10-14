@@ -93,7 +93,7 @@ export default function Dashboard() {
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = useCallback((amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    const prefix = `${currencyCode} `;
     return `${prefix}${amount.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

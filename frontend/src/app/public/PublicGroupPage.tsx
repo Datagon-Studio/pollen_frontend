@@ -776,11 +776,10 @@ export default function PublicGroupPage() {
         className: "text-right font-semibold",
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
-          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          const prefix = `${currencyCode} `;
           return (
             <span className="text-foreground">
-              {prefix}
-              {contribution.amount.toFixed(2)}
+              {prefix}{contribution.amount.toFixed(2)}
             </span>
           );
         },
@@ -878,11 +877,10 @@ export default function PublicGroupPage() {
         className: "text-right font-semibold",
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
-          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          const prefix = `${currencyCode} `;
           return (
             <span className="text-foreground">
-              {prefix}
-              {Number(expense.amount).toFixed(2)}
+              {prefix}{Number(expense.amount).toFixed(2)}
             </span>
           );
         },
@@ -1511,7 +1509,7 @@ export default function PublicGroupPage() {
                           Total Contributions
                         </span>
                         <span className="text-lg font-semibold font-mono text-green-600 tabular-nums">
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {Object.values(fundStats)
                             .reduce(
                               (sum, stats) => sum + stats.totalCollected,
@@ -1525,7 +1523,7 @@ export default function PublicGroupPage() {
                           Total Expenses
                         </span>
                         <span className="text-lg font-semibold font-mono text-red-600 tabular-nums">
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {expenses
                             .reduce((sum, e) => sum + Number(e.amount), 0)
                             .toFixed(2)}
@@ -1548,7 +1546,7 @@ export default function PublicGroupPage() {
                               : "text-red-600"
                           }`}
                         >
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {(
                             Object.values(fundStats).reduce(
                               (sum, stats) => sum + stats.totalCollected,

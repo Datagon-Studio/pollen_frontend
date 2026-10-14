@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fundApi, Fund } from "@/services";
 import { fundSettlementApi, FundSettlement, FundSettlementAvailability } from "@/services/fund-settlement.api";
 import { configApi } from "@/services/config.api";
-import { getCurrencySymbol } from "@/lib/currencies";
+import { getCurrencyPrefix } from "@/lib/currencies";
 import { SettlementAvailabilitySummary } from "@/components/modals/SettlementAvailabilitySummary";
 
 interface EditSettlementModalProps {
@@ -132,7 +132,7 @@ export function EditSettlementModal({
   }, [open, formData.fundId, settlement]);
 
   const formatAmount = (amount: number) => {
-    return `${getCurrencySymbol(currencyCode)}${amount.toFixed(2)}`;
+    return `${getCurrencyPrefix(currencyCode)}${amount.toFixed(2)}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
