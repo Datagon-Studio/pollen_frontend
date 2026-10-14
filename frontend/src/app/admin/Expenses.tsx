@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
+import { compareSortValues } from "@/lib/table-sort";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,25 @@ const formatExpenseForDisplay = (expense: Expense) => {
 
 type DisplayExpense = ReturnType<typeof formatExpenseForDisplay>;
 
+function expenseSortValue(row: DisplayExpense, column: string) {
+  switch (column) {
+    case "date":
+      return row.dateValue;
+    case "expenseName":
+      return row.expenseName;
+    case "expenseCategory":
+      return row.expenseCategory;
+    case "notes":
+      return row.notes;
+    case "memberVisible":
+      return row.memberVisible ? "Visible" : "Hidden";
+    case "amount":
+      return row.amountValue;
+    default:
+      return "";
+  }
+}
+
 // Base columns definition - will be enhanced with sorting in component
 const baseColumns: Column<DisplayExpense>[] = [
   {
@@ -112,7 +132,6 @@ const baseColumns: Column<DisplayExpense>[] = [
   {
     key: "notes",
     header: "Notes",
-    sortable: false,
     render: (item: DisplayExpense) => (
       <span className="text-sm text-muted-foreground">{item.notes || "—"}</span>
     ),
@@ -120,7 +139,6 @@ const baseColumns: Column<DisplayExpense>[] = [
   {
     key: "memberVisible",
     header: "Visible",
-    sortable: false,
     render: (item: DisplayExpense) => (
       <div className="flex items-center gap-1">
         {item.memberVisible ? (
@@ -299,24 +317,10 @@ export default function Expenses() {
         return b.dateValue.getTime() - a.dateValue.getTime();
       }
 
-      let comparison = 0;
-      switch (sortColumn) {
-        case "date":
-          comparison = a.dateValue.getTime() - b.dateValue.getTime();
-          break;
-        case "expenseName":
-          comparison = a.expenseName.localeCompare(b.expenseName);
-          break;
-        case "expenseCategory":
-          comparison = a.expenseCategory.localeCompare(b.expenseCategory);
-          break;
-        case "amount":
-          comparison = a.amountValue - b.amountValue;
-          break;
-        default:
-          return 0;
-      }
-
+      const comparison = compareSortValues(
+        expenseSortValue(a, sortColumn),
+        expenseSortValue(b, sortColumn),
+      );
       return sortDirection === "asc" ? comparison : -comparison;
     });
     } catch (error) {

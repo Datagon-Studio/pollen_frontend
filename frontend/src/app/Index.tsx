@@ -51,7 +51,9 @@ interface ContributionRow {
   account: string;
   fund: string;
   amount: string;
+  amountValue: number;
   date: string;
+  dateValue: string;
   status: "pending" | "confirmed" | "failed" | "reversed" | "pledge";
   fundId: string;
 }
@@ -60,8 +62,17 @@ const columns = [
   { key: "member", header: "Member" },
   { key: "account", header: "Account" },
   { key: "fund", header: "Fund" },
-  { key: "amount", header: "Amount", className: "text-right font-medium" },
-  { key: "date", header: "Date" },
+  {
+    key: "amount",
+    header: "Amount",
+    className: "text-right font-medium",
+    sortValue: (item: ContributionRow) => item.amountValue,
+  },
+  {
+    key: "date",
+    header: "Date",
+    sortValue: (item: ContributionRow) => item.dateValue,
+  },
   {
     key: "status",
     header: "Status",
@@ -179,7 +190,9 @@ export default function Dashboard() {
         account: c.account_name,
         fund: c.fund_name,
         amount: formatAmount(c.amount),
+        amountValue: c.amount,
         date: format(new Date(c.date_received), "MMM d, yyyy"),
+        dateValue: c.date_received,
         status: c.status,
         fundId: c.fund_id,
       }));

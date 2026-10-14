@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, SortDirection } from "@/components/ui/data-table";
+import { sortByColumn } from "@/lib/table-sort";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -172,6 +173,9 @@ export default function Members() {
     [startDate, endDate]
   );
 
+  const [memberSortColumn, setMemberSortColumn] = useState<string | null>(null);
+  const [memberSortDirection, setMemberSortDirection] = useState<SortDirection>("asc");
+
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
       const fullName = member.full_name.toLowerCase();
@@ -189,10 +193,35 @@ export default function Members() {
     });
   }, [members, searchQuery, statusFilter, isMemberInAddedDateRange]);
 
+  const sortedMembers = useMemo(
+    () =>
+      sortByColumn(filteredMembers, memberSortColumn, memberSortDirection, (member, column) => {
+        switch (column) {
+          case "name":
+            return member.full_name;
+          case "account_name":
+            return member.account_name;
+          case "phone":
+            return member.phone;
+          case "membership_number":
+            return member.membership_number || "";
+          case "status":
+            return isMemberActive(member) ? "Active" : "Inactive";
+          case "total_contributed":
+            return memberContributions[member.member_id] ?? 0;
+          case "updated_at":
+            return member.updated_at;
+          default:
+            return "";
+        }
+      }),
+    [filteredMembers, memberSortColumn, memberSortDirection, memberContributions],
+  );
+
   const membersPagination = usePagination(
-    filteredMembers,
+    sortedMembers,
     12,
-    `${searchQuery}|${statusFilter}|${startDate?.toISOString() ?? ""}|${endDate?.toISOString() ?? ""}`
+    `${searchQuery}|${statusFilter}|${startDate?.toISOString() ?? ""}|${endDate?.toISOString() ?? ""}|${memberSortColumn}|${memberSortDirection}`
   );
 
   const activeCount = members.filter(isMemberActive).length;
@@ -529,6 +558,12 @@ export default function Members() {
           <DataTable
             columns={columns as any}
             data={membersPagination.paginatedItems as any}
+            sortColumn={memberSortColumn}
+            sortDirection={memberSortDirection}
+            onSort={(column, direction) => {
+              setMemberSortColumn(column);
+              setMemberSortDirection(direction);
+            }}
           />
           <TablePagination
             page={membersPagination.page}

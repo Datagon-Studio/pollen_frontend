@@ -38,6 +38,7 @@ import {
   ManagerContribution,
   ManagerFund,
 } from "@/services/manager.api";
+import { compareSortValues } from "@/lib/table-sort";
 
 // Simple cache with TTL
 const cache = {
@@ -64,6 +65,29 @@ interface ContributionRow {
   status: "pending" | "confirmed" | "failed" | "reversed" | "pledge";
   comment: string;
   paymentReference: string | null;
+}
+
+function contributionSortValue(row: ContributionRow, column: string) {
+  switch (column) {
+    case "dateReceived":
+      return row.dateValue;
+    case "memberName":
+      return row.memberName;
+    case "accountName":
+      return row.accountName;
+    case "fundName":
+      return row.fundName;
+    case "amount":
+      return row.amountValue;
+    case "comment":
+      return row.comment;
+    case "channel":
+      return row.paymentMethod || (row.channel === "online" ? "Online" : "Offline");
+    case "status":
+      return row.status;
+    default:
+      return "";
+  }
 }
 
 // Columns will be defined inside component to access handlers
@@ -311,7 +335,6 @@ export default function Contributions() {
     {
       key: "comment",
       header: "Comment",
-      sortable: false,
       render: (item: ContributionRow) => (
         <span className="text-sm text-muted-foreground">{item.comment || "—"}</span>
       ),
@@ -319,7 +342,6 @@ export default function Contributions() {
     {
       key: "channel",
       header: "Payment Method",
-      sortable: false,
       render: (item: ContributionRow) => (
         <div className="flex items-center gap-1.5">
           {item.paymentMethod ? (
@@ -449,31 +471,10 @@ export default function Contributions() {
     // Apply sorting
     if (sortColumn && sortDirection && filtered.length > 0) {
       return [...filtered].sort((a, b) => {
-        let comparison = 0;
-        try {
-          switch (sortColumn) {
-            case "dateReceived":
-              comparison = a.dateValue.getTime() - b.dateValue.getTime();
-              break;
-            case "memberName":
-              comparison = (a.memberName || "").localeCompare(b.memberName || "");
-              break;
-            case "fundName":
-              comparison = (a.fundName || "").localeCompare(b.fundName || "");
-              break;
-            case "amount":
-              comparison = (a.amountValue || 0) - (b.amountValue || 0);
-              break;
-            case "status":
-              comparison = (a.status || "").localeCompare(b.status || "");
-              break;
-            default:
-              return 0;
-          }
-        } catch (error) {
-          console.error("Error sorting contributions:", error);
-          return 0;
-        }
+        const comparison = compareSortValues(
+          contributionSortValue(a, sortColumn),
+          contributionSortValue(b, sortColumn),
+        );
         return sortDirection === "asc" ? comparison : -comparison;
       });
     }

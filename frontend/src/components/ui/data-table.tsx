@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { isValidElement, ReactNode, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { compareSortValues, SortableValue } from "@/lib/table-sort";
 
 export type SortDirection = "asc" | "desc" | null;
 
@@ -19,6 +20,7 @@ export interface Column<T> {
   className?: string;
   render?: (item: T) => ReactNode;
   sortable?: boolean;
+  sortValue?: (item: T) => SortableValue;
   sortFn?: (a: T, b: T) => number;
 }
 
@@ -32,7 +34,41 @@ interface DataTableProps<T> {
   onSort?: (column: string, direction: SortDirection) => void;
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+const UNSORTABLE_KEYS = new Set(["actions", "select"]);
+
+function isSortableColumn<T>(column: Column<T>): boolean {
+  if (column.sortable === false) return false;
+  if (!column.header.trim()) return false;
+  if (UNSORTABLE_KEYS.has(column.key)) return false;
+  return true;
+}
+
+function reactNodeToText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(reactNodeToText).join(" ");
+  if (isValidElement(node)) {
+    const props = node.props as { children?: ReactNode };
+    return reactNodeToText(props.children);
+  }
+  return "";
+}
+
+function columnSortValue<T extends object>(
+  item: T,
+  column: Column<T>,
+): SortableValue {
+  if (column.sortValue) return column.sortValue(item);
+  const raw = (item as Record<string, unknown>)[column.key];
+  if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
+    return raw;
+  }
+  if (raw instanceof Date) return raw;
+  if (column.render) return reactNodeToText(column.render(item)).replace(/\s+/g, " ").trim();
+  return "";
+}
+
+export function DataTable<T extends object>({
   columns,
   data,
   rowClassName,
@@ -41,48 +77,88 @@ export function DataTable<T extends Record<string, unknown>>({
   sortDirection = null,
   onSort,
 }: DataTableProps<T>) {
-  const handleSort = (column: Column<T>) => {
-    if (!column.sortable || !onSort) return;
+  const [internalColumn, setInternalColumn] = useState<string | null>(null);
+  const [internalDirection, setInternalDirection] = useState<SortDirection>("asc");
+  const controlled = Boolean(onSort);
+  const activeColumn = controlled ? sortColumn : internalColumn;
+  const activeDirection = controlled ? sortDirection : internalDirection;
 
-    let newDirection: SortDirection = "asc";
-    if (sortColumn === column.key) {
-      if (sortDirection === "asc") {
-        newDirection = "desc";
-      } else if (sortDirection === "desc") {
-        newDirection = null;
-      }
+  const handleSort = (column: Column<T>) => {
+    if (!isSortableColumn(column)) return;
+
+    const newDirection: SortDirection =
+      activeColumn === column.key && activeDirection === "asc" ? "desc" : "asc";
+
+    if (onSort) {
+      onSort(column.key, newDirection);
+      return;
     }
 
-    onSort(column.key, newDirection);
+    setInternalColumn(column.key);
+    setInternalDirection(newDirection);
   };
 
+  const displayData = useMemo(() => {
+    if (controlled || !activeColumn || !activeDirection) return data;
+    const column = columns.find((item) => item.key === activeColumn);
+    if (!column || !isSortableColumn(column)) return data;
+    return [...data].sort((a, b) => {
+      const comparison = column.sortFn
+        ? column.sortFn(a, b)
+        : compareSortValues(columnSortValue(a, column), columnSortValue(b, column));
+      return activeDirection === "asc" ? comparison : -comparison;
+    });
+  }, [activeColumn, activeDirection, columns, controlled, data]);
+
   const getSortIcon = (column: Column<T>) => {
-    if (!column.sortable || sortColumn !== column.key) {
-      return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
+    if (activeColumn !== column.key || !activeDirection) {
+      return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" aria-hidden="true" />;
     }
-    if (sortDirection === "asc") {
-      return <ArrowUp className="h-3.5 w-3.5 ml-1" />;
+    if (activeDirection === "asc") {
+      return <ArrowUp className="h-3.5 w-3.5 ml-1" aria-hidden="true" />;
     }
-    if (sortDirection === "desc") {
-      return <ArrowDown className="h-3.5 w-3.5 ml-1" />;
-    }
-    return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
+    return <ArrowDown className="h-3.5 w-3.5 ml-1" aria-hidden="true" />;
   };
 
   const renderCell = (item: T, column: Column<T>) =>
-    column.render ? column.render(item) : (item[column.key] as ReactNode);
+    column.render
+      ? column.render(item)
+      : ((item as Record<string, unknown>)[column.key] as ReactNode);
+
+  const sortButton = (column: Column<T>) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-auto p-0 font-medium hover:bg-transparent"
+      onClick={() => handleSort(column)}
+    >
+      <span className="flex items-center">
+        {column.header}
+        {getSortIcon(column)}
+      </span>
+    </Button>
+  );
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Mobile: stacked labeled rows — tables don't fit ~320–640px */}
       <div className="sm:hidden">
-        {data.length === 0 ? (
+        {displayData.length > 0 && (
+          <div className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2">
+            {columns.filter(isSortableColumn).map((column) => (
+              <div key={column.key} className="shrink-0">
+                {sortButton(column)}
+              </div>
+            ))}
+          </div>
+        )}
+        {displayData.length === 0 ? (
           <div className="px-4 py-10 text-center text-muted-foreground text-sm">
             {emptyMessage}
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {data.map((item, index) => (
+            {displayData.map((item, index) => (
               <li
                 key={index}
                 className={cn(
@@ -114,7 +190,6 @@ export function DataTable<T extends Record<string, unknown>>({
         )}
       </div>
 
-      {/* Tablet/desktop: traditional table */}
       <div className="hidden sm:block">
         <Table>
           <TableHeader>
@@ -126,28 +201,23 @@ export function DataTable<T extends Record<string, unknown>>({
                     "text-xs font-medium text-muted-foreground uppercase tracking-wider",
                     column.className,
                   )}
+                  aria-sort={
+                    isSortableColumn(column)
+                      ? activeColumn === column.key
+                        ? activeDirection === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                      : undefined
+                  }
                 >
-                  {column.sortable ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 font-medium hover:bg-transparent"
-                      onClick={() => handleSort(column)}
-                    >
-                      <span className="flex items-center">
-                        {column.header}
-                        {getSortIcon(column)}
-                      </span>
-                    </Button>
-                  ) : (
-                    column.header
-                  )}
+                  {isSortableColumn(column) ? sortButton(column) : column.header}
                 </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.length === 0 ? (
+            {displayData.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
@@ -157,7 +227,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((item, index) => (
+              displayData.map((item, index) => (
                 <TableRow
                   key={index}
                   className={cn("hover:bg-secondary/30", rowClassName?.(item))}

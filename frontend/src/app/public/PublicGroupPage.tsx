@@ -747,6 +747,8 @@ export default function PublicGroupPage() {
         key: "date",
         header: "Date",
         className: "text-muted-foreground",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Contribution).date_received,
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
           return format(new Date(contribution.date_received), "MMM d, yyyy");
@@ -755,6 +757,14 @@ export default function PublicGroupPage() {
       {
         key: "fund",
         header: "Fund",
+        sortValue: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as Contribution | ContributionWithDetails;
+          return (
+            (contribution as ContributionWithDetails).fund_name ||
+            publicFunds.find((f) => f.fund_id === contribution.fund_id)?.fund_name ||
+            contribution.fund_id
+          );
+        },
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as
             | Contribution
@@ -774,6 +784,8 @@ export default function PublicGroupPage() {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
+        sortValue: (item: Record<string, unknown>) =>
+          Number((item as unknown as Contribution).amount),
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
           const prefix = `${currencyCode} `;
@@ -787,6 +799,8 @@ export default function PublicGroupPage() {
       {
         key: "status",
         header: "Status",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Contribution).status,
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
           const status = contribution.status as string;
@@ -837,6 +851,8 @@ export default function PublicGroupPage() {
         key: "date",
         header: "Date",
         className: "text-muted-foreground",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).date,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           const dateValue = expense.date ? new Date(expense.date) : new Date();
@@ -846,6 +862,8 @@ export default function PublicGroupPage() {
       {
         key: "category",
         header: "Category",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).expense_category,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           return (
@@ -864,6 +882,8 @@ export default function PublicGroupPage() {
       {
         key: "description",
         header: "Description",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).expense_name,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           return (
@@ -875,6 +895,8 @@ export default function PublicGroupPage() {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
+        sortValue: (item: Record<string, unknown>) =>
+          Number((item as unknown as Expense).amount),
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           const prefix = `${currencyCode} `;

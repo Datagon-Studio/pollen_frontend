@@ -471,6 +471,7 @@ export default function PublicSettings() {
         key: "date",
         header: "Date",
         className: "text-muted-foreground",
+        sortValue: (item: Contribution) => item.date_received,
         render: (item: Contribution) =>
           format(new Date(item.date_received), "MMM d, yyyy"),
       },
@@ -478,6 +479,7 @@ export default function PublicSettings() {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
+        sortValue: (item: Contribution) => Number(item.amount),
         render: (item: Contribution) => (
           <span className="text-foreground">
             ${Number(item.amount).toFixed(2)}
@@ -487,6 +489,7 @@ export default function PublicSettings() {
       {
         key: "status",
         header: "Status",
+        sortValue: (item: Contribution) => item.status,
         render: (item: Contribution) => (
           <span className="text-xs text-foreground capitalize">
             {item.status}
