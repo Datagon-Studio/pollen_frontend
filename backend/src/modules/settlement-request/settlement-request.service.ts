@@ -133,15 +133,20 @@ async function hydrateHistory(
 ): Promise<SettlementRequestHistoryView[]> {
   const userIds = [...new Set(rows.map((row) => row.changed_by_user_id))];
   const users = await namesById('users', 'user_id', userIds, 'user_id, full_name, email');
-  return rows.map((row) => ({
-    history_id: row.history_id,
-    previous_status: row.previous_status,
-    new_status: row.new_status,
-    changed_by_user_id: row.changed_by_user_id,
-    changed_by_name: users.get(row.changed_by_user_id)?.full_name ?? null,
-    note: row.note,
-    created_at: row.created_at,
-  }));
+  return rows.map((row) => {
+    const actor = users.get(row.changed_by_user_id);
+    const name = actor?.full_name?.trim() || null;
+    return {
+      history_id: row.history_id,
+      previous_status: row.previous_status,
+      new_status: row.new_status,
+      changed_by_user_id: row.changed_by_user_id,
+      changed_by_name: name,
+      changed_by_email: actor?.email?.trim() || null,
+      note: row.note,
+      created_at: row.created_at,
+    };
+  });
 }
 
 async function notifyCreated(view: SettlementRequestView): Promise<void> {
