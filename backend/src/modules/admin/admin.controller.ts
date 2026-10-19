@@ -334,14 +334,18 @@ adminRoutes.get('/settlement-requests', async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     await assertStaffUser(authReq.user?.id);
     const statusQuery = typeof req.query.status === 'string' ? req.query.status : undefined;
-    if (statusQuery && !isSettlementStatus(statusQuery)) {
-      res.status(400).json({ success: false, error: 'Invalid settlement status' });
-      return;
+    let status: SettlementRequestStatus | undefined;
+    if (statusQuery) {
+      if (!isSettlementStatus(statusQuery)) {
+        res.status(400).json({ success: false, error: 'Invalid settlement status' });
+        return;
+      }
+      status = statusQuery;
     }
     const data = await settlementRequestService.listForAdmin({
       accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
       fundId: typeof req.query.fundId === 'string' ? req.query.fundId : undefined,
-      status: statusQuery,
+      status,
     });
     res.status(200).json({ success: true, data });
   } catch (error) {
