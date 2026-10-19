@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { adminService } from './admin.service.js';
+import { adminService, ReportQueryError } from './admin.service.js';
 import { adminCatalogService } from './admin-catalog.service.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import {
@@ -27,6 +27,26 @@ adminRoutes.get('/dashboard', async (req: Request, res: Response) => {
     const data = await adminService.getPlatformDashboard();
     res.status(200).json({ success: true, data });
   } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/reports — collections and records for a duration */
+adminRoutes.get('/reports', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const data = await adminService.getPlatformReport({
+      duration: typeof req.query.duration === 'string' ? req.query.duration : undefined,
+      dateFrom: typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined,
+      dateTo: typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    if (error instanceof ReportQueryError) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
     handleStaffError(error, res);
   }
 });
