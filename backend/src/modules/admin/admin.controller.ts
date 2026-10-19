@@ -40,6 +40,8 @@ adminRoutes.get('/reports', async (req: Request, res: Response) => {
       duration: typeof req.query.duration === 'string' ? req.query.duration : undefined,
       dateFrom: typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined,
       dateTo: typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined,
+      month: typeof req.query.month === 'string' ? req.query.month : undefined,
+      years: typeof req.query.years === 'string' ? req.query.years : undefined,
     });
     res.status(200).json({ success: true, data });
   } catch (error) {

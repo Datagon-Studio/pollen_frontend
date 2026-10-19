@@ -264,6 +264,42 @@ function buildTrendSlots(
   return slots;
 }
 
+function parseReportMonth(value?: string): number | undefined {
+  if (!value) return undefined;
+  const month = Number(value);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new ReportQueryError('Month must be a number from 1 to 12');
+  }
+  return month;
+}
+
+function parseReportYears(value?: string): number[] | undefined {
+  if (!value?.trim()) return undefined;
+  const parsed = value.split(',').map((part) => Number(part.trim()));
+  if (
+    parsed.length === 0 ||
+    parsed.some((year) => !Number.isInteger(year) || year < 1900 || year > 2100)
+  ) {
+    throw new ReportQueryError('Years must be a comma-separated list of years');
+  }
+  const years = [...new Set(parsed)].sort((a, b) => a - b);
+  if (years.length > 20) {
+    throw new ReportQueryError('Select 20 years or fewer');
+  }
+  return years;
+}
+
+function matchesReportPeriod(value: string, month?: number, years?: number[]): boolean {
+  if (!month && !years?.length) return true;
+  const day = utcDay(value);
+  if (!isIsoDate(day)) return false;
+  const year = Number(day.slice(0, 4));
+  const monthNumber = Number(day.slice(5, 7));
+  if (years?.length && !years.includes(year)) return false;
+  if (month && monthNumber !== month) return false;
+  return true;
+}
+
 function trendKey(day: string, grain: ReportGrain): string {
   if (grain === 'day') return day;
   if (grain === 'week') return mondayOf(day);
@@ -377,11 +413,15 @@ export const adminService = {
     duration?: string;
     dateFrom?: string;
     dateTo?: string;
+    month?: string;
+    years?: string;
   }): Promise<PlatformReport> {
     const rawDuration = query.duration?.trim() || '30d';
     if (!isReportDuration(rawDuration)) {
       throw new ReportQueryError('Choose a supported duration');
     }
+    const month = parseReportMonth(query.month);
+    const years = parseReportYears(query.years);
     const bounds = resolveReportBounds(rawDuration, query.dateFrom, query.dateTo);
     const startIso = bounds.startDate ? `${bounds.startDate}T00:00:00.000Z` : null;
     const endIso = bounds.endDate ? `${bounds.endDate}T23:59:59.999Z` : null;
@@ -398,7 +438,7 @@ export const adminService = {
         if (endIso) request = request.lte('date_received', endIso);
         return request;
       }),
-      fetchPages<{ amount: number | string }>((from, to) => {
+      fetchPages<{ amount: number | string; date: string }>((from, to) => {
         let request = supabase
           .from('expenses')
           .select('amount, date')
@@ -409,26 +449,43 @@ export const adminService = {
         if (bounds.endDate) request = request.lte('date', bounds.endDate);
         return request;
       }),
-      (() => {
-        let request = supabase
-          .from('contributions')
-          .select(`
-            *,
-            members(full_name),
-            funds(fund_name),
-            accounts(account_name)
-          `)
-          .order('date_received', { ascending: false })
-          .limit(REPORT_RECORD_LIMIT);
-        if (startIso) request = request.gte('date_received', startIso);
-        if (endIso) request = request.lte('date_received', endIso);
-        return request;
+      (async () => {
+        const matched: PlatformReportRecord[] = [];
+        const pageSize = 500;
+        for (let from = 0; matched.length < REPORT_RECORD_LIMIT; from += pageSize) {
+          let request = supabase
+            .from('contributions')
+            .select(`
+              *,
+              members(full_name),
+              funds(fund_name),
+              accounts(account_name)
+            `)
+            .order('date_received', { ascending: false })
+            .order('contribution_id', { ascending: false })
+            .range(from, from + pageSize - 1);
+          if (startIso) request = request.gte('date_received', startIso);
+          if (endIso) request = request.lte('date_received', endIso);
+          const { data, error } = await request;
+          if (error) throw new Error(error.message);
+          const batch = data || [];
+          for (const row of batch) {
+            const record = mapReportRecord(row as Record<string, unknown>);
+            if (!matchesReportPeriod(record.date_received, month, years)) continue;
+            matched.push(record);
+            if (matched.length === REPORT_RECORD_LIMIT) break;
+          }
+          if (batch.length < pageSize) break;
+        }
+        return matched;
       })(),
     ]);
 
-    if (recordResult.error) throw new Error(recordResult.error.message);
-
-    const confirmed = contributions.filter((row) => row.status === 'confirmed');
+    const records = recordResult;
+    const periodRows = contributions.filter((row) =>
+      matchesReportPeriod(row.date_received, month, years)
+    );
+    const confirmed = periodRows.filter((row) => row.status === 'confirmed');
     const accounts = new Set<string>();
     const funds = new Set<string>();
     let collected = 0;
@@ -442,7 +499,9 @@ export const adminService = {
       accounts.add(row.account_id);
       funds.add(row.fund_id);
     }
-    const expenseTotal = expenses.reduce((sum, row) => sum + Number(row.amount), 0);
+    const expenseTotal = expenses
+      .filter((row) => matchesReportPeriod(row.date, month, years))
+      .reduce((sum, row) => sum + Number(row.amount), 0);
 
     let trendStart = bounds.startDate;
     let trendEnd = bounds.endDate;
@@ -462,7 +521,16 @@ export const adminService = {
     let trend: PlatformReportPoint[] = [];
     if (trendStart && trendEnd) {
       const grain = grainForSpan(trendStart, trendEnd);
-      const buckets = new Map(buildTrendSlots(trendStart, trendEnd, grain).map((slot) => [
+      const slots = buildTrendSlots(trendStart, trendEnd, grain).filter((slot) => {
+        if (grain === 'month') {
+          const [slotYear, slotMonth] = slot.key.split('-').map(Number);
+          if (years?.length && !years.includes(slotYear)) return false;
+          if (month && slotMonth !== month) return false;
+          return true;
+        }
+        return matchesReportPeriod(slot.key, month, years);
+      });
+      const buckets = new Map(slots.map((slot) => [
         slot.key,
         { online: 0, manual: 0, label: slot.label },
       ]));
@@ -483,16 +551,12 @@ export const adminService = {
       }));
     }
 
-    const records = (recordResult.data || []).map((row) =>
-      mapReportRecord(row as Record<string, unknown>)
-    );
-
     return {
       duration: rawDuration,
       startDate: bounds.startDate,
       endDate: bounds.endDate,
-      recordCount: contributions.length,
-      recordsLimited: contributions.length > records.length,
+      recordCount: periodRows.length,
+      recordsLimited: periodRows.length > records.length,
       summary: {
         collected,
         online,
