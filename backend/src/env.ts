@@ -8,6 +8,9 @@ const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: resolve(backendRoot, '.env') });
 dotenv.config({ path: resolve(backendRoot, '.env.local'), override: true });
 
+const blankToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
 const envSchema = z.object({
   PORT: z.string().default('3001'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -17,7 +20,7 @@ const envSchema = z.object({
   /** System Admin Portal origin (local dev default :8081) */
   ADMIN_FRONTEND_URL: z.string().default('http://localhost:8081'),
   /** Ops inbox for new settlement requests. Email is skipped when unset. */
-  OPS_SETTLEMENT_EMAIL: z.string().email().optional(),
+  OPS_SETTLEMENT_EMAIL: z.preprocess(blankToUndefined, z.string().email().optional()),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   EMAIL_VERIFICATION_SECRET: z.string().optional(),
@@ -33,8 +36,14 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('❌ Invalid environment variables:', parsed.error.flatten().fieldErrors);
-  throw new Error('Invalid environment variables');
+  const fieldErrors = parsed.error.flatten().fieldErrors;
+  const fields = Object.keys(fieldErrors);
+  console.error('❌ Invalid environment variables:', fieldErrors);
+  throw new Error(
+    fields.length
+      ? `Invalid environment variables: ${fields.join(', ')}`
+      : 'Invalid environment variables'
+  );
 }
 
 const env = parsed.data;
