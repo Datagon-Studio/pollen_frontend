@@ -905,8 +905,22 @@ function FooterSection() {
           <p style={{ fontFamily: sans, fontWeight: 400, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.3)', margin: 0 }}>
             © {year} Pollean. All rights reserved. Pollean is not a bank or lender.
           </p>
-          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.3)', margin: 0 }}>
-            Payments powered by <span style={{ color: G }}>Paystack</span>
+          <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 13, color: 'hsl(var(--landing-ink-fg) / 0.3)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+            powered by
+            <img
+              src="/logos/pal-logo-white.png"
+              alt="Pixel and Logic"
+              style={{ height: 28, width: 'auto', display: 'block' }}
+            />
+            <span style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#F6F1EA', borderRadius: 6, padding: '5px 8px', lineHeight: 0 }}>
+              <span style={{ display: 'block', width: 86, height: 22, overflow: 'hidden' }}>
+                <img
+                  src="/logos/datagon_logo_full_transparent_PNG_blue-scaled.png"
+                  alt="Datagon"
+                  style={{ height: 76, width: 135, maxWidth: 'none', display: 'block', marginTop: -27, marginLeft: -25 }}
+                />
+              </span>
+            </span>
           </p>
         </div>
       </div>
