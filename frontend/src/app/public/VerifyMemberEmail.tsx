@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { XCircle, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { memberApi } from "@/services/member.api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,17 +57,18 @@ export default function VerifyMemberEmail() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <div className="flex items-center justify-center mb-4">
-            {status === 'loading' && (
-              <Loader2 className="h-16 w-16 text-primary animate-spin" />
-            )}
-            {status === 'success' && (
-              <CheckCircle2 className="h-16 w-16 text-success" />
-            )}
-            {status === 'error' && (
-              <XCircle className="h-16 w-16 text-destructive" />
-            )}
-          </div>
+          {status === "success" ? (
+            <EmptyState illustration="action-successful" size="auth" />
+          ) : (
+            <div className="flex items-center justify-center mb-4">
+              {status === "loading" && (
+                <Loader2 className="h-16 w-16 text-primary animate-spin" />
+              )}
+              {status === "error" && (
+                <XCircle className="h-16 w-16 text-destructive" />
+              )}
+            </div>
+          )}
           <CardTitle className="text-2xl text-center">
             {status === 'loading' && 'Verifying Email...'}
             {status === 'success' && 'Email Verified!'}

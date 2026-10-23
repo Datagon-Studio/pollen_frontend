@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Shield,
+  Search,
   Building2,
   User,
   FileText,
@@ -30,7 +31,6 @@ import {
   Loader2,
   ExternalLink,
   Calendar,
-  Search,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -248,9 +248,16 @@ export default function KYCVerification() {
 
       {/* Table */}
       {filteredKYC.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
-          <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No KYC submissions found</p>
+        <div className="bg-card border border-border rounded-lg p-12">
+          <EmptyState
+            illustration={
+              kycList.length === 0 ||
+              (searchQuery === "" && statusFilter === "all" && typeFilter === "all")
+                ? "certification"
+                : "file-searching"
+            }
+            description="No KYC submissions found"
+          />
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">

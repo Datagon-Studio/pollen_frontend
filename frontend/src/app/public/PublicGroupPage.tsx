@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -924,10 +925,15 @@ export default function PublicGroupPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Group not found</p>
-            <Button onClick={() => navigate("/group")} className="w-full mt-4">
-              Go Back
-            </Button>
+            <EmptyState
+              illustration="files-missing"
+              description="Group not found"
+              action={
+                <Button onClick={() => navigate("/group")} className="w-full">
+                  Go Back
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       </div>

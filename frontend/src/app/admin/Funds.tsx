@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Wallet, TrendingUp, ArrowRight, Pencil, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { CreateFundModal } from "@/components/modals/CreateFundModal";
 import { EditFundModal } from "@/components/modals/EditFundModal";
@@ -348,8 +349,11 @@ export default function Funds() {
           )}
 
           {funds.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No funds found. Create your first fund to get started.
+            <div className="rounded-lg border border-border bg-card px-6 py-10">
+              <EmptyState
+                illustration="growth-chart"
+                description="No funds found. Create your first fund to get started."
+              />
             </div>
           )}
         </>

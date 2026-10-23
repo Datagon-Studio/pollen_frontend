@@ -10,7 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity as ActivityIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { auditApi, AuditLog } from "@/services/audit.api";
@@ -102,9 +103,11 @@ export default function ActivityPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : logs.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center text-muted-foreground">
-          <ActivityIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          <p>No activity recorded yet.</p>
+        <div className="bg-card border border-border rounded-lg p-8">
+          <EmptyState
+            illustration="empty-mailbox"
+            description="No activity recorded yet."
+          />
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg divide-y divide-border">

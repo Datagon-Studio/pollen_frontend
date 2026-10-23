@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { XCircle, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { paymentApi } from "@/services/payment.api";
 import { configApi } from "@/services/config.api";
 import { accountPublicPageApi } from "@/services/account-public-page.api";
@@ -178,7 +179,7 @@ export default function PaymentCallback() {
 
             {status === "success" && (
               <>
-                <CheckCircle2 className="h-12 w-12 text-success" />
+                <EmptyState illustration="action-successful" size="auth" />
                 <p className="text-center font-medium text-foreground">{message}</p>
                 {redirectAccountId ? (
                   <>

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { sortByColumn } from "@/lib/table-sort";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
@@ -509,8 +510,15 @@ export default function Expenses() {
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading expenses...</div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          No expenses found. Add your first expense to get started.
+        <div className="rounded-lg border border-border bg-card px-6 py-10">
+          <EmptyState
+            illustration={expenses.length === 0 ? "data-input" : "file-searching"}
+            description={
+              expenses.length === 0
+                ? "No expenses found. Add your first expense to get started."
+                : "No expenses match your search."
+            }
+          />
         </div>
       ) : (
         <>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatCard } from "@/components/ui/stat-card";
@@ -12,7 +13,6 @@ import {
   CheckCircle2,
   XCircle,
   Send,
-  WalletCards,
   RotateCcw,
   TrendingUp,
   Banknote,
@@ -333,40 +333,37 @@ export default function Settlements() {
           </div>
         )}
         {!loading && filtered.length === 0 && (
-          <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              {hasActiveFilters ? (
-                <Search className="h-5 w-5" />
-              ) : (
-                <WalletCards className="h-5 w-5" />
-              )}
-            </div>
-            <h3 className="text-base font-semibold text-foreground">
-              {hasActiveFilters
-                ? "No matching settlement requests"
-                : "No settlement requests yet"}
-            </h3>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              {hasActiveFilters
-                ? "Try another account or fund name, or clear the current filters."
-                : "Request a payout from an eligible fund. You can follow the admin review and payment status here."}
-            </p>
-            {hasActiveFilters ? (
-              <Button variant="outline" size="sm" className="mt-5" onClick={clearFilters}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Clear filters
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="mt-5"
-                onClick={() => setShowRequestForm(true)}
-                disabled={!account?.account_id}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Request settlement
-              </Button>
-            )}
+          <div className="px-6 py-12">
+            <EmptyState
+              illustration={hasActiveFilters ? "file-searching" : "signed-document"}
+              title={
+                hasActiveFilters
+                  ? "No matching settlement requests"
+                  : "No settlement requests yet"
+              }
+              description={
+                hasActiveFilters
+                  ? "Try another account or fund name, or clear the current filters."
+                  : "Request a payout from an eligible fund. You can follow the admin review and payment status here."
+              }
+              action={
+                hasActiveFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowRequestForm(true)}
+                    disabled={!account?.account_id}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Request settlement
+                  </Button>
+                )
+              }
+            />
           </div>
         )}
       </div>

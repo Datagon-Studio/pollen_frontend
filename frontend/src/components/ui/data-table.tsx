@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { EmptyState, IllustrationName } from "@/components/ui/empty-state";
 import { compareSortValues, SortableValue } from "@/lib/table-sort";
 
 export type SortDirection = "asc" | "desc" | null;
@@ -29,6 +30,7 @@ interface DataTableProps<T> {
   data: T[];
   rowClassName?: (item: T) => string;
   emptyMessage?: string;
+  emptyIllustration?: IllustrationName;
   sortColumn?: string | null;
   sortDirection?: SortDirection;
   onSort?: (column: string, direction: SortDirection) => void;
@@ -73,6 +75,7 @@ export function DataTable<T extends object>({
   data,
   rowClassName,
   emptyMessage = "No data available",
+  emptyIllustration = "empty-mailbox",
   sortColumn = null,
   sortDirection = null,
   onSort,
@@ -153,8 +156,12 @@ export function DataTable<T extends object>({
           </div>
         )}
         {displayData.length === 0 ? (
-          <div className="px-4 py-10 text-center text-muted-foreground text-sm">
-            {emptyMessage}
+          <div className="px-4 py-8">
+            <EmptyState
+              illustration={emptyIllustration}
+              size="table"
+              description={emptyMessage}
+            />
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -219,11 +226,12 @@ export function DataTable<T extends object>({
           <TableBody>
             {displayData.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  {emptyMessage}
+                <TableCell colSpan={columns.length} className="py-8">
+                  <EmptyState
+                    illustration={emptyIllustration}
+                    size="table"
+                    description={emptyMessage}
+                  />
                 </TableCell>
               </TableRow>
             ) : (

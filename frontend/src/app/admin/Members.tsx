@@ -558,6 +558,7 @@ export default function Members() {
           <DataTable
             columns={columns as any}
             data={membersPagination.paginatedItems as any}
+            emptyIllustration={members.length === 0 ? "collaboration" : "file-searching"}
             sortColumn={memberSortColumn}
             sortDirection={memberSortDirection}
             onSort={(column, direction) => {

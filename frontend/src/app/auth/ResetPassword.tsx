@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/hooks/use-toast";
 import { setPreferredAccountId } from "@/lib/preferred-account";
 import { clearAccountCache } from "@/hooks/useAccount";
@@ -185,6 +186,10 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <EmptyState
+            illustration={canSetPassword ? "secure-password" : "forgot-password"}
+            size="auth"
+          />
           <CardTitle>Set Password</CardTitle>
           <CardDescription>
             {canSetPassword

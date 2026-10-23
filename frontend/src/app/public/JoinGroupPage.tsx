@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -527,7 +528,9 @@ export default function JoinGroupPage() {
   if (!account) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Group not found</div>
+        <div className="w-full max-w-md">
+          <EmptyState illustration="files-missing" description="Group not found" />
+        </div>
       </div>
     );
   }
