@@ -16,9 +16,11 @@ import { auditRoutes } from './modules/audit/audit.controller.js';
 import { adminRoutesWithAuth } from './modules/admin/admin.routes.js';
 import { managerRoutes } from './modules/manager/manager.routes.js';
 import { settlementRequestRoutes } from './modules/settlement-request/settlement-request.controller.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
 
 export const routes = Router();
 
+routes.use('/auth', authRoutes);
 routes.use('/accounts', accountRoutes);
 routes.use('/members', memberRoutesWithAuth);
 routes.use('/funds', fundRoutesWithAuth);
