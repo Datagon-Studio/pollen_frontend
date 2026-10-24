@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { adminService, ReportQueryError } from './admin.service.js';
+import { adminService, isDashboardTrendRange, ReportQueryError } from './admin.service.js';
 import { adminCatalogService } from './admin-catalog.service.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import {
@@ -18,6 +18,23 @@ import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
 
 export const adminRoutes = Router();
+
+/** GET /api/v1/admin/dashboard/trend?range= — collections for a dashboard range */
+adminRoutes.get('/dashboard/trend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const range = typeof req.query.range === 'string' ? req.query.range : '12m';
+    if (!isDashboardTrendRange(range)) {
+      res.status(400).json({ success: false, error: 'Choose a supported range' });
+      return;
+    }
+    const data = await adminService.getCollectionTrend(range);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
 
 /** GET /api/v1/admin/dashboard — platform-wide metrics */
 adminRoutes.get('/dashboard', async (req: Request, res: Response) => {

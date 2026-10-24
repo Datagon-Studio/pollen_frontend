@@ -11,6 +11,8 @@ export interface PlatformDashboard {
   totalFunds: number;
   totalCollected: number;
   collectedThisMonth: number;
+  totalSettlement: number;
+  currentBalance: number;
   pendingKycCount: number;
   monthlyTrend: Array<{
     month: string;
@@ -54,6 +56,14 @@ function monthKey(date: Date): string {
 }
 
 const REPORT_RECORD_LIMIT = 500;
+export const DASHBOARD_TREND_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', '6m', '12m'] as const;
+export type DashboardTrendRange = (typeof DASHBOARD_TREND_RANGES)[number];
+
+function isDashboardTrendRange(value: string): value is DashboardTrendRange {
+  return (DASHBOARD_TREND_RANGES as readonly string[]).includes(value);
+}
+
+export { isDashboardTrendRange };
 const REPORT_DURATIONS = ['7d', '30d', '3m', '6m', '12m', 'ytd', 'all', 'custom'] as const;
 
 export type ReportDuration = (typeof REPORT_DURATIONS)[number];
@@ -192,6 +202,26 @@ function formatMonthLabel(key: string): string {
     year: '2-digit',
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function dashboardTrendBounds(range: DashboardTrendRange): {
+  start: string;
+  end: string;
+  grain: ReportGrain;
+} {
+  const today = utcToday();
+  if (range === 'today') return { start: today, end: today, grain: 'day' };
+  if (range === 'yesterday') {
+    const day = addUtcDays(today, -1);
+    return { start: day, end: day, grain: 'day' };
+  }
+  if (range === 'week') return { start: mondayOf(today), end: today, grain: 'day' };
+  if (range === 'month') return { start: `${today.slice(0, 7)}-01`, end: today, grain: 'day' };
+  if (range === 'ytd') return { start: `${today.slice(0, 4)}-01-01`, end: today, grain: 'month' };
+  const monthsBack = range === '6m' ? 5 : 11;
+  const [year, month] = today.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1 - monthsBack, 1)).toISOString().slice(0, 10);
+  return { start, end: today, grain: 'month' };
 }
 
 function resolveReportBounds(
@@ -349,7 +379,8 @@ export const adminService = {
   async getPlatformDashboard(): Promise<PlatformDashboard> {
     const now = new Date();
 
-    const [accountsRes, fundsRes, contributionsRes, kycPendingRes] = await Promise.all([
+    const [accountsRes, fundsRes, contributionsRes, kycPendingRes, fundSettlementsRes, settlementRequestsRes] =
+      await Promise.all([
       supabase.from('accounts').select('account_id, status'),
       supabase.from('funds').select('fund_id, is_active'),
       supabase
@@ -357,18 +388,30 @@ export const adminService = {
         .select('amount, channel, date_received, created_at')
         .eq('status', 'confirmed'),
       supabase.from('accounts').select('account_id').eq('kyc_status', 'pending'),
+      supabase.from('fund_settlements').select('amount, status, is_archived'),
+      supabase.from('settlement_requests').select('amount, status'),
     ]);
 
     if (accountsRes.error) throw new Error(accountsRes.error.message);
     if (fundsRes.error) throw new Error(fundsRes.error.message);
     if (contributionsRes.error) throw new Error(contributionsRes.error.message);
     if (kycPendingRes.error) throw new Error(kycPendingRes.error.message);
+    if (fundSettlementsRes.error) throw new Error(fundSettlementsRes.error.message);
+    if (settlementRequestsRes.error) throw new Error(settlementRequestsRes.error.message);
 
     const accounts = accountsRes.data || [];
     const funds = fundsRes.data || [];
     const allRows = contributionsRes.data || [];
 
     const totalCollected = allRows.reduce((s, c) => s + Number(c.amount), 0);
+    const settledFromFunds = (fundSettlementsRes.data || [])
+      .filter((row) => !row.is_archived && row.status === 'successful')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const settledFromRequests = (settlementRequestsRes.data || [])
+      .filter((row) => row.status === 'disbursed')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const totalSettlement = settledFromFunds + settledFromRequests;
+    const currentBalance = totalCollected - totalSettlement;
     const collectedThisMonth = allRows
       .filter((c) => isInAccraMonth(c.date_received || c.created_at, now))
       .reduce((s, c) => s + Number(c.amount), 0);
@@ -404,8 +447,47 @@ export const adminService = {
       totalFunds: funds.length,
       totalCollected,
       collectedThisMonth,
+      totalSettlement,
+      currentBalance,
       pendingKycCount: (kycPendingRes.data || []).length,
       monthlyTrend,
+    };
+  },
+
+  async getCollectionTrend(range: DashboardTrendRange): Promise<{
+    range: DashboardTrendRange;
+    trend: PlatformReportPoint[];
+  }> {
+    const { start, end, grain } = dashboardTrendBounds(range);
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('amount, channel, date_received, created_at')
+      .eq('status', 'confirmed');
+    if (error) throw new Error(error.message);
+
+    const slots = buildTrendSlots(start, end, grain);
+    const buckets = new Map(
+      slots.map((slot) => [slot.key, { online: 0, manual: 0, label: slot.label }])
+    );
+    for (const row of data || []) {
+      const day = utcDay(row.date_received || row.created_at);
+      if (!isIsoDate(day) || day < start || day > end) continue;
+      const bucket = buckets.get(trendKey(day, grain));
+      if (!bucket) continue;
+      const amount = Number(row.amount);
+      if (row.channel === 'online') bucket.online += amount;
+      else bucket.manual += amount;
+    }
+
+    return {
+      range,
+      trend: [...buckets.entries()].map(([month, bucket]) => ({
+        month,
+        label: bucket.label,
+        online: bucket.online,
+        manual: bucket.manual,
+        total: bucket.online + bucket.manual,
+      })),
     };
   },
 

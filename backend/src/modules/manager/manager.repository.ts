@@ -34,7 +34,7 @@ export const managerRepository = {
 
     const { data, error } = await supabase
       .from('contributions')
-      .select('member_id, fund_id, amount, status, date_received, created_at')
+      .select('member_id, fund_id, amount, status, channel, date_received, created_at')
       .in('account_id', accountIds);
 
     throwQueryError('Failed to fetch contribution totals', error);

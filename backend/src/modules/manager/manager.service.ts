@@ -61,6 +61,8 @@ export const managerService = {
       return {
         month: monthKey(date),
         amount: 0,
+        online: 0,
+        manual: 0,
         count: 0,
       };
     });
@@ -71,8 +73,11 @@ export const managerService = {
       if (!value) return;
       const bucket = monthlyByKey.get(monthKey(new Date(value)));
       if (!bucket) return;
-      bucket.amount += Number(row.amount || 0);
+      const amount = Number(row.amount || 0);
+      bucket.amount += amount;
       bucket.count += 1;
+      if (row.channel === 'online') bucket.online += amount;
+      else bucket.manual += amount;
     });
 
     return {

@@ -21,6 +21,8 @@ export interface ManagerDashboardStats {
   monthlyCollections: Array<{
     month: string;
     amount: number;
+    online: number;
+    manual: number;
     count: number;
   }>;
 }

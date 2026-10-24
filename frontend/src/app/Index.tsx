@@ -46,6 +46,88 @@ import {
 } from "@/services/manager.api";
 import { format } from "date-fns";
 
+type MonthlyCollection = ManagerDashboardStats["monthlyCollections"][number];
+
+function roundedTopBar(x: number, y: number, width: number, height: number, fill: string) {
+  const radius = Math.min(4, width / 2, height / 2);
+  const right = x + width;
+  const bottom = y + height;
+  const d = [
+    `M${x},${bottom}`,
+    `V${y + radius}`,
+    `Q${x},${y} ${x + radius},${y}`,
+    `H${right - radius}`,
+    `Q${right},${y} ${right},${y + radius}`,
+    `V${bottom}`,
+    "Z",
+  ].join(" ");
+  return <path d={d} fill={fill} />;
+}
+
+function StackedCollectionBar({
+  series,
+  x = 0,
+  y = 0,
+  width = 0,
+  height = 0,
+  fill = "currentColor",
+  payload,
+}: {
+  series: "online" | "manual";
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  payload?: MonthlyCollection;
+}) {
+  if (height <= 0 || width <= 0) return null;
+  const online = Number(payload?.online || 0);
+  const manual = Number(payload?.manual || 0);
+  const isTop = series === "manual" ? manual > 0 : online > 0 && manual <= 0;
+  if (!isTop) {
+    return <rect x={x} y={y} width={width} height={height} fill={fill} />;
+  }
+  return roundedTopBar(x, y, width, height, fill);
+}
+
+function MonthlyCollectionTooltip({
+  active,
+  payload,
+  label,
+  formatAmount,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: MonthlyCollection }>;
+  label?: string;
+  formatAmount: (amount: number) => string;
+}) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row || !label) return null;
+  const total = Number(row.amount ?? row.online + row.manual);
+  return (
+    <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
+      <p className="mb-1.5 font-medium">
+        {format(new Date(`${label}-01T00:00:00Z`), "MMMM yyyy")}
+      </p>
+      <dl className="space-y-1">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">Total</dt>
+          <dd className="font-medium tabular-nums">{formatAmount(total)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">Online</dt>
+          <dd className="tabular-nums">{formatAmount(Number(row.online || 0))}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">Manual</dt>
+          <dd className="tabular-nums">{formatAmount(Number(row.manual || 0))}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 interface ContributionRow {
   member: string;
   account: string;
@@ -345,36 +427,66 @@ export default function Dashboard() {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.monthlyCollections}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <BarChart data={stats.monthlyCollections} maxBarSize={36}>
+                <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="month"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
                   tickFormatter={(value: string) =>
                     format(new Date(`${value}-01T00:00:00Z`), "MMM")
                   }
                 />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  width={48}
+                />
                 <Tooltip
-                  formatter={(value: number) => formatAmount(Number(value))}
-                  labelFormatter={(value: string) =>
-                    format(new Date(`${value}-01T00:00:00Z`), "MMMM yyyy")
-                  }
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
-                  }}
+                  cursor={{ fill: "hsl(var(--foreground) / 0.05)" }}
+                  content={(props) => (
+                    <MonthlyCollectionTooltip
+                      active={props.active}
+                      payload={props.payload as Array<{ payload?: MonthlyCollection }>}
+                      label={typeof props.label === "string" ? props.label : undefined}
+                      formatAmount={formatAmount}
+                    />
+                  )}
                 />
                 <Bar
-                  dataKey="amount"
-                  name="Collected"
-                  fill="hsl(38, 95%, 55%)"
-                  radius={[4, 4, 0, 0]}
+                  dataKey="online"
+                  name="Online"
+                  stackId="collected"
+                  fill="hsl(var(--foreground))"
+                  shape={(props) => (
+                    <StackedCollectionBar {...props} series="online" />
+                  )}
+                />
+                <Bar
+                  dataKey="manual"
+                  name="Manual"
+                  stackId="collected"
+                  fill="hsl(var(--primary))"
+                  shape={(props) => (
+                    <StackedCollectionBar {...props} series="manual" />
+                  )}
                 />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-foreground" />
+              Online
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
+              Manual
+            </span>
           </div>
         </div>
       )}
