@@ -16,6 +16,8 @@ import type { SettlementRequestStatus } from '../settlement-request/settlement-r
 import { accountRepository } from '../account/account.repository.js';
 import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
+import { staffService, StaffInviteError } from './staff.service.js';
+import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
 
 export const adminRoutes = Router();
 
@@ -407,5 +409,85 @@ adminRoutes.post('/settlement-requests/:requestId/status', async (req: Request, 
     res.status(200).json({ success: true, data });
   } catch (error) {
     handleSettlementError(error, res);
+  }
+});
+
+function handleStaffInviteError(error: unknown, res: Response): void {
+  if (error instanceof StaffInviteError) {
+    res.status(error.statusCode).json({ success: false, error: error.message });
+    return;
+  }
+  handleStaffError(error, res);
+}
+
+function parseStaffRole(value: unknown): StaffRole | null {
+  if (value === 'superadmin' || value === 'ops' || value === 'support') return value;
+  return null;
+}
+
+/** GET /api/v1/admin/staff — platform staff roster */
+adminRoutes.get('/staff', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertPlatformAdmin(authReq.user?.id);
+    const data = await staffService.list();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/staff/invite */
+adminRoutes.post('/staff/invite', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const role = parseStaffRole(req.body?.role);
+    const signIn = req.body?.signIn === 'password' ? 'password' : req.body?.signIn === 'email' ? 'email' : null;
+    if (!role || !signIn || typeof req.body?.email !== 'string') {
+      res.status(400).json({ success: false, error: 'Email, role, and sign-in setup are required' });
+      return;
+    }
+    const data = await staffService.invite({
+      email: req.body.email,
+      fullName: typeof req.body.fullName === 'string' ? req.body.fullName : undefined,
+      role,
+      signIn,
+      password: typeof req.body.password === 'string' ? req.body.password : undefined,
+      autoConfirm: req.body.autoConfirm !== false,
+      actorUserId: staff.user_id,
+    });
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** PATCH /api/v1/admin/staff/:userId/role */
+adminRoutes.patch('/staff/:userId/role', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const role = parseStaffRole(req.body?.role);
+    if (!role) {
+      res.status(400).json({ success: false, error: 'Choose ops, support, or super admin' });
+      return;
+    }
+    await staffService.changeRole(staff.user_id, req.params.userId, role);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/staff/:userId/revoke */
+adminRoutes.post('/staff/:userId/revoke', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    await staffService.revoke(staff.user_id, req.params.userId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    handleStaffInviteError(error, res);
   }
 });

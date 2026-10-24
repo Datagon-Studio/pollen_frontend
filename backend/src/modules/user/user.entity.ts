@@ -8,7 +8,7 @@
 export interface UserProfile {
   user_id: string;
   email: string;
-  role: 'superadmin' | 'admin' | 'user';
+  role: 'superadmin' | 'ops' | 'support' | 'admin' | 'user';
   full_name: string | null;
   phone_number: string | null;
   profile_image_url: string | null;
