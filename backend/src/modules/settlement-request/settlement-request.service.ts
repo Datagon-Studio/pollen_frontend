@@ -2,6 +2,7 @@ import { supabase } from '../../shared/supabase/client.js';
 import { env } from '../../env.js';
 import { auditService } from '../../shared/services/audit.service.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
+import { getAdminFrontendUrl, getFrontendUrl } from '../../shared/utils/frontend-url.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
 import { fundSettlementService } from '../fund-settlement/fund-settlement.service.js';
@@ -150,8 +151,8 @@ async function hydrateHistory(
 }
 
 async function notifyCreated(view: SettlementRequestView): Promise<void> {
-  const managerLink = `${env.FRONTEND_URL}/settlements`;
-  const opsLink = `${env.ADMIN_FRONTEND_URL}/settlements/${view.request_id}`;
+  const managerLink = `${getFrontendUrl()}/settlements`;
+  const opsLink = `${getAdminFrontendUrl()}/settlements/${view.request_id}`;
   const destination =
     view.destination_type === 'bank'
       ? view.destination_bank_name || 'Bank'

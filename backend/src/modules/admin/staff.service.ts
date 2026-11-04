@@ -4,10 +4,10 @@
  */
 
 import { supabase } from '../../shared/supabase/client.js';
-import { env } from '../../env.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { auditService } from '../../shared/services/audit.service.js';
 import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
+import { getAdminFrontendUrl } from '../../shared/utils/frontend-url.js';
 
 const STAFF_ROLES: StaffRole[] = ['superadmin', 'ops', 'support'];
 
@@ -45,10 +45,6 @@ export interface InviteStaffInput {
 
 function isStaffRole(value: string): value is StaffRole {
   return STAFF_ROLES.includes(value as StaffRole);
-}
-
-function adminPortalUrl(): string {
-  return env.ADMIN_FRONTEND_URL.replace(/\/$/, '') || 'http://localhost:8081';
 }
 
 function escapeHtml(value: string): string {
@@ -144,7 +140,7 @@ async function setStaffRole(
 }
 
 async function sendSetPasswordEmail(email: string, fullName: string | null, role: StaffRole): Promise<void> {
-  const portal = adminPortalUrl();
+  const portal = getAdminFrontendUrl();
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -185,7 +181,7 @@ async function sendSetPasswordEmail(email: string, fullName: string | null, role
 }
 
 async function sendAccessEmail(email: string, fullName: string | null, role: StaffRole): Promise<void> {
-  const portal = adminPortalUrl();
+  const portal = getAdminFrontendUrl();
   const signIn = `${portal}/signin`;
   const name = fullName?.trim() || email;
   const subject = 'You now have Pollean admin portal access';
