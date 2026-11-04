@@ -222,7 +222,7 @@ export class MemberService {
    */
   async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
-    const message = `Hi ${memberName}! Welcome to Pollean, Your welfare and contributions platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
+    const message = `Hi ${memberName}! Welcome to PollenHive, Your welfare and contributions platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {
