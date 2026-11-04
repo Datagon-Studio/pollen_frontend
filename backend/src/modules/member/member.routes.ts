@@ -163,7 +163,7 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );
@@ -353,7 +353,7 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );
@@ -924,7 +924,7 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, requireAccoun
 
     const result = await arkeselService.sendOTP(
       phone,
-      'Your Pollean verification code is %otp_code%. Valid for %expiry% minutes.',
+      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
       5,
       6
     );
