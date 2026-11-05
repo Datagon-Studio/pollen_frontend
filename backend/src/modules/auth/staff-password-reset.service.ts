@@ -1,7 +1,10 @@
 import { supabase } from '../../shared/supabase/client.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { isStaffRole } from '../../shared/middleware/staff.middleware.js';
-import { getAdminFrontendUrl } from '../../shared/utils/frontend-url.js';
+import {
+  buildAdminPasswordSetupLink,
+  getAdminFrontendUrl,
+} from '../../shared/utils/frontend-url.js';
 
 const RESET_COOLDOWN_MS = 60_000;
 const recentResets = new Map<string, number>();
@@ -86,11 +89,7 @@ export async function requestStaffPasswordReset(
     };
   }
 
-  const params = new URLSearchParams({
-    token_hash: hashedToken,
-    type: 'recovery',
-  });
-  const resetLink = `${redirectTo}?${params.toString()}`;
+  const resetLink = buildAdminPasswordSetupLink(hashedToken, 'recovery', requestedOrigin);
   const name = profile.full_name?.trim() || 'there';
   const safeName = escapeHtml(name);
   const safeLink = escapeHtml(resetLink);

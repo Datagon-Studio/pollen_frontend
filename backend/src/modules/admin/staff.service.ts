@@ -7,7 +7,10 @@ import { supabase } from '../../shared/supabase/client.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { auditService } from '../../shared/services/audit.service.js';
 import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
-import { getAdminFrontendUrl } from '../../shared/utils/frontend-url.js';
+import {
+  buildAdminPasswordSetupLink,
+  getAdminFrontendUrl,
+} from '../../shared/utils/frontend-url.js';
 
 const STAFF_ROLES: StaffRole[] = ['superadmin', 'ops', 'support'];
 
@@ -41,6 +44,8 @@ export interface InviteStaffInput {
   password?: string;
   autoConfirm?: boolean;
   actorUserId: string;
+  /** Admin portal Origin that sent the invite (used for env-aware links). */
+  portalOrigin?: string | null;
 }
 
 function isStaffRole(value: string): value is StaffRole {
@@ -139,8 +144,13 @@ async function setStaffRole(
   };
 }
 
-async function sendSetPasswordEmail(email: string, fullName: string | null, role: StaffRole): Promise<void> {
-  const portal = getAdminFrontendUrl();
+async function sendSetPasswordEmail(
+  email: string,
+  fullName: string | null,
+  role: StaffRole,
+  portalOrigin?: string | null
+): Promise<void> {
+  const portal = getAdminFrontendUrl(portalOrigin);
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -153,8 +163,8 @@ async function sendSetPasswordEmail(email: string, fullName: string | null, role
   if (!hashedToken) {
     throw new StaffInviteError('Login was created, but the password link was empty', 502);
   }
-  const params = new URLSearchParams({ token_hash: hashedToken, type: 'recovery' });
-  const resetLink = `${portal}/reset-password?${params.toString()}`;
+  // Bridge via app.pollean.com so the email host always resolves; API redirects by env.
+  const resetLink = buildAdminPasswordSetupLink(hashedToken, 'recovery', portalOrigin);
   const name = fullName?.trim() || email;
   const subject = 'You are invited to the Pollean admin portal';
   const text = [
@@ -180,8 +190,13 @@ async function sendSetPasswordEmail(email: string, fullName: string | null, role
   }
 }
 
-async function sendAccessEmail(email: string, fullName: string | null, role: StaffRole): Promise<void> {
-  const portal = getAdminFrontendUrl();
+async function sendAccessEmail(
+  email: string,
+  fullName: string | null,
+  role: StaffRole,
+  portalOrigin?: string | null
+): Promise<void> {
+  const portal = getAdminFrontendUrl(portalOrigin);
   const signIn = `${portal}/signin`;
   const name = fullName?.trim() || email;
   const subject = 'You now have Pollean admin portal access';
@@ -326,9 +341,9 @@ export const staffService = {
         : 'sign-in-link';
 
     if (delivery === 'password-link') {
-      await sendSetPasswordEmail(email, saved.full_name, input.role);
+      await sendSetPasswordEmail(email, saved.full_name, input.role, input.portalOrigin);
     } else if (delivery === 'sign-in-link') {
-      await sendAccessEmail(email, saved.full_name, input.role);
+      await sendAccessEmail(email, saved.full_name, input.role, input.portalOrigin);
     }
 
     await auditService.log({

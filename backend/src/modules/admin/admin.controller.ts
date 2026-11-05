@@ -448,6 +448,12 @@ adminRoutes.post('/staff/invite', async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: 'Email, role, and sign-in setup are required' });
       return;
     }
+    const portalOrigin =
+      typeof req.body?.portalOrigin === 'string'
+        ? req.body.portalOrigin
+        : typeof req.headers.origin === 'string'
+          ? req.headers.origin
+          : null;
     const data = await staffService.invite({
       email: req.body.email,
       fullName: typeof req.body.fullName === 'string' ? req.body.fullName : undefined,
@@ -456,6 +462,7 @@ adminRoutes.post('/staff/invite', async (req: Request, res: Response) => {
       password: typeof req.body.password === 'string' ? req.body.password : undefined,
       autoConfirm: req.body.autoConfirm !== false,
       actorUserId: staff.user_id,
+      portalOrigin,
     });
     res.status(201).json({ success: true, data });
   } catch (error) {
