@@ -102,8 +102,10 @@ export function getPublicApiBaseUrl(): string {
 }
 
 /**
- * Email link that hits the API, then 302s to the env-correct admin reset page.
- * Keeps invite mail on app.pollean.com so dead admin DNS cannot break open.
+ * Staff invite / reset link for the admin portal.
+ * Points at the live admin host (request origin, ADMIN_FRONTEND_URL, or Vercel).
+ * Does not use app.pollean.com as a bridge — production may lag development
+ * and would 404 the bridge route; admin.pollean.com DNS is also unreliable.
  */
 export function buildAdminPasswordSetupLink(
   tokenHash: string,
@@ -114,10 +116,8 @@ export function buildAdminPasswordSetupLink(
     token_hash: tokenHash,
     type,
   });
-  if (requestedOrigin && isAllowedAdminOrigin(requestedOrigin)) {
-    params.set('origin', new URL(requestedOrigin).origin);
-  }
-  return `${getPublicApiBaseUrl()}/auth/admin-password-setup?${params.toString()}`;
+  const portal = getAdminFrontendUrl(requestedOrigin).replace(/\/$/, '');
+  return `${portal}/reset-password?${params.toString()}`;
 }
 
 /**
