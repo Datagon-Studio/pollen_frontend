@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import * as XLSX from "xlsx";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, SortDirection } from "@/components/ui/data-table";
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X, FileSpreadsheet, Trash2 } from "lucide-react";
+import { UserPlus, Search, Filter, MoreHorizontal, Phone, CheckCircle2, XCircle, Loader2, CalendarIcon, X, FileSpreadsheet, Trash2, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,7 @@ import { useRoles } from "@/hooks/useRoles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { configApi } from "@/services/config.api";
 import { getCurrencyPrefix } from "@/lib/currencies";
+import { useToast } from "@/hooks/use-toast";
 import {
   managerApi,
   ManagerMember,
@@ -70,6 +72,7 @@ export default function Members() {
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
   const { isOfficer } = useRoles();
+  const { toast } = useToast();
   const [members, setMembers] = useState<ManagerMember[]>([]);
   const [contributions, setContributions] = useState<
     Array<{ member_id: string | null; amount: number; status: string }>
@@ -267,6 +270,52 @@ export default function Members() {
     fetchMembers();
   };
 
+  const handleExportToExcel = () => {
+    try {
+      const exportData = filteredMembers.map((member) => ({
+        Name: member.full_name,
+        Email: member.email || "",
+        Phone: member.phone,
+        "Membership #": member.membership_number || "",
+        Status: isMemberActive(member) ? "Active" : "Inactive",
+        [`Total Contributed (${currencyCode})`]: memberContributions[member.member_id] ?? 0,
+        "Date Added": format(new Date(member.created_at), "yyyy-MM-dd"),
+        "Last Updated": format(new Date(member.updated_at), "yyyy-MM-dd"),
+      }));
+
+      if (exportData.length === 0) {
+        throw new Error("No members to export");
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      worksheet["!cols"] = [
+        { wch: 28 },
+        { wch: 28 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 12 },
+        { wch: 24 },
+        { wch: 14 },
+        { wch: 14 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Members");
+      XLSX.writeFile(workbook, `members_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} members`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export members",
+        variant: "destructive",
+      });
+    }
+  };
+
   const columns = useMemo(() => [
     {
       key: "select",
@@ -404,6 +453,16 @@ export default function Members() {
           : "Members across all accounts you manage. Actions apply to the current account."}
         actions={
           !isOfficer ? <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportToExcel}
+              disabled={filteredMembers.length === 0}
+              title="Download the filtered member list as an Excel file"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowBulkUpload(true)}>
               <FileSpreadsheet className="h-4 w-4 mr-2" />
               Bulk Add

@@ -1,6 +1,6 @@
 # PollenHive
 
-A modular-monolith architecture application for community contribution management .
+A modular-monolith architecture application for community contribution management.
 
 ## Architecture
 
@@ -148,5 +148,5 @@ FRONTEND_URL=http://localhost:8080
 
 ## License
 
-MIT..
+MIT...
 

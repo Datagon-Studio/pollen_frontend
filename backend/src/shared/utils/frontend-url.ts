@@ -3,12 +3,11 @@ import { env } from '../../env.js';
 /** Canonical production app URL for auth redirects and email links. */
 export const CANONICAL_FRONTEND_URL = 'https://app.pollean.com';
 
-/** Canonical production System Admin Portal URL (custom domain; DNS may lag). */
+/** Canonical production System Admin Portal URL. */
 export const CANONICAL_ADMIN_URL = 'https://admin.pollean.com';
 
 /**
- * Current Vercel production host for the admin portal.
- * Used when the custom domain is configured but not resolvable, or unset.
+ * Vercel production host for the admin portal (fallback if custom domain unset).
  */
 export const ADMIN_VERCEL_URL = 'https://pollen-admin.vercel.app';
 
@@ -54,16 +53,11 @@ export function isAllowedAdminOrigin(origin: string): boolean {
 
 /**
  * Origin for staff invite / password-reset links.
- * Prefers the admin portal Origin that triggered the request when trusted,
- * then ADMIN_FRONTEND_URL (including *.vercel.app), then a working fallback.
+ * Prefers a trusted request Origin, then ADMIN_FRONTEND_URL, then admin.pollean.com.
  */
 export function getAdminFrontendUrl(requestedOrigin?: string | null): string {
   if (requestedOrigin && isAllowedAdminOrigin(requestedOrigin)) {
-    const origin = new URL(requestedOrigin).origin;
-    // admin.pollean.com is allowed for config, but DNS is not reliable yet.
-    if (new URL(origin).hostname !== 'admin.pollean.com') {
-      return origin;
-    }
+    return new URL(requestedOrigin).origin;
   }
 
   const configured = stripTrailingSlash(env.ADMIN_FRONTEND_URL || '');
@@ -73,10 +67,6 @@ export function getAdminFrontendUrl(requestedOrigin?: string | null): string {
       const host = new URL(configured).hostname;
       if (isLocalHost(host)) {
         if (env.NODE_ENV === 'development') return configured;
-      } else if (host === 'admin.pollean.com') {
-        // Custom domain is the long-term target but is often unset in DNS.
-        // Prefer the live Vercel host until admin.pollean.com resolves.
-        return ADMIN_VERCEL_URL;
       } else {
         return configured;
       }
@@ -89,7 +79,7 @@ export function getAdminFrontendUrl(requestedOrigin?: string | null): string {
     return configured || 'http://localhost:8081';
   }
 
-  return ADMIN_VERCEL_URL;
+  return CANONICAL_ADMIN_URL;
 }
 
 /**
@@ -103,9 +93,7 @@ export function getPublicApiBaseUrl(): string {
 
 /**
  * Staff invite / reset link for the admin portal.
- * Points at the live admin host (request origin, ADMIN_FRONTEND_URL, or Vercel).
- * Does not use app.pollean.com as a bridge — production may lag development
- * and would 404 the bridge route; admin.pollean.com DNS is also unreliable.
+ * Points at the live admin host (request origin, ADMIN_FRONTEND_URL, or admin.pollean.com).
  */
 export function buildAdminPasswordSetupLink(
   tokenHash: string,

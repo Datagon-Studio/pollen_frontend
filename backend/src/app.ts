@@ -25,6 +25,7 @@ const corsOptions =
           origin: string | undefined,
           callback: (err: Error | null, allow?: boolean) => void
         ) => {
+          // Same-origin or non-browser requests (no Origin header)
           if (!origin || allowedOrigins.has(origin)) {
             callback(null, true);
             return;
