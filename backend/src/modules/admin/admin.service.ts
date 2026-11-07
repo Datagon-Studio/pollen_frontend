@@ -10,7 +10,11 @@ export interface PlatformDashboard {
   activeFunds: number;
   totalFunds: number;
   totalCollected: number;
+  totalCollectedOnline: number;
+  totalCollectedManual: number;
   collectedThisMonth: number;
+  collectedThisMonthOnline: number;
+  collectedThisMonthManual: number;
   totalSettlement: number;
   currentBalance: number;
   pendingKycCount: number;
@@ -403,7 +407,13 @@ export const adminService = {
     const funds = fundsRes.data || [];
     const allRows = contributionsRes.data || [];
 
-    const totalCollected = allRows.reduce((s, c) => s + Number(c.amount), 0);
+    const sumAmount = (rows: typeof allRows) =>
+      rows.reduce((s, c) => s + Number(c.amount), 0);
+    const onlineRows = allRows.filter((c) => c.channel === 'online');
+    const manualRows = allRows.filter((c) => c.channel !== 'online');
+    const totalCollected = sumAmount(allRows);
+    const totalCollectedOnline = sumAmount(onlineRows);
+    const totalCollectedManual = sumAmount(manualRows);
     const settledFromFunds = (fundSettlementsRes.data || [])
       .filter((row) => !row.is_archived && row.status === 'successful')
       .reduce((sum, row) => sum + Number(row.amount), 0);
@@ -412,9 +422,16 @@ export const adminService = {
       .reduce((sum, row) => sum + Number(row.amount), 0);
     const totalSettlement = settledFromFunds + settledFromRequests;
     const currentBalance = totalCollected - totalSettlement;
-    const collectedThisMonth = allRows
-      .filter((c) => isInAccraMonth(c.date_received || c.created_at, now))
-      .reduce((s, c) => s + Number(c.amount), 0);
+    const thisMonthRows = allRows.filter((c) =>
+      isInAccraMonth(c.date_received || c.created_at, now)
+    );
+    const collectedThisMonth = sumAmount(thisMonthRows);
+    const collectedThisMonthOnline = sumAmount(
+      thisMonthRows.filter((c) => c.channel === 'online')
+    );
+    const collectedThisMonthManual = sumAmount(
+      thisMonthRows.filter((c) => c.channel !== 'online')
+    );
 
     const trendMap = new Map<string, { online: number; manual: number }>();
     for (let i = 11; i >= 0; i--) {
@@ -446,7 +463,11 @@ export const adminService = {
       activeFunds: funds.filter((f) => f.is_active).length,
       totalFunds: funds.length,
       totalCollected,
+      totalCollectedOnline,
+      totalCollectedManual,
       collectedThisMonth,
+      collectedThisMonthOnline,
+      collectedThisMonthManual,
       totalSettlement,
       currentBalance,
       pendingKycCount: (kycPendingRes.data || []).length,
