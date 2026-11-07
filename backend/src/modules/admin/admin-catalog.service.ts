@@ -512,12 +512,14 @@ export const adminCatalogService = {
   },
 
   async getAccountTeam(accountId: string): Promise<AdminAccountTeam> {
+    // Anyone linked with account role admin or officer has group-portal access.
+    // Group UI calls collector invites "admin portal access"; both must show here.
     const { data, error } = await supabase
       .from('user_accounts')
       .select(`
         role,
         created_at,
-        users (
+        users!inner (
           user_id,
           email,
           full_name,
