@@ -379,19 +379,24 @@ function mapReportRecord(row: Record<string, unknown>): PlatformReportRecord {
   };
 }
 
+/** Named org accounts only — signup shells keep account_name null until set up. */
+function isOrganizationAccount(account: { account_name?: string | null }): boolean {
+  return Boolean(account.account_name?.trim());
+}
+
 export const adminService = {
   async getPlatformDashboard(): Promise<PlatformDashboard> {
     const now = new Date();
 
     const [accountsRes, fundsRes, contributionsRes, kycPendingRes, fundSettlementsRes, settlementRequestsRes] =
       await Promise.all([
-      supabase.from('accounts').select('account_id, status'),
+      supabase.from('accounts').select('account_id, account_name, status'),
       supabase.from('funds').select('fund_id, is_active'),
       supabase
         .from('contributions')
         .select('amount, channel, date_received, created_at')
         .eq('status', 'confirmed'),
-      supabase.from('accounts').select('account_id').eq('kyc_status', 'pending'),
+      supabase.from('accounts').select('account_id, account_name').eq('kyc_status', 'pending'),
       supabase.from('fund_settlements').select('amount, status, is_archived'),
       supabase.from('settlement_requests').select('amount, status'),
     ]);
@@ -403,7 +408,7 @@ export const adminService = {
     if (fundSettlementsRes.error) throw new Error(fundSettlementsRes.error.message);
     if (settlementRequestsRes.error) throw new Error(settlementRequestsRes.error.message);
 
-    const accounts = accountsRes.data || [];
+    const accounts = (accountsRes.data || []).filter(isOrganizationAccount);
     const funds = fundsRes.data || [];
     const allRows = contributionsRes.data || [];
 
@@ -470,7 +475,7 @@ export const adminService = {
       collectedThisMonthManual,
       totalSettlement,
       currentBalance,
-      pendingKycCount: (kycPendingRes.data || []).length,
+      pendingKycCount: (kycPendingRes.data || []).filter(isOrganizationAccount).length,
       monthlyTrend,
     };
   },
@@ -682,7 +687,9 @@ export const adminService = {
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
-    if (!accounts?.length) return [];
+    // Hide signup shells / individual placeholders (no org name yet).
+    const orgAccounts = (accounts || []).filter(isOrganizationAccount);
+    if (!orgAccounts.length) return [];
 
     const [membersRes, fundsRes, contributionsRes, expensesRes] = await Promise.all([
       supabase.from('members').select('account_id'),
@@ -728,7 +735,7 @@ export const adminService = {
       disbursed.set(e.account_id, cur);
     }
 
-    return accounts.map((a) => {
+    return orgAccounts.map((a) => {
       const fc = fundCounts.get(a.account_id) || { total: 0, active: 0 };
       const col = collected.get(a.account_id) || { total: 0, online: 0, manual: 0 };
       const dis = disbursed.get(a.account_id) || { total: 0, count: 0 };
