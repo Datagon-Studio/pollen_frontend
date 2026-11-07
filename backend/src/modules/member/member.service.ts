@@ -503,10 +503,10 @@ export class MemberService {
 
     // Collector role description
     const collectorRoles = [
-      'Collect contributions from members',
-      'Record expenses and transactions',
-      'View member information and contributions',
-      'Access admin portal features',
+      'View the group dashboard',
+      'View member information',
+      'View contributions',
+      'View expenses',
     ];
 
     const emailSubject = `Welcome to ${accountName} as a Collector`;

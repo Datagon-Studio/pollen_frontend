@@ -15,10 +15,11 @@ interface DeleteContributionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contribution: ContributionWithDetails | null;
+  amountLabel?: string;
   onSuccess?: () => void;
 }
 
-export function DeleteContributionModal({ open, onOpenChange, contribution, onSuccess }: DeleteContributionModalProps) {
+export function DeleteContributionModal({ open, onOpenChange, contribution, amountLabel, onSuccess }: DeleteContributionModalProps) {
   const { toast } = useToast();
   const [deleting, setDeleting] = useState(false);
 
@@ -35,7 +36,7 @@ export function DeleteContributionModal({ open, onOpenChange, contribution, onSu
 
       toast({
         title: "Contribution Deleted",
-        description: `Contribution of $${contribution.amount.toFixed(2)} has been deleted successfully.`,
+        description: `Contribution of ${amountLabel || contribution.amount.toFixed(2)} has been deleted successfully.`,
       });
 
       onOpenChange(false);
@@ -59,7 +60,7 @@ export function DeleteContributionModal({ open, onOpenChange, contribution, onSu
         <DialogHeader>
           <DialogTitle>Delete Contribution</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this contribution of ${contribution.amount.toFixed(2)} from {contribution.fund_name}? This action cannot be undone.
+            Are you sure you want to delete this contribution of {amountLabel || contribution.amount.toFixed(2)} from {contribution.fund_name}? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

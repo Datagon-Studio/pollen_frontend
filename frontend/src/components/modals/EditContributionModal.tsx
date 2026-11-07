@@ -87,7 +87,7 @@ export function EditContributionModal({ open, onOpenChange, contribution, onSucc
   }, [open]);
 
   const formatAmount = (amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    const prefix = `${currencyCode} `;
     return `${prefix}${amount.toFixed(2)}`;
   };
 

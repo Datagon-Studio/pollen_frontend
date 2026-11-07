@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { memberRoutes } from './member.controller.js';
 import { authenticateToken, AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from './member.service.js';
 import { accountService } from '../account/account.service.js';
@@ -860,7 +861,7 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
 // NOTE: These routes are defined BEFORE the auth middleware below, so we apply auth inline
 
 // POST /api/v1/members/verify-phone/send - Send OTP for phone verification during member creation (admin only)
-memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: Request, res: Response) => {
+memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, requireAccountAdminForWrites, async (req: Request, res: Response) => {
   try {
     const { phone, accountId } = req.body;
 
@@ -951,7 +952,7 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, async (req: R
 });
 
 // POST /api/v1/members/verify-phone/verify - Verify OTP for phone verification during member creation (admin only)
-memberRoutesWithAuth.post('/verify-phone/verify', authenticateToken, async (req: Request, res: Response) => {
+memberRoutesWithAuth.post('/verify-phone/verify', authenticateToken, requireAccountAdminForWrites, async (req: Request, res: Response) => {
   try {
     const { phone, code, accountId } = req.body;
 
@@ -1040,6 +1041,7 @@ memberRoutesWithAuth.post('/verify-phone/verify', authenticateToken, async (req:
 // We mount this AFTER the public routes to ensure public routes are matched first
 const authenticatedMemberRoutes = Router();
 authenticatedMemberRoutes.use(authenticateToken);
+authenticatedMemberRoutes.use(requireAccountAdminForWrites);
 authenticatedMemberRoutes.use('/', memberRoutes);
 
 // Mount authenticated routes AFTER public routes

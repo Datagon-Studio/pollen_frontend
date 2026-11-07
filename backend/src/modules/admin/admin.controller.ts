@@ -1,17 +1,42 @@
 import { Router, Request, Response } from 'express';
-import { adminService } from './admin.service.js';
+import { adminService, isDashboardTrendRange, ReportQueryError } from './admin.service.js';
 import { adminCatalogService } from './admin-catalog.service.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import {
   assertStaffUser,
   assertPlatformAdmin,
+  assertComplianceStaff,
   handleStaffError,
 } from '../../shared/middleware/staff.middleware.js';
+import {
+  SettlementRequestError,
+  settlementRequestService,
+} from '../settlement-request/settlement-request.service.js';
+import type { SettlementRequestStatus } from '../settlement-request/settlement-request.entity.js';
 import { accountRepository } from '../account/account.repository.js';
 import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
+import { staffService, StaffInviteError } from './staff.service.js';
+import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
 
 export const adminRoutes = Router();
+
+/** GET /api/v1/admin/dashboard/trend?range= — collections for a dashboard range */
+adminRoutes.get('/dashboard/trend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const range = typeof req.query.range === 'string' ? req.query.range : '12m';
+    if (!isDashboardTrendRange(range)) {
+      res.status(400).json({ success: false, error: 'Choose a supported range' });
+      return;
+    }
+    const data = await adminService.getCollectionTrend(range);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
 
 /** GET /api/v1/admin/dashboard — platform-wide metrics */
 adminRoutes.get('/dashboard', async (req: Request, res: Response) => {
@@ -21,6 +46,28 @@ adminRoutes.get('/dashboard', async (req: Request, res: Response) => {
     const data = await adminService.getPlatformDashboard();
     res.status(200).json({ success: true, data });
   } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/reports — collections and records for a duration */
+adminRoutes.get('/reports', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const data = await adminService.getPlatformReport({
+      duration: typeof req.query.duration === 'string' ? req.query.duration : undefined,
+      dateFrom: typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined,
+      dateTo: typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined,
+      month: typeof req.query.month === 'string' ? req.query.month : undefined,
+      years: typeof req.query.years === 'string' ? req.query.years : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    if (error instanceof ReportQueryError) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
     handleStaffError(error, res);
   }
 });
@@ -278,5 +325,176 @@ adminRoutes.post('/accounts/:accountId/reactivate', async (req: Request, res: Re
     });
   } catch (error) {
     handleStaffError(error, res);
+  }
+});
+
+const SETTLEMENT_STATUSES: SettlementRequestStatus[] = [
+  'pending',
+  'approved',
+  'rejected',
+  'disbursed',
+];
+
+function isSettlementStatus(value: string): value is SettlementRequestStatus {
+  return SETTLEMENT_STATUSES.includes(value as SettlementRequestStatus);
+}
+
+function handleSettlementError(error: unknown, res: Response): void {
+  if (error instanceof SettlementRequestError) {
+    res.status(error.statusCode).json({ success: false, error: error.message });
+    return;
+  }
+  handleStaffError(error, res);
+}
+
+/** GET /api/v1/admin/settlement-requests */
+adminRoutes.get('/settlement-requests', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const statusQuery = typeof req.query.status === 'string' ? req.query.status : undefined;
+    let status: SettlementRequestStatus | undefined;
+    if (statusQuery) {
+      if (!isSettlementStatus(statusQuery)) {
+        res.status(400).json({ success: false, error: 'Invalid settlement status' });
+        return;
+      }
+      status = statusQuery;
+    }
+    const data = await settlementRequestService.listForAdmin({
+      accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
+      fundId: typeof req.query.fundId === 'string' ? req.query.fundId : undefined,
+      status,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/settlement-requests/:requestId */
+adminRoutes.get('/settlement-requests/:requestId', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const data = await settlementRequestService.getForAdmin(req.params.requestId);
+    if (!data) {
+      res.status(404).json({ success: false, error: 'Settlement request not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/settlement-requests/:requestId/status */
+adminRoutes.post('/settlement-requests/:requestId/status', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertComplianceStaff(authReq.user?.id);
+    const status = req.body?.status;
+    if (status !== 'approved' && status !== 'rejected' && status !== 'disbursed') {
+      res.status(400).json({ success: false, error: 'Invalid settlement status' });
+      return;
+    }
+    const data = await settlementRequestService.updateStatus(staff.user_id, req.params.requestId, {
+      status,
+      note: typeof req.body?.note === 'string' ? req.body.note : undefined,
+      disbursement_reference:
+        typeof req.body?.disbursement_reference === 'string'
+          ? req.body.disbursement_reference
+          : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleSettlementError(error, res);
+  }
+});
+
+function handleStaffInviteError(error: unknown, res: Response): void {
+  if (error instanceof StaffInviteError) {
+    res.status(error.statusCode).json({ success: false, error: error.message });
+    return;
+  }
+  handleStaffError(error, res);
+}
+
+function parseStaffRole(value: unknown): StaffRole | null {
+  if (value === 'superadmin' || value === 'ops' || value === 'support') return value;
+  return null;
+}
+
+/** GET /api/v1/admin/staff — platform staff roster */
+adminRoutes.get('/staff', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertPlatformAdmin(authReq.user?.id);
+    const data = await staffService.list();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/staff/invite */
+adminRoutes.post('/staff/invite', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const role = parseStaffRole(req.body?.role);
+    const signIn = req.body?.signIn === 'password' ? 'password' : req.body?.signIn === 'email' ? 'email' : null;
+    if (!role || !signIn || typeof req.body?.email !== 'string') {
+      res.status(400).json({ success: false, error: 'Email, role, and sign-in setup are required' });
+      return;
+    }
+    const portalOrigin =
+      typeof req.body?.portalOrigin === 'string'
+        ? req.body.portalOrigin
+        : typeof req.headers.origin === 'string'
+          ? req.headers.origin
+          : null;
+    const data = await staffService.invite({
+      email: req.body.email,
+      fullName: typeof req.body.fullName === 'string' ? req.body.fullName : undefined,
+      role,
+      signIn,
+      password: typeof req.body.password === 'string' ? req.body.password : undefined,
+      autoConfirm: req.body.autoConfirm !== false,
+      actorUserId: staff.user_id,
+      portalOrigin,
+    });
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** PATCH /api/v1/admin/staff/:userId/role */
+adminRoutes.patch('/staff/:userId/role', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const role = parseStaffRole(req.body?.role);
+    if (!role) {
+      res.status(400).json({ success: false, error: 'Choose ops, support, or super admin' });
+      return;
+    }
+    await staffService.changeRole(staff.user_id, req.params.userId, role);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    handleStaffInviteError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/staff/:userId/revoke */
+adminRoutes.post('/staff/:userId/revoke', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    await staffService.revoke(staff.user_id, req.params.userId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    handleStaffInviteError(error, res);
   }
 });

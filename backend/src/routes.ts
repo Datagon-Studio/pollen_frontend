@@ -9,13 +9,18 @@ import { expenseCategoryRoutes } from './modules/expense-category/expense-catego
 import { reportingRoutes } from './modules/reporting/reporting.controller.js';
 import { userRoutes } from './modules/user/user.routes.js';
 import { settlementRoutes } from './modules/settlement/settlement.controller.js';
+import { fundSettlementRoutesWithAuth } from './modules/fund-settlement/fund-settlement.routes.js';
 import { paymentRoutes } from './modules/payment/payment.controller.js';
 import { accountPublicPageRoutes } from './modules/account-public-page/account-public-page.routes.js';
 import { auditRoutes } from './modules/audit/audit.controller.js';
 import { adminRoutesWithAuth } from './modules/admin/admin.routes.js';
+import { managerRoutes } from './modules/manager/manager.routes.js';
+import { settlementRequestRoutes } from './modules/settlement-request/settlement-request.controller.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
 
 export const routes = Router();
 
+routes.use('/auth', authRoutes);
 routes.use('/accounts', accountRoutes);
 routes.use('/members', memberRoutesWithAuth);
 routes.use('/funds', fundRoutesWithAuth);
@@ -25,9 +30,12 @@ routes.use('/expense-categories', expenseCategoryRoutes);
 routes.use('/reports', reportingRoutes);
 routes.use('/users', userRoutes);
 routes.use('/settlements', settlementRoutes);
+routes.use('/settlement-requests', settlementRequestRoutes);
+routes.use('/fund-settlements', fundSettlementRoutesWithAuth);
 routes.use('/payments', paymentRoutes);
 routes.use('/config', configRoutes);
 routes.use('/account-public-pages', accountPublicPageRoutes);
 routes.use('/audit-logs', auditRoutes);
 routes.use('/admin', adminRoutesWithAuth);
+routes.use('/manager', managerRoutes);
 

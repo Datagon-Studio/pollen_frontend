@@ -11,7 +11,22 @@ async function loadApp() {
   return appInstance;
 }
 
+function allowCaller(req: any, res: any) {
+  const origin = req.headers?.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    req.headers?.['access-control-request-headers'] || 'authorization,content-type'
+  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+}
+
 export default async function handler(req: any, res: any) {
+  allowCaller(req, res);
   // IMPORTANT:
   // - When invoked as /api/index.ts, req.url is NOT consistent across Vercel setups.
   // - With our rewrite, Vercel currently forwards /api/* → /api and passes the

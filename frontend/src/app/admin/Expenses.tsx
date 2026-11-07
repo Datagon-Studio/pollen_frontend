@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { sortByColumn } from "@/lib/table-sort";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { usePagination } from "@/hooks/usePagination";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import { DeleteExpenseModal } from "@/components/modals/DeleteExpenseModal";
 import { expenseApi, Expense, ExpenseStats } from "@/services";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
+import { useRoles } from "@/hooks/useRoles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +80,25 @@ const formatExpenseForDisplay = (expense: Expense) => {
 
 type DisplayExpense = ReturnType<typeof formatExpenseForDisplay>;
 
+function expenseSortValue(row: DisplayExpense, column: string) {
+  switch (column) {
+    case "date":
+      return row.dateValue;
+    case "expenseName":
+      return row.expenseName;
+    case "expenseCategory":
+      return row.expenseCategory;
+    case "notes":
+      return row.notes;
+    case "memberVisible":
+      return row.memberVisible ? "Visible" : "Hidden";
+    case "amount":
+      return row.amountValue;
+    default:
+      return "";
+  }
+}
+
 // Base columns definition - will be enhanced with sorting in component
 const baseColumns: Column<DisplayExpense>[] = [
   {
@@ -111,7 +133,6 @@ const baseColumns: Column<DisplayExpense>[] = [
   {
     key: "notes",
     header: "Notes",
-    sortable: false,
     render: (item: DisplayExpense) => (
       <span className="text-sm text-muted-foreground">{item.notes || "—"}</span>
     ),
@@ -119,7 +140,6 @@ const baseColumns: Column<DisplayExpense>[] = [
   {
     key: "memberVisible",
     header: "Visible",
-    sortable: false,
     render: (item: DisplayExpense) => (
       <div className="flex items-center gap-1">
         {item.memberVisible ? (
@@ -139,6 +159,7 @@ const baseColumns: Column<DisplayExpense>[] = [
 ];
 
 export default function Expenses() {
+  const { isOfficer } = useRoles();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -156,7 +177,7 @@ export default function Expenses() {
 
   const formatAmount = useCallback(
     (amount: number) => {
-      const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+      const prefix = `${currencyCode} `;
       return `${prefix}${amount.toFixed(2)}`;
     },
     [currencyCode]
@@ -228,6 +249,10 @@ export default function Expenses() {
 
   // Create columns with handlers
   const columnsWithHandlers = useMemo(() => {
+    if (isOfficer) {
+      return baseColumns;
+    }
+
     return [
       ...baseColumns,
       {
@@ -259,7 +284,7 @@ export default function Expenses() {
         },
       },
     ];
-  }, [expenses, handleEdit, handleDelete]);
+  }, [expenses, handleEdit, handleDelete, isOfficer]);
 
   const filteredExpenses = useMemo(() => {
     if (!expenses || expenses.length === 0) {
@@ -269,50 +294,28 @@ export default function Expenses() {
     try {
       const formatted = expenses.map(formatExpenseForDisplay);
       
-      return formatted
-        .filter((expense) => {
-          const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
-          const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
-          
-          // Safe date comparison
-          let matchesDateFrom = true;
-          let matchesDateTo = true;
-          if (dateFrom && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
-            matchesDateFrom = expense.dateValue >= dateFrom;
-          }
-          if (dateTo && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
-            matchesDateTo = expense.dateValue <= dateTo;
-          }
-          
-          return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
-        })
-    .sort((a, b) => {
+      const filtered = formatted.filter((expense) => {
+        const matchesSearch = expense.expenseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = categoryFilter === "All" || expense.expenseCategory === categoryFilter;
+
+        let matchesDateFrom = true;
+        let matchesDateTo = true;
+        if (dateFrom && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+          matchesDateFrom = expense.dateValue >= dateFrom;
+        }
+        if (dateTo && expense.dateValue && !isNaN(expense.dateValue.getTime())) {
+          matchesDateTo = expense.dateValue <= dateTo;
+        }
+
+        return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
+      });
+
       if (!sortColumn || !sortDirection) {
-        // Default: newest first
-        return b.dateValue.getTime() - a.dateValue.getTime();
+        return filtered.slice().sort((a, b) => b.dateValue.getTime() - a.dateValue.getTime());
       }
 
-      let comparison = 0;
-      switch (sortColumn) {
-        case "date":
-          comparison = a.dateValue.getTime() - b.dateValue.getTime();
-          break;
-        case "expenseName":
-          comparison = a.expenseName.localeCompare(b.expenseName);
-          break;
-        case "expenseCategory":
-          comparison = a.expenseCategory.localeCompare(b.expenseCategory);
-          break;
-        case "amount":
-          comparison = a.amountValue - b.amountValue;
-          break;
-        default:
-          return 0;
-      }
-
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+      return sortByColumn(filtered, sortColumn, sortDirection, expenseSortValue);
     } catch (error) {
       console.error("Error filtering expenses:", error);
       return [];
@@ -396,7 +399,7 @@ export default function Expenses() {
     <AppLayout>
       <PageHeader
         title="Expenses"
-        description="Track and categorize group expenses"
+        description={isOfficer ? "View group expenses" : "Track and categorize group expenses"}
         actions={
           <div className="flex gap-2">
             <Button 
@@ -409,10 +412,12 @@ export default function Expenses() {
               <Download className="h-4 w-4 mr-2" />
               Export Excel
             </Button>
-            <Button size="sm" onClick={() => setShowRecordExpense(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
+            {!isOfficer && (
+              <Button size="sm" onClick={() => setShowRecordExpense(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            )}
           </div>
         }
       />
@@ -505,8 +510,15 @@ export default function Expenses() {
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading expenses...</div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          No expenses found. Add your first expense to get started.
+        <div className="rounded-lg border border-border bg-card px-6 py-10">
+          <EmptyState
+            illustration={expenses.length === 0 ? "data-input" : "file-searching"}
+            description={
+              expenses.length === 0
+                ? "No expenses found. Add your first expense to get started."
+                : "No expenses match your search."
+            }
+          />
         </div>
       ) : (
         <>
@@ -528,23 +540,27 @@ export default function Expenses() {
         </>
       )}
 
-      <RecordExpenseModal 
-        open={showRecordExpense} 
-        onOpenChange={setShowRecordExpense}
-        onSuccess={handleExpenseCreated}
-      />
-      <EditExpenseModal
-        open={showEditExpense}
-        onOpenChange={setShowEditExpense}
-        expense={selectedExpense}
-        onSuccess={handleExpenseUpdated}
-      />
-      <DeleteExpenseModal 
-        open={showDeleteExpense} 
-        onOpenChange={setShowDeleteExpense} 
-        expense={selectedExpense}
-        onSuccess={handleExpenseDeleted}
-      />
+      {!isOfficer && (
+        <>
+          <RecordExpenseModal
+            open={showRecordExpense}
+            onOpenChange={setShowRecordExpense}
+            onSuccess={handleExpenseCreated}
+          />
+          <EditExpenseModal
+            open={showEditExpense}
+            onOpenChange={setShowEditExpense}
+            expense={selectedExpense}
+            onSuccess={handleExpenseUpdated}
+          />
+          <DeleteExpenseModal
+            open={showDeleteExpense}
+            onOpenChange={setShowDeleteExpense}
+            expense={selectedExpense}
+            onSuccess={handleExpenseDeleted}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }

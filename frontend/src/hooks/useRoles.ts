@@ -14,6 +14,18 @@ let loadingPromise: Promise<{ platformRole: PlatformRole; accountRole: AccountRo
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+function rolesCacheFresh(): boolean {
+  return cacheTimestamp > 0 && Date.now() - cacheTimestamp < CACHE_DURATION;
+}
+
+export function clearRolesCache() {
+  cachedPlatformRole = "user";
+  cachedAccountRole = null;
+  cachedAccountId = null;
+  loadingPromise = null;
+  cacheTimestamp = 0;
+}
+
 export function useRoles() {
   const { user } = useAuth();
   const { account, loading: accountLoading } = useAccount(user?.id);
@@ -21,8 +33,16 @@ export function useRoles() {
   const [accountRole, setAccountRole] = useState<AccountRole | null>(cachedAccountRole);
   // Important: keep loading true until account finishes loading; otherwise on refresh
   // we may briefly resolve with accountRole=null and trigger redirects to "/".
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !rolesCacheFresh());
   const mountedRef = useRef(true);
+
+  useEffect(() => {
+    if (!user && rolesCacheFresh()) {
+      clearRolesCache();
+      setPlatformRole("user");
+      setAccountRole(null);
+    }
+  }, [user]);
 
   useEffect(() => {
     mountedRef.current = true;

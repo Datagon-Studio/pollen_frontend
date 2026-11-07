@@ -143,7 +143,10 @@ The system is built to serve **families, churches, associations, informal groups
 * `received_by_user_id` (nullable, offline only)  
 * `comment`  
 * `payment_reference` (nullable)  
-* `status` (pending, confirmed, failed, reversed)  
+* `status` (pending, confirmed, failed, reversed, pledge)  
+* `reversal_reason` (required when status is reversed)  
+* `reversed_at`  
+* `reversed_by_user_id`  
 * `created_at`, `updated_at`
 
 ### **4.8 Expense**
@@ -223,6 +226,17 @@ The system is built to serve **families, churches, associations, informal groups
 
 * Settlements aggregate confirmed online contributions  
 * Net amount \= gross amount – charges
+
+### **5.6 Contribution ledger**
+
+Confirmed contributions are money already received. They are reversed, never deleted.
+
+* Reverse sets `status` to `reversed` and stores `reversal_reason`, `reversed_at`, and `reversed_by_user_id`. A reason is required.
+* A reversed row stays on the ledger and cannot be deleted. It is the record of a gift that was taken back.
+* Collected totals, reports, and fund progress count only `confirmed` rows, so a reversal drops the gift from those figures and keeps the history.
+* Hard delete is only for rows that were never confirmed: `pending`, `pledge`, and `failed`.
+* Status cannot be changed to `reversed` through a normal edit. Reversal is its own action.
+* Archive (`is_archived`) is for settlement records. It is not used for contributions.
 
 ## **6\. Key Workflows**
 

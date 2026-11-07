@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { BrandSymbol } from "@/components/ui/brand";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getAppUrl } from "@/lib/app-url";
 
 export default function VerifyOTP() {
@@ -144,6 +145,7 @@ export default function VerifyOTP() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <EmptyState illustration="two-factor-authentication" size="auth" />
           <div className="flex items-center justify-center mb-4">
             <div className="h-16 w-16 rounded-xl bg-card border border-border flex items-center justify-center shadow-md">
               <BrandSymbol className="h-10 w-10" alt="Pollean" />

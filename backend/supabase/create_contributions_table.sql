@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS contributions (
   
   -- Status
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'failed', 'reversed', 'pledge')),
+  reversal_reason TEXT NULL,
+  reversed_at TIMESTAMPTZ NULL,
+  reversed_by_user_id UUID NULL REFERENCES users(user_id) ON DELETE SET NULL,
   
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -76,7 +79,10 @@ COMMENT ON COLUMN contributions.date_received IS 'Date and time when contributio
 COMMENT ON COLUMN contributions.received_by_user_id IS 'User ID who received the contribution (required for offline)';
 COMMENT ON COLUMN contributions.comment IS 'Optional comment/note about the contribution';
 COMMENT ON COLUMN contributions.payment_reference IS 'Payment reference/transaction ID for online payments';
-COMMENT ON COLUMN contributions.status IS 'Contribution status: pending, confirmed, failed, or reversed';
+COMMENT ON COLUMN contributions.status IS 'Contribution status: pending, confirmed, failed, reversed, or pledge. Confirmed rows are reversed, never deleted.';
+COMMENT ON COLUMN contributions.reversal_reason IS 'Why a confirmed contribution was reversed. Required when status is reversed.';
+COMMENT ON COLUMN contributions.reversed_at IS 'When a confirmed contribution was reversed.';
+COMMENT ON COLUMN contributions.reversed_by_user_id IS 'User who reversed a confirmed contribution.';
 
 -- =====================================================
 -- Security: Row Level Security (RLS) Setup

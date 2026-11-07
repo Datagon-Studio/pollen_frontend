@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Shield,
+  Search,
   Building2,
   User,
   FileText,
@@ -30,13 +31,14 @@ import {
   Loader2,
   ExternalLink,
   Calendar,
-  Search,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
 import { kycAdminApi, KYCWithAccount } from "@/services/account.api";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
+import { useSortedRows } from "@/lib/table-sort";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { cn } from "@/lib/utils";
 
 export default function KYCVerification() {
@@ -89,6 +91,23 @@ export default function KYCVerification() {
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [kycList, searchQuery, statusFilter, typeFilter]);
+
+  const kycSort = useSortedRows(filteredKYC, (kyc, column) => {
+    switch (column) {
+      case "account":
+        return kyc.account_name || "Unnamed Account";
+      case "official":
+        return kyc.official_name;
+      case "type":
+        return kyc.account_type;
+      case "status":
+        return kyc.account_kyc_status || "unverified";
+      case "submitted":
+        return kyc.created_at;
+      default:
+        return "";
+    }
+  });
 
   const toggleRow = (kycId: string) => {
     const newExpanded = new Set(expandedRows);
@@ -229,9 +248,16 @@ export default function KYCVerification() {
 
       {/* Table */}
       {filteredKYC.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
-          <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No KYC submissions found</p>
+        <div className="bg-card border border-border rounded-lg p-12">
+          <EmptyState
+            illustration={
+              kycList.length === 0 ||
+              (searchQuery === "" && statusFilter === "all" && typeFilter === "all")
+                ? "certification"
+                : "file-searching"
+            }
+            description="No KYC submissions found"
+          />
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -239,16 +265,16 @@ export default function KYCVerification() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12"></TableHead>
-                <TableHead>Account Name</TableHead>
-                <TableHead>Official Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Submitted</TableHead>
+                <SortableTh label="Account Name" column="account" sortColumn={kycSort.sortColumn} sortDirection={kycSort.sortDirection} onSort={kycSort.onSort} />
+                <SortableTh label="Official Name" column="official" sortColumn={kycSort.sortColumn} sortDirection={kycSort.sortDirection} onSort={kycSort.onSort} />
+                <SortableTh label="Type" column="type" sortColumn={kycSort.sortColumn} sortDirection={kycSort.sortDirection} onSort={kycSort.onSort} />
+                <SortableTh label="Status" column="status" sortColumn={kycSort.sortColumn} sortDirection={kycSort.sortDirection} onSort={kycSort.onSort} />
+                <SortableTh label="Submitted" column="submitted" sortColumn={kycSort.sortColumn} sortDirection={kycSort.sortDirection} onSort={kycSort.onSort} />
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredKYC.map((kyc) => {
+              {kycSort.sorted.map((kyc) => {
                 const isExpanded = expandedRows.has(kyc.kyc_id);
                 return (
                   <Fragment key={kyc.kyc_id}>

@@ -14,6 +14,7 @@ import Members from "./app/admin/Members";
 import Funds from "./app/admin/Funds";
 import Contributions from "./app/admin/Contributions";
 import Expenses from "./app/admin/Expenses";
+import Settlements from "./app/admin/Settlements";
 import PublicSettings from "./app/admin/PublicSettings";
 import PublicGroupLanding from "./app/public/PublicGroupLanding";
 import PublicGroupPage from "./app/public/PublicGroupPage";
@@ -98,6 +99,26 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Collectors only have read access to dashboard, members, contributions, and expenses.
+const CollectorRestrictedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const { isOfficer, loading: rolesLoading } = useRoles();
+
+  if (loading || rolesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  return isOfficer ? <Navigate to="/" replace /> : <>{children}</>;
+};
+
 const AppRoutes = () => {
   // Marketing host (pollean.com): landing only; everything else goes to the app.
   if (isMarketingHost()) {
@@ -137,9 +158,9 @@ const AppRoutes = () => {
       <Route
         path="/funds"
         element={
-          <ProtectedRoute>
+          <CollectorRestrictedRoute>
             <Funds />
-          </ProtectedRoute>
+          </CollectorRestrictedRoute>
         }
       />
       <Route
@@ -159,6 +180,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/settlements"
+        element={
+          <CollectorRestrictedRoute>
+            <Settlements />
+          </CollectorRestrictedRoute>
+        }
+      />
+      <Route
         path="/public-settings"
         element={
           <AdminRoute>
@@ -174,17 +203,17 @@ const AppRoutes = () => {
       <Route
         path="/reports"
         element={
-          <ProtectedRoute>
+          <CollectorRestrictedRoute>
             <Reports />
-          </ProtectedRoute>
+          </CollectorRestrictedRoute>
         }
       />
       <Route
         path="/activity"
         element={
-          <ProtectedRoute>
+          <CollectorRestrictedRoute>
             <Activity />
-          </ProtectedRoute>
+          </CollectorRestrictedRoute>
         }
       />
       <Route
@@ -206,9 +235,9 @@ const AppRoutes = () => {
       <Route
         path="/user-profile"
         element={
-          <ProtectedRoute>
+          <CollectorRestrictedRoute>
             <UserProfile />
-          </ProtectedRoute>
+          </CollectorRestrictedRoute>
         }
       />
       <Route path="*" element={<NotFound />} />

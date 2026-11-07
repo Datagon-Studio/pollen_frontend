@@ -1,0 +1,384 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatCard } from "@/components/ui/stat-card";
+import {
+  Plus,
+  Search,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Send,
+  RotateCcw,
+  TrendingUp,
+  Banknote,
+} from "lucide-react";
+import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
+import { useAccount } from "@/hooks/useAccount";
+import { useToast } from "@/hooks/use-toast";
+import { configApi } from "@/services/config.api";
+import { fundApi, Fund } from "@/services/fund.api";
+import {
+  SettlementRequest,
+  SettlementRequestStatus,
+  settlementRequestApi,
+} from "@/services/settlement-request.api";
+import { SettlementRequestModal } from "@/components/modals/SettlementRequestModal";
+import { managerApi } from "@/services/manager.api";
+import { getCurrencyPrefix } from "@/lib/currencies";
+import { useSortedRows } from "@/lib/table-sort";
+import { SortableTh } from "@/components/ui/sortable-th";
+
+const statuses: Array<"all" | SettlementRequestStatus> = [
+  "all",
+  "pending",
+  "approved",
+  "rejected",
+  "disbursed",
+];
+
+const statusLabels: Record<"all" | SettlementRequestStatus, string> = {
+  all: "All",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  disbursed: "Disbursed",
+};
+
+export default function Settlements() {
+  const { user } = useAuth();
+  const { account } = useAccount(user?.id);
+  const { toast } = useToast();
+  const [requests, setRequests] = useState<SettlementRequest[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | SettlementRequestStatus>("all");
+  const [search, setSearch] = useState("");
+  const [currencyCode, setCurrencyCode] = useState("GHS");
+  const [overallIncome, setOverallIncome] = useState(0);
+  const [recordedDisbursed, setRecordedDisbursed] = useState(0);
+  const [recordedDisbursedCount, setRecordedDisbursedCount] = useState(0);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
+  const loadRequests = useCallback(async (initial: boolean) => {
+    try {
+      if (initial) setLoading(true);
+      const requestData = await settlementRequestApi.list();
+      setRequests(requestData);
+    } catch (error) {
+      toast({
+        title: "Unable to load settlement requests",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      if (initial) setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadRequests(true);
+    fundApi.getAll().then(setFunds).catch(() => setFunds([]));
+    configApi
+      .getMyConfig()
+      .then((config) => setCurrencyCode(config.currency_code || "GHS"))
+      .catch(() => setCurrencyCode("GHS"));
+    setSummaryLoading(true);
+    Promise.all([managerApi.getDashboard(), managerApi.getSettlements()])
+      .then(([dashboard, settlements]) => {
+        const paidOut = settlements.filter(
+          (settlement) => !settlement.is_archived && settlement.status === "successful"
+        );
+        setOverallIncome(Number(dashboard.overallCollected) || 0);
+        setRecordedDisbursed(
+          paidOut.reduce((sum, settlement) => sum + Number(settlement.amount), 0)
+        );
+        setRecordedDisbursedCount(paidOut.length);
+      })
+      .catch(() => {
+        setOverallIncome(0);
+        setRecordedDisbursed(0);
+        setRecordedDisbursedCount(0);
+      })
+      .finally(() => setSummaryLoading(false));
+  }, [loadRequests, user?.id]);
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return requests.filter((request) => {
+      const matchesStatus =
+        statusFilter === "all" || request.status === statusFilter;
+      const matchesSearch =
+        !query ||
+        request.account_name.toLowerCase().includes(query) ||
+        request.fund_name.toLowerCase().includes(query);
+      return matchesStatus && matchesSearch;
+    });
+  }, [requests, search, statusFilter]);
+
+  const settlementSort = useSortedRows(filtered, (request, column) => {
+    switch (column) {
+      case "requested":
+        return request.created_at;
+      case "account":
+        return request.account_name;
+      case "fund":
+        return request.fund_name;
+      case "amount":
+        return Number(request.amount);
+      case "destination":
+        return request.destination_account_name;
+      case "status":
+        return request.status;
+      default:
+        return "";
+    }
+  });
+
+  const amountFor = (status: SettlementRequestStatus) =>
+    requests
+      .filter((request) => request.status === status)
+      .reduce((sum, request) => sum + Number(request.amount), 0);
+
+  const disbursedRequestCount = requests.filter((item) => item.status === "disbursed").length;
+  const totalDisbursedBalance = amountFor("disbursed") + recordedDisbursed;
+  const totalDisbursedCount = disbursedRequestCount + recordedDisbursedCount;
+
+  const formatAmount = (amount: number) =>
+    `${getCurrencyPrefix(currencyCode)}${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const hasActiveFilters = statusFilter !== "all" || search.trim().length > 0;
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+  };
+
+  return (
+    <AppLayout>
+      <PageHeader
+        title="Settlement requests"
+        description="Request payouts from Pollean and follow each admin review."
+        actions={
+          <Button
+            size="sm"
+            onClick={() => setShowRequestForm(true)}
+            disabled={!account?.account_id}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Request settlement
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          title="Overall income"
+          value={summaryLoading ? "..." : formatAmount(overallIncome)}
+          subtitle="Confirmed contributions"
+          icon={TrendingUp}
+          accentBorder
+        />
+        <StatCard
+          title="Total disbursed balance"
+          value={summaryLoading || loading ? "..." : formatAmount(totalDisbursedBalance)}
+          subtitle={
+            summaryLoading || loading
+              ? "..."
+              : `${totalDisbursedCount} completed payout${totalDisbursedCount === 1 ? "" : "s"}`
+          }
+          icon={Banknote}
+          accentBorder
+        />
+        <StatCard
+          title="Pending"
+          value={formatAmount(amountFor("pending"))}
+          subtitle={`${requests.filter((item) => item.status === "pending").length} requests`}
+          icon={Clock}
+          accentBorder
+        />
+        <StatCard
+          title="Approved"
+          value={formatAmount(amountFor("approved"))}
+          subtitle={`${requests.filter((item) => item.status === "approved").length} requests`}
+          icon={CheckCircle2}
+          accentBorder
+        />
+        <StatCard
+          title="Rejected"
+          value={requests.filter((item) => item.status === "rejected").length.toString()}
+          subtitle="Requests not approved"
+          icon={XCircle}
+          accentBorder
+        />
+        <StatCard
+          title="Disbursed"
+          value={formatAmount(amountFor("disbursed"))}
+          subtitle={`${requests.filter((item) => item.status === "disbursed").length} payouts`}
+          icon={Send}
+          accentBorder
+        />
+      </div>
+
+      <div className="mb-5 rounded-xl border bg-card/70 p-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label="Filter settlement requests by status"
+          >
+            {statuses.map((status) => (
+              <Button
+                key={status}
+                size="sm"
+                variant="ghost"
+                onClick={() => setStatusFilter(status)}
+                aria-pressed={statusFilter === status}
+                className={`h-8 rounded-full border px-3 text-xs font-medium shadow-none transition-colors ${
+                  statusFilter === status
+                    ? "border-primary/40 bg-primary/15 text-foreground hover:bg-primary/20"
+                    : "border-transparent text-muted-foreground hover:border-border hover:bg-background hover:text-foreground"
+                }`}
+              >
+                {statusLabels[status]}
+                <span
+                  className={`ml-1.5 tabular-nums ${
+                    statusFilter === status
+                      ? "text-foreground/70"
+                      : "text-muted-foreground/70"
+                  }`}
+                >
+                  {status === "all"
+                    ? requests.length
+                    : requests.filter((request) => request.status === status).length}
+                </span>
+              </Button>
+            ))}
+          </div>
+          <div className="relative w-full lg:w-80 lg:shrink-0">
+            <label htmlFor="settlement-search" className="sr-only">
+              Search settlement requests
+            </label>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="settlement-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search account or fund"
+              className="h-9 rounded-lg bg-background pl-9 pr-3"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-card overflow-hidden">
+        {!loading && filtered.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/30">
+                <tr>
+                  <SortableTh label="Requested" column="requested" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Account" column="account" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Fund" column="fund" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Amount" column="amount" align="right" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Payment destination" column="destination" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Status" column="status" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {settlementSort.sorted.map((request) => (
+                  <tr key={request.request_id} className="hover:bg-muted/20">
+                    <td className="p-3 text-muted-foreground">
+                      {format(new Date(request.created_at), "MMM d, yyyy")}
+                    </td>
+                    <td className="p-3 font-medium">{request.account_name}</td>
+                    <td className="p-3">{request.fund_name}</td>
+                    <td className="p-3 text-right font-semibold">
+                      {formatAmount(Number(request.amount))}
+                    </td>
+                    <td className="p-3">
+                      <p>{request.destination_account_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {request.destination_bank_name || request.destination_provider} ·
+                        {" "}{request.destination_account_number}
+                      </p>
+                    </td>
+                    <td className="p-3">
+                      <StatusBadge status={request.status} />
+                      {request.admin_note && (
+                        <p className="text-xs text-muted-foreground mt-1 max-w-56">
+                          {request.admin_note}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {loading && (
+          <div className="flex min-h-56 items-center justify-center p-10 text-sm text-muted-foreground">
+            Loading settlement requests…
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="px-6 py-12">
+            <EmptyState
+              illustration={hasActiveFilters ? "file-searching" : "signed-document"}
+              title={
+                hasActiveFilters
+                  ? "No matching settlement requests"
+                  : "No settlement requests yet"
+              }
+              description={
+                hasActiveFilters
+                  ? "Try another account or fund name, or clear the current filters."
+                  : "Request a payout from an eligible fund. You can follow the admin review and payment status here."
+              }
+              action={
+                hasActiveFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowRequestForm(true)}
+                    disabled={!account?.account_id}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Request settlement
+                  </Button>
+                )
+              }
+            />
+          </div>
+        )}
+      </div>
+
+      {account && (
+        <SettlementRequestModal
+          open={showRequestForm}
+          onOpenChange={setShowRequestForm}
+          accountId={account.account_id}
+          accountName={account.account_name || "Current account"}
+          funds={funds}
+          currencyCode={currencyCode}
+          onSuccess={() => loadRequests(false)}
+        />
+      )}
+    </AppLayout>
+  );
+}

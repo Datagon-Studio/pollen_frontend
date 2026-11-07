@@ -11,6 +11,8 @@ export interface PlatformDashboard {
   totalFunds: number;
   totalCollected: number;
   collectedThisMonth: number;
+  totalSettlement: number;
+  currentBalance: number;
   pendingKycCount: number;
   monthlyTrend: Array<{
     month: string;
@@ -53,41 +55,363 @@ function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+const REPORT_RECORD_LIMIT = 500;
+export const DASHBOARD_TREND_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', '6m', '12m'] as const;
+export type DashboardTrendRange = (typeof DASHBOARD_TREND_RANGES)[number];
+
+function isDashboardTrendRange(value: string): value is DashboardTrendRange {
+  return (DASHBOARD_TREND_RANGES as readonly string[]).includes(value);
+}
+
+export { isDashboardTrendRange };
+const REPORT_DURATIONS = ['7d', '30d', '3m', '6m', '12m', 'ytd', 'all', 'custom'] as const;
+
+export type ReportDuration = (typeof REPORT_DURATIONS)[number];
+
+export class ReportQueryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReportQueryError';
+  }
+}
+
+export interface PlatformReportPoint {
+  month: string;
+  label: string;
+  online: number;
+  manual: number;
+  total: number;
+}
+
+export interface PlatformReportRecord {
+  contribution_id: string;
+  account_id: string;
+  account_name: string | null;
+  fund_id: string;
+  fund_name: string | null;
+  member_id: string | null;
+  member_name: string | null;
+  amount: number;
+  channel: 'offline' | 'online';
+  payment_method: string | null;
+  payment_reference: string | null;
+  status: string;
+  date_received: string;
+  comment: string | null;
+  received_by_user_id: string | null;
+  created_at: string;
+}
+
+export interface PlatformReport {
+  duration: ReportDuration;
+  startDate: string | null;
+  endDate: string | null;
+  recordCount: number;
+  recordsLimited: boolean;
+  summary: {
+    collected: number;
+    online: number;
+    manual: number;
+    contributionCount: number;
+    accountCount: number;
+    fundCount: number;
+    expenses: number;
+    net: number;
+  };
+  trend: PlatformReportPoint[];
+  records: PlatformReportRecord[];
+}
+
+type ContributionAgg = {
+  amount: number | string;
+  channel: string | null;
+  date_received: string;
+  account_id: string;
+  fund_id: string;
+  status: string;
+};
+
+type PageResult<T> = { data: T[] | null; error: { message: string } | null };
+
+function isReportDuration(value: string): value is ReportDuration {
+  return (REPORT_DURATIONS as readonly string[]).includes(value);
+}
+
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function utcToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addUtcDays(iso: string, days: number): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function mondayOf(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - weekday + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function utcDay(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return date.toISOString().slice(0, 10);
+}
+
+function daySpan(start: string, end: string): number {
+  const ms = Date.parse(`${end}T00:00:00.000Z`) - Date.parse(`${start}T00:00:00.000Z`);
+  return Math.floor(ms / 86_400_000) + 1;
+}
+
+type ReportGrain = 'day' | 'week' | 'month';
+
+function grainForSpan(start: string, end: string): ReportGrain {
+  const days = daySpan(start, end);
+  if (days <= 31) return 'day';
+  if (days <= 120) return 'week';
+  return 'month';
+}
+
+function formatDayLabel(iso: string, withYear: boolean): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GH', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    ...(withYear ? { year: '2-digit' } : {}),
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+function formatMonthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GH', {
+    month: 'short',
+    year: '2-digit',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function dashboardTrendBounds(range: DashboardTrendRange): {
+  start: string;
+  end: string;
+  grain: ReportGrain;
+} {
+  const today = utcToday();
+  if (range === 'today') return { start: today, end: today, grain: 'day' };
+  if (range === 'yesterday') {
+    const day = addUtcDays(today, -1);
+    return { start: day, end: day, grain: 'day' };
+  }
+  if (range === 'week') return { start: mondayOf(today), end: today, grain: 'day' };
+  if (range === 'month') return { start: `${today.slice(0, 7)}-01`, end: today, grain: 'day' };
+  if (range === 'ytd') return { start: `${today.slice(0, 4)}-01-01`, end: today, grain: 'month' };
+  const monthsBack = range === '6m' ? 5 : 11;
+  const [year, month] = today.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1 - monthsBack, 1)).toISOString().slice(0, 10);
+  return { start, end: today, grain: 'month' };
+}
+
+function resolveReportBounds(
+  duration: ReportDuration,
+  dateFrom?: string,
+  dateTo?: string
+): { startDate: string | null; endDate: string | null } {
+  const today = utcToday();
+  if (duration === 'all') return { startDate: null, endDate: null };
+  if (duration === 'custom') {
+    if (!dateFrom || !dateTo || !isIsoDate(dateFrom) || !isIsoDate(dateTo)) {
+      throw new ReportQueryError('Choose a valid start and end date');
+    }
+    if (dateFrom > dateTo) {
+      throw new ReportQueryError('Start date must be on or before the end date');
+    }
+    return { startDate: dateFrom, endDate: dateTo };
+  }
+  if (duration === 'ytd') {
+    return { startDate: `${today.slice(0, 4)}-01-01`, endDate: today };
+  }
+  if (duration === '7d' || duration === '30d') {
+    const daysBack = duration === '7d' ? 6 : 29;
+    return { startDate: addUtcDays(today, -daysBack), endDate: today };
+  }
+  const monthsBack = duration === '3m' ? 2 : duration === '6m' ? 5 : 11;
+  const [year, month] = today.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1 - monthsBack, 1));
+  return { startDate: start.toISOString().slice(0, 10), endDate: today };
+}
+
+function buildTrendSlots(
+  start: string,
+  end: string,
+  grain: ReportGrain
+): Array<{ key: string; label: string }> {
+  const withYear = start.slice(0, 4) !== end.slice(0, 4);
+  if (grain === 'day') {
+    const slots: Array<{ key: string; label: string }> = [];
+    for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
+      slots.push({ key: cursor, label: formatDayLabel(cursor, withYear) });
+      if (slots.length > 400) break;
+    }
+    return slots;
+  }
+  if (grain === 'week') {
+    const slots: Array<{ key: string; label: string }> = [];
+    const last = mondayOf(end);
+    for (let cursor = mondayOf(start); cursor <= last; cursor = addUtcDays(cursor, 7)) {
+      const labelDate = cursor < start ? start : cursor;
+      slots.push({ key: cursor, label: formatDayLabel(labelDate, withYear) });
+    }
+    return slots;
+  }
+
+  const slots: Array<{ key: string; label: string }> = [];
+  let year = Number(start.slice(0, 4));
+  let month = Number(start.slice(5, 7));
+  const endKey = end.slice(0, 7);
+  while (`${year}-${String(month).padStart(2, '0')}` <= endKey) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    slots.push({ key, label: formatMonthLabel(key) });
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    if (slots.length > 240) break;
+  }
+  return slots;
+}
+
+function parseReportMonth(value?: string): number | undefined {
+  if (!value) return undefined;
+  const month = Number(value);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new ReportQueryError('Month must be a number from 1 to 12');
+  }
+  return month;
+}
+
+function parseReportYears(value?: string): number[] | undefined {
+  if (!value?.trim()) return undefined;
+  const parsed = value.split(',').map((part) => Number(part.trim()));
+  if (
+    parsed.length === 0 ||
+    parsed.some((year) => !Number.isInteger(year) || year < 1900 || year > 2100)
+  ) {
+    throw new ReportQueryError('Years must be a comma-separated list of years');
+  }
+  const years = [...new Set(parsed)].sort((a, b) => a - b);
+  if (years.length > 20) {
+    throw new ReportQueryError('Select 20 years or fewer');
+  }
+  return years;
+}
+
+function matchesReportPeriod(value: string, month?: number, years?: number[]): boolean {
+  if (!month && !years?.length) return true;
+  const day = utcDay(value);
+  if (!isIsoDate(day)) return false;
+  const year = Number(day.slice(0, 4));
+  const monthNumber = Number(day.slice(5, 7));
+  if (years?.length && !years.includes(year)) return false;
+  if (month && monthNumber !== month) return false;
+  return true;
+}
+
+function trendKey(day: string, grain: ReportGrain): string {
+  if (grain === 'day') return day;
+  if (grain === 'week') return mondayOf(day);
+  return day.slice(0, 7);
+}
+
+async function fetchPages<T>(
+  load: (from: number, to: number) => PromiseLike<PageResult<T>>
+): Promise<T[]> {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await load(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) return rows;
+  }
+}
+
+function mapReportRecord(row: Record<string, unknown>): PlatformReportRecord {
+  const members = row.members as { full_name?: string } | null;
+  const funds = row.funds as { fund_name?: string } | null;
+  const accounts = row.accounts as { account_name?: string } | null;
+  const memberId = (row.member_id as string | null) ?? null;
+  return {
+    contribution_id: row.contribution_id as string,
+    account_id: row.account_id as string,
+    account_name: accounts?.account_name ?? null,
+    fund_id: row.fund_id as string,
+    fund_name: funds?.fund_name ?? null,
+    member_id: memberId,
+    member_name: members?.full_name ?? (memberId ? null : 'Anonymous'),
+    amount: Number(row.amount),
+    channel: row.channel as 'offline' | 'online',
+    payment_method: (row.payment_method as string | null) ?? null,
+    payment_reference: (row.payment_reference as string | null) ?? null,
+    status: row.status as string,
+    date_received: row.date_received as string,
+    comment: (row.comment as string | null) ?? null,
+    received_by_user_id: (row.received_by_user_id as string | null) ?? null,
+    created_at: row.created_at as string,
+  };
+}
+
 export const adminService = {
   async getPlatformDashboard(): Promise<PlatformDashboard> {
     const now = new Date();
-    const startTrend = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-    const [accountsRes, fundsRes, contributionsRes, kycPendingRes] = await Promise.all([
+    const [accountsRes, fundsRes, contributionsRes, kycPendingRes, fundSettlementsRes, settlementRequestsRes] =
+      await Promise.all([
       supabase.from('accounts').select('account_id, status'),
       supabase.from('funds').select('fund_id, is_active'),
       supabase
         .from('contributions')
-        .select('amount, channel, status, date_received, created_at')
-        .eq('status', 'confirmed')
-        .gte('date_received', startTrend.toISOString()),
+        .select('amount, channel, date_received, created_at')
+        .eq('status', 'confirmed'),
       supabase.from('accounts').select('account_id').eq('kyc_status', 'pending'),
+      supabase.from('fund_settlements').select('amount, status, is_archived'),
+      supabase.from('settlement_requests').select('amount, status'),
     ]);
 
     if (accountsRes.error) throw new Error(accountsRes.error.message);
     if (fundsRes.error) throw new Error(fundsRes.error.message);
     if (contributionsRes.error) throw new Error(contributionsRes.error.message);
     if (kycPendingRes.error) throw new Error(kycPendingRes.error.message);
+    if (fundSettlementsRes.error) throw new Error(fundSettlementsRes.error.message);
+    if (settlementRequestsRes.error) throw new Error(settlementRequestsRes.error.message);
 
     const accounts = accountsRes.data || [];
     const funds = fundsRes.data || [];
-    const contributions = contributionsRes.data || [];
-
-    // All-time confirmed for totals (separate query — trend query is last 12 months only)
-    const { data: allConfirmed, error: allErr } = await supabase
-      .from('contributions')
-      .select('amount, channel, status, date_received, created_at')
-      .eq('status', 'confirmed');
-
-    if (allErr) throw new Error(allErr.message);
-    const allRows = allConfirmed || [];
+    const allRows = contributionsRes.data || [];
 
     const totalCollected = allRows.reduce((s, c) => s + Number(c.amount), 0);
+    const settledFromFunds = (fundSettlementsRes.data || [])
+      .filter((row) => !row.is_archived && row.status === 'successful')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const settledFromRequests = (settlementRequestsRes.data || [])
+      .filter((row) => row.status === 'disbursed')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const totalSettlement = settledFromFunds + settledFromRequests;
+    const currentBalance = totalCollected - totalSettlement;
     const collectedThisMonth = allRows
       .filter((c) => isInAccraMonth(c.date_received || c.created_at, now))
       .reduce((s, c) => s + Number(c.amount), 0);
@@ -98,7 +422,7 @@ export const adminService = {
       trendMap.set(monthKey(d), { online: 0, manual: 0 });
     }
 
-    for (const c of contributions) {
+    for (const c of allRows) {
       const key = monthKey(new Date(c.date_received || c.created_at));
       if (!trendMap.has(key)) continue;
       const bucket = trendMap.get(key)!;
@@ -123,8 +447,210 @@ export const adminService = {
       totalFunds: funds.length,
       totalCollected,
       collectedThisMonth,
+      totalSettlement,
+      currentBalance,
       pendingKycCount: (kycPendingRes.data || []).length,
       monthlyTrend,
+    };
+  },
+
+  async getCollectionTrend(range: DashboardTrendRange): Promise<{
+    range: DashboardTrendRange;
+    trend: PlatformReportPoint[];
+  }> {
+    const { start, end, grain } = dashboardTrendBounds(range);
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('amount, channel, date_received, created_at')
+      .eq('status', 'confirmed');
+    if (error) throw new Error(error.message);
+
+    const slots = buildTrendSlots(start, end, grain);
+    const buckets = new Map(
+      slots.map((slot) => [slot.key, { online: 0, manual: 0, label: slot.label }])
+    );
+    for (const row of data || []) {
+      const day = utcDay(row.date_received || row.created_at);
+      if (!isIsoDate(day) || day < start || day > end) continue;
+      const bucket = buckets.get(trendKey(day, grain));
+      if (!bucket) continue;
+      const amount = Number(row.amount);
+      if (row.channel === 'online') bucket.online += amount;
+      else bucket.manual += amount;
+    }
+
+    return {
+      range,
+      trend: [...buckets.entries()].map(([month, bucket]) => ({
+        month,
+        label: bucket.label,
+        online: bucket.online,
+        manual: bucket.manual,
+        total: bucket.online + bucket.manual,
+      })),
+    };
+  },
+
+  async getPlatformReport(query: {
+    duration?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    month?: string;
+    years?: string;
+  }): Promise<PlatformReport> {
+    const rawDuration = query.duration?.trim() || '30d';
+    if (!isReportDuration(rawDuration)) {
+      throw new ReportQueryError('Choose a supported duration');
+    }
+    const month = parseReportMonth(query.month);
+    const years = parseReportYears(query.years);
+    const bounds = resolveReportBounds(rawDuration, query.dateFrom, query.dateTo);
+    const startIso = bounds.startDate ? `${bounds.startDate}T00:00:00.000Z` : null;
+    const endIso = bounds.endDate ? `${bounds.endDate}T23:59:59.999Z` : null;
+
+    const [contributions, expenses, recordResult] = await Promise.all([
+      fetchPages<ContributionAgg>((from, to) => {
+        let request = supabase
+          .from('contributions')
+          .select('amount, channel, date_received, account_id, fund_id, status')
+          .order('date_received', { ascending: true })
+          .order('contribution_id', { ascending: true })
+          .range(from, to);
+        if (startIso) request = request.gte('date_received', startIso);
+        if (endIso) request = request.lte('date_received', endIso);
+        return request;
+      }),
+      fetchPages<{ amount: number | string; date: string }>((from, to) => {
+        let request = supabase
+          .from('expenses')
+          .select('amount, date')
+          .order('date', { ascending: true })
+          .order('expense_id', { ascending: true })
+          .range(from, to);
+        if (bounds.startDate) request = request.gte('date', bounds.startDate);
+        if (bounds.endDate) request = request.lte('date', bounds.endDate);
+        return request;
+      }),
+      (async () => {
+        const matched: PlatformReportRecord[] = [];
+        const pageSize = 500;
+        for (let from = 0; matched.length < REPORT_RECORD_LIMIT; from += pageSize) {
+          let request = supabase
+            .from('contributions')
+            .select(`
+              *,
+              members(full_name),
+              funds(fund_name),
+              accounts(account_name)
+            `)
+            .order('date_received', { ascending: false })
+            .order('contribution_id', { ascending: false })
+            .range(from, from + pageSize - 1);
+          if (startIso) request = request.gte('date_received', startIso);
+          if (endIso) request = request.lte('date_received', endIso);
+          const { data, error } = await request;
+          if (error) throw new Error(error.message);
+          const batch = data || [];
+          for (const row of batch) {
+            const record = mapReportRecord(row as Record<string, unknown>);
+            if (!matchesReportPeriod(record.date_received, month, years)) continue;
+            matched.push(record);
+            if (matched.length === REPORT_RECORD_LIMIT) break;
+          }
+          if (batch.length < pageSize) break;
+        }
+        return matched;
+      })(),
+    ]);
+
+    const records = recordResult;
+    const periodRows = contributions.filter((row) =>
+      matchesReportPeriod(row.date_received, month, years)
+    );
+    const confirmed = periodRows.filter((row) => row.status === 'confirmed');
+    const accounts = new Set<string>();
+    const funds = new Set<string>();
+    let collected = 0;
+    let online = 0;
+    let manual = 0;
+    for (const row of confirmed) {
+      const amount = Number(row.amount);
+      collected += amount;
+      if (row.channel === 'online') online += amount;
+      else manual += amount;
+      accounts.add(row.account_id);
+      funds.add(row.fund_id);
+    }
+    const expenseTotal = expenses
+      .filter((row) => matchesReportPeriod(row.date, month, years))
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+
+    let trendStart = bounds.startDate;
+    let trendEnd = bounds.endDate;
+    if (!trendStart || !trendEnd) {
+      const days = contributions
+        .map((row) => utcDay(row.date_received))
+        .filter((day) => isIsoDate(day))
+        .sort();
+      if (days.length > 0) {
+        trendStart = days[0];
+        const last = days[days.length - 1];
+        const today = utcToday();
+        trendEnd = last > today ? last : today;
+      }
+    }
+
+    let trend: PlatformReportPoint[] = [];
+    if (trendStart && trendEnd) {
+      const grain = grainForSpan(trendStart, trendEnd);
+      const slots = buildTrendSlots(trendStart, trendEnd, grain).filter((slot) => {
+        if (grain === 'month') {
+          const [slotYear, slotMonth] = slot.key.split('-').map(Number);
+          if (years?.length && !years.includes(slotYear)) return false;
+          if (month && slotMonth !== month) return false;
+          return true;
+        }
+        return matchesReportPeriod(slot.key, month, years);
+      });
+      const buckets = new Map(slots.map((slot) => [
+        slot.key,
+        { online: 0, manual: 0, label: slot.label },
+      ]));
+      for (const row of confirmed) {
+        const key = trendKey(utcDay(row.date_received), grain);
+        const bucket = buckets.get(key);
+        if (!bucket) continue;
+        const amount = Number(row.amount);
+        if (row.channel === 'online') bucket.online += amount;
+        else bucket.manual += amount;
+      }
+      trend = [...buckets.entries()].map(([month, bucket]) => ({
+        month,
+        label: bucket.label,
+        online: bucket.online,
+        manual: bucket.manual,
+        total: bucket.online + bucket.manual,
+      }));
+    }
+
+    return {
+      duration: rawDuration,
+      startDate: bounds.startDate,
+      endDate: bounds.endDate,
+      recordCount: periodRows.length,
+      recordsLimited: periodRows.length > records.length,
+      summary: {
+        collected,
+        online,
+        manual,
+        contributionCount: confirmed.length,
+        accountCount: accounts.size,
+        fundCount: funds.size,
+        expenses: expenseTotal,
+        net: collected - expenseTotal,
+      },
+      trend,
+      records,
     };
   },
 

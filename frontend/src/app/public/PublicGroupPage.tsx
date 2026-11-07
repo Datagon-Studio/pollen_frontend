@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -747,6 +748,8 @@ export default function PublicGroupPage() {
         key: "date",
         header: "Date",
         className: "text-muted-foreground",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Contribution).date_received,
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
           return format(new Date(contribution.date_received), "MMM d, yyyy");
@@ -755,6 +758,14 @@ export default function PublicGroupPage() {
       {
         key: "fund",
         header: "Fund",
+        sortValue: (item: Record<string, unknown>) => {
+          const contribution = item as unknown as Contribution | ContributionWithDetails;
+          return (
+            (contribution as ContributionWithDetails).fund_name ||
+            publicFunds.find((f) => f.fund_id === contribution.fund_id)?.fund_name ||
+            contribution.fund_id
+          );
+        },
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as
             | Contribution
@@ -774,13 +785,14 @@ export default function PublicGroupPage() {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
+        sortValue: (item: Record<string, unknown>) =>
+          Number((item as unknown as Contribution).amount),
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
-          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          const prefix = `${currencyCode} `;
           return (
             <span className="text-foreground">
-              {prefix}
-              {contribution.amount.toFixed(2)}
+              {prefix}{contribution.amount.toFixed(2)}
             </span>
           );
         },
@@ -788,6 +800,8 @@ export default function PublicGroupPage() {
       {
         key: "status",
         header: "Status",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Contribution).status,
         render: (item: Record<string, unknown>) => {
           const contribution = item as unknown as Contribution;
           const status = contribution.status as string;
@@ -838,6 +852,8 @@ export default function PublicGroupPage() {
         key: "date",
         header: "Date",
         className: "text-muted-foreground",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).date,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           const dateValue = expense.date ? new Date(expense.date) : new Date();
@@ -847,6 +863,8 @@ export default function PublicGroupPage() {
       {
         key: "category",
         header: "Category",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).expense_category,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           return (
@@ -865,6 +883,8 @@ export default function PublicGroupPage() {
       {
         key: "description",
         header: "Description",
+        sortValue: (item: Record<string, unknown>) =>
+          (item as unknown as Expense).expense_name,
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
           return (
@@ -876,13 +896,14 @@ export default function PublicGroupPage() {
         key: "amount",
         header: "Amount",
         className: "text-right font-semibold",
+        sortValue: (item: Record<string, unknown>) =>
+          Number((item as unknown as Expense).amount),
         render: (item: Record<string, unknown>) => {
           const expense = item as unknown as Expense;
-          const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+          const prefix = `${currencyCode} `;
           return (
             <span className="text-foreground">
-              {prefix}
-              {Number(expense.amount).toFixed(2)}
+              {prefix}{Number(expense.amount).toFixed(2)}
             </span>
           );
         },
@@ -904,10 +925,15 @@ export default function PublicGroupPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Group not found</p>
-            <Button onClick={() => navigate("/group")} className="w-full mt-4">
-              Go Back
-            </Button>
+            <EmptyState
+              illustration="files-missing"
+              description="Group not found"
+              action={
+                <Button onClick={() => navigate("/group")} className="w-full">
+                  Go Back
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       </div>
@@ -1511,7 +1537,7 @@ export default function PublicGroupPage() {
                           Total Contributions
                         </span>
                         <span className="text-lg font-semibold font-mono text-green-600 tabular-nums">
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {Object.values(fundStats)
                             .reduce(
                               (sum, stats) => sum + stats.totalCollected,
@@ -1525,7 +1551,7 @@ export default function PublicGroupPage() {
                           Total Expenses
                         </span>
                         <span className="text-lg font-semibold font-mono text-red-600 tabular-nums">
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {expenses
                             .reduce((sum, e) => sum + Number(e.amount), 0)
                             .toFixed(2)}
@@ -1548,7 +1574,7 @@ export default function PublicGroupPage() {
                               : "text-red-600"
                           }`}
                         >
-                          {currencyCode === "GHS" ? "GH₵" : `${currencyCode} `}
+                          {currencyCode}
                           {(
                             Object.values(fundStats).reduce(
                               (sum, stats) => sum + stats.totalCollected,

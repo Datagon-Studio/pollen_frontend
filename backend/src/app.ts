@@ -3,14 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './env.js';
 import { routes } from './routes.js';
+import { ADMIN_VERCEL_URL, CANONICAL_ADMIN_URL } from './shared/utils/frontend-url.js';
 
 export const app = express();
 
 // Security middleware
 app.use(helmet());
-// CORS: group app + system admin portal may run on different origins in dev
+// CORS: group app + system admin portal (custom domain and current Vercel host)
 const allowedOrigins = new Set(
-  [env.FRONTEND_URL, env.ADMIN_FRONTEND_URL].filter(Boolean)
+  [env.FRONTEND_URL, env.ADMIN_FRONTEND_URL, CANONICAL_ADMIN_URL, ADMIN_VERCEL_URL].filter(Boolean)
 );
 
 const corsOptions =

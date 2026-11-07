@@ -57,6 +57,7 @@ async function sendContributionConfirmationEmail(contribution: Contribution): Pr
     const formattedAmount = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
+      currencyDisplay: 'code',
     }).format(contribution.amount);
 
     // Format date
@@ -203,6 +204,7 @@ async function sendContributionConfirmationSMS(
     const formattedAmount = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
+      currencyDisplay: 'code',
     }).format(contribution.amount);
 
     const transactionDate = new Date(contribution.date_received);
@@ -261,7 +263,7 @@ export const contributionService = {
     })) as ContributionWithDetails[];
   },
 
-  async getContributionsByFund(fundId: string): Promise<Contribution[]> {
+  async getContributionsByFund(fundId: string): Promise<ContributionWithDetails[]> {
     return contributionRepository.findByFundId(fundId);
   },
 
@@ -370,6 +372,16 @@ export const contributionService = {
       throw new Error('Contribution not found');
     }
 
+    if (input.status === 'reversed') {
+      throw new Error('Use reverse to record a reversal.');
+    }
+    if (existing.status === 'confirmed' && input.status && input.status !== 'confirmed') {
+      throw new Error('Confirmed contributions cannot change status. Reverse them instead.');
+    }
+    if (existing.status === 'reversed' && input.status) {
+      throw new Error('Reversed contributions stay on the record.');
+    }
+
     return contributionRepository.update(id, input);
   },
 
@@ -405,10 +417,37 @@ export const contributionService = {
     return contributionRepository.update(id, { status: 'failed' });
   },
 
+  async reverseContribution(id: string, userId: string, reason: string): Promise<Contribution> {
+    const existing = await contributionRepository.findById(id);
+    if (!existing) {
+      throw new Error('Contribution not found');
+    }
+    if (existing.status !== 'confirmed') {
+      throw new Error('Only confirmed contributions can be reversed.');
+    }
+
+    const reversalReason = reason.trim();
+    if (!reversalReason) {
+      throw new Error('A reason is required to reverse a contribution.');
+    }
+
+    return contributionRepository.reverse(id, {
+      reversal_reason: reversalReason,
+      reversed_at: new Date().toISOString(),
+      reversed_by_user_id: userId,
+    });
+  },
+
   async deleteContribution(id: string): Promise<boolean> {
     const existing = await contributionRepository.findById(id);
     if (!existing) {
       throw new Error('Contribution not found');
+    }
+    if (existing.status === 'confirmed') {
+      throw new Error('Confirmed contributions cannot be deleted. Reverse them instead.');
+    }
+    if (existing.status === 'reversed') {
+      throw new Error('Reversed contributions are kept as a record and cannot be deleted.');
     }
 
     const deleted = await contributionRepository.delete(id);

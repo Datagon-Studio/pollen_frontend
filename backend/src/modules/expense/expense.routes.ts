@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { expenseRoutes } from './expense.controller.js';
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
+import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 
 export const expenseRoutesWithAuth = Router();
 
@@ -15,6 +16,7 @@ expenseRoutesWithAuth.get('/public/:accountId', expenseRoutes);
 
 // All other expense routes require authentication
 expenseRoutesWithAuth.use(authenticateToken);
+expenseRoutesWithAuth.use(requireAccountAdminForWrites);
 expenseRoutesWithAuth.use('/', expenseRoutes);
 
 

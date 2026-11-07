@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2, Clock } from "lucide-react";
+import { HandCoins, Search, Download, MoreHorizontal, Check, X, FolderOpen, Monitor, User, Trash2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -26,19 +26,26 @@ import {
 import { RecordContributionModal } from "@/components/modals/RecordContributionModal";
 import { EditContributionModal } from "@/components/modals/EditContributionModal";
 import { DeleteContributionModal } from "@/components/modals/DeleteContributionModal";
+import { ReverseContributionModal } from "@/components/modals/ReverseContributionModal";
 import { contributionApi, ContributionWithDetails } from "@/services/contribution.api";
-import { fundApi, Fund } from "@/services";
 import { useAccount } from "@/hooks/useAccount";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoles } from "@/hooks/useRoles";
 import { configApi } from "@/services/config.api";
 import { useToast } from "@/hooks/use-toast";
 import { StatCard } from "@/components/ui/stat-card";
+import {
+  managerApi,
+  ManagerContribution,
+  ManagerFund,
+} from "@/services/manager.api";
+import { sortByColumn } from "@/lib/table-sort";
 
 // Simple cache with TTL
 const cache = {
-  contributions: null as ContributionWithDetails[] | null,
+  contributions: null as ManagerContribution[] | null,
   contributionsTimestamp: 0,
-  funds: null as Fund[] | null,
+  funds: null as ManagerFund[] | null,
   fundsTimestamp: 0,
   CACHE_TTL: 5 * 60 * 1000, // 5 minutes
 };
@@ -48,6 +55,8 @@ interface ContributionRow {
   dateReceived: string;
   dateValue: Date;
   memberName: string;
+  accountName: string;
+  accountId: string;
   fundName: string;
   fundId: string;
   amount: string;
@@ -59,14 +68,38 @@ interface ContributionRow {
   paymentReference: string | null;
 }
 
+function contributionSortValue(row: ContributionRow, column: string) {
+  switch (column) {
+    case "dateReceived":
+      return row.dateValue;
+    case "memberName":
+      return row.memberName;
+    case "accountName":
+      return row.accountName;
+    case "fundName":
+      return row.fundName;
+    case "amount":
+      return row.amountValue;
+    case "comment":
+      return row.comment;
+    case "channel":
+      return row.paymentMethod || (row.channel === "online" ? "Online" : "Offline");
+    case "status":
+      return row.status;
+    default:
+      return "";
+  }
+}
+
 // Columns will be defined inside component to access handlers
 
 export default function Contributions() {
   const { user } = useAuth();
   const { account } = useAccount(user?.id);
+  const { isOfficer } = useRoles();
   const { toast } = useToast();
-  const [contributions, setContributions] = useState<ContributionWithDetails[]>([]);
-  const [funds, setFunds] = useState<Fund[]>([]);
+  const [contributions, setContributions] = useState<ManagerContribution[]>([]);
+  const [funds, setFunds] = useState<ManagerFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -74,20 +107,19 @@ export default function Contributions() {
   const [showRecordContribution, setShowRecordContribution] = useState(false);
   const [editingContribution, setEditingContribution] = useState<ContributionWithDetails | null>(null);
   const [deletingContribution, setDeletingContribution] = useState<ContributionWithDetails | null>(null);
+  const [reversingContribution, setReversingContribution] = useState<ContributionWithDetails | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>("dateReceived");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const abortControllerRef = useRef<AbortController | null>(null);
   const [currencyCode, setCurrencyCode] = useState<string>("GHS");
 
   const formatAmount = useCallback((amount: number) => {
-    const prefix = currencyCode === "GHS" ? "GH₵" : `${currencyCode} `;
+    const prefix = `${currencyCode} `;
     return `${prefix}${amount.toFixed(2)}`;
   }, [currencyCode]);
 
   // Load contributions with caching — always fetch the full list; tabs filter client-side.
   const loadContributions = useCallback(async (forceRefresh = false) => {
-    if (!account?.account_id) return;
-    
     const now = Date.now();
     
     if (!forceRefresh && cache.contributions && (now - cache.contributionsTimestamp) < cache.CACHE_TTL) {
@@ -104,13 +136,10 @@ export default function Contributions() {
       }
       abortControllerRef.current = new AbortController();
       
-      const response = await contributionApi.getByAccount(account.account_id);
-      
-      if (response.success && response.data) {
-        setContributions(response.data);
-        cache.contributions = response.data;
-        cache.contributionsTimestamp = now;
-      }
+      const data = await managerApi.getContributions();
+      setContributions(data);
+      cache.contributions = data;
+      cache.contributionsTimestamp = now;
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       toast({
@@ -121,15 +150,10 @@ export default function Contributions() {
     } finally {
       setLoading(false);
     }
-  }, [account?.account_id, toast]);
+  }, [toast]);
 
   // Load funds with caching
   const loadFunds = useCallback(async (forceRefresh = false) => {
-    if (!account?.account_id) {
-      setFunds([]);
-      return;
-    }
-    
     const now = Date.now();
     
     // Use cache if valid and not forcing refresh
@@ -139,7 +163,7 @@ export default function Contributions() {
     }
     
     try {
-      const data = await fundApi.getAll();
+      const data = await managerApi.getFunds();
       if (Array.isArray(data)) {
         setFunds(data);
         cache.funds = data;
@@ -153,22 +177,22 @@ export default function Contributions() {
         variant: "destructive",
       });
     }
-  }, [account?.account_id, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       loadContributions();
       configApi.getMyConfig()
         .then((cfg) => setCurrencyCode(cfg.currency_code || "GHS"))
         .catch(() => setCurrencyCode("GHS"));
     }
-  }, [account?.account_id, loadContributions]);
+  }, [user?.id, account?.account_id, loadContributions]);
 
   useEffect(() => {
-    if (account?.account_id) {
+    if (user?.id) {
       loadFunds();
     }
-  }, [account?.account_id, loadFunds]);
+  }, [user?.id, loadFunds]);
 
   // Optimistic update handlers
   const handleConfirm = useCallback(async (id: string) => {
@@ -253,11 +277,13 @@ export default function Contributions() {
             <p><strong>Date:</strong> {format(new Date(contribution.date_received), "PPP")}</p>
             {contribution.comment && <p><strong>Comment:</strong> {contribution.comment}</p>}
             {contribution.payment_reference && <p><strong>Reference:</strong> {contribution.payment_reference}</p>}
+            {contribution.reversal_reason && <p><strong>Reversal reason:</strong> {contribution.reversal_reason}</p>}
+            {contribution.reversed_at && <p><strong>Reversed:</strong> {format(new Date(contribution.reversed_at), "PPP")}</p>}
           </div>
         ),
       });
     }
-  }, [contributions, toast]);
+  }, [contributions, formatAmount, toast]);
 
   const handleEdit = useCallback((id: string) => {
     const contribution = contributions.find(c => c.contribution_id === id);
@@ -270,6 +296,13 @@ export default function Contributions() {
     const contribution = contributions.find(c => c.contribution_id === id);
     if (contribution) {
       setDeletingContribution(contribution);
+    }
+  }, [contributions]);
+
+  const handleReverse = useCallback((id: string) => {
+    const contribution = contributions.find(c => c.contribution_id === id);
+    if (contribution) {
+      setReversingContribution(contribution);
     }
   }, [contributions]);
 
@@ -295,6 +328,11 @@ export default function Contributions() {
       ),
     },
     {
+      key: "accountName",
+      header: "Account",
+      sortable: true,
+    },
+    {
       key: "fundName",
       header: "Fund",
       sortable: true,
@@ -308,7 +346,6 @@ export default function Contributions() {
     {
       key: "comment",
       header: "Comment",
-      sortable: false,
       render: (item: ContributionRow) => (
         <span className="text-sm text-muted-foreground">{item.comment || "—"}</span>
       ),
@@ -316,7 +353,6 @@ export default function Contributions() {
     {
       key: "channel",
       header: "Payment Method",
-      sortable: false,
       render: (item: ContributionRow) => (
         <div className="flex items-center gap-1.5">
           {item.paymentMethod ? (
@@ -343,9 +379,11 @@ export default function Contributions() {
         const badgeStatus =
           item.status === "confirmed"
             ? "confirmed"
-            : item.status === "pending" || item.status === "pledge"
-              ? "pending"
-              : "rejected";
+            : item.status === "reversed"
+              ? "reversed"
+              : item.status === "pending" || item.status === "pledge"
+                ? "pending"
+                : "rejected";
         return <StatusBadge status={badgeStatus} />;
       },
     },
@@ -364,7 +402,7 @@ export default function Contributions() {
             <DropdownMenuItem onClick={() => handleViewDetails(item.contribution_id)}>
               View Details
             </DropdownMenuItem>
-            {item.status === "pending" && (
+            {!isOfficer && item.accountId === account?.account_id && item.status === "pending" && (
               <>
                 <DropdownMenuItem 
                   className="text-success"
@@ -382,21 +420,33 @@ export default function Contributions() {
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="text-destructive"
-              onClick={() => handleDelete(item.contribution_id)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {!isOfficer && item.accountId === account?.account_id && (
+              <>
+                <DropdownMenuItem onClick={() => handleEdit(item.contribution_id)}>
+                  Edit
+                </DropdownMenuItem>
+                {item.status === "confirmed" && (
+                  <DropdownMenuItem onClick={() => handleReverse(item.contribution_id)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reverse
+                  </DropdownMenuItem>
+                )}
+                {(item.status === "pending" || item.status === "failed" || item.status === "pledge") && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(item.contribution_id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
-  ], [handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete]);
+  ], [account?.account_id, handleViewDetails, handleConfirm, handleReject, handleEdit, handleDelete, handleReverse, isOfficer]);
 
   const contributionRows: ContributionRow[] = useMemo(() => {
     if (!contributions || contributions.length === 0) return [];
@@ -408,6 +458,8 @@ export default function Contributions() {
         dateReceived: format(dateValue, "MMM d, yyyy"),
         dateValue: dateValue,
         memberName: c.member_name || "Anonymous",
+        accountName: c.account_name,
+        accountId: c.account_id,
         fundName: c.fund_name || "",
         fundId: c.fund_id,
         amount: formatAmount(c.amount),
@@ -427,7 +479,8 @@ export default function Contributions() {
     const filtered = contributionRows.filter((c) => {
       const matchesSearch =
         c.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.fundName.toLowerCase().includes(searchQuery.toLowerCase());
+        c.fundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.accountName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesTab =
         activeTab === "all" ||
         (activeTab === "pending" && c.status === "pending") ||
@@ -438,34 +491,7 @@ export default function Contributions() {
 
     // Apply sorting
     if (sortColumn && sortDirection && filtered.length > 0) {
-      return [...filtered].sort((a, b) => {
-        let comparison = 0;
-        try {
-          switch (sortColumn) {
-            case "dateReceived":
-              comparison = a.dateValue.getTime() - b.dateValue.getTime();
-              break;
-            case "memberName":
-              comparison = (a.memberName || "").localeCompare(b.memberName || "");
-              break;
-            case "fundName":
-              comparison = (a.fundName || "").localeCompare(b.fundName || "");
-              break;
-            case "amount":
-              comparison = (a.amountValue || 0) - (b.amountValue || 0);
-              break;
-            case "status":
-              comparison = (a.status || "").localeCompare(b.status || "");
-              break;
-            default:
-              return 0;
-          }
-        } catch (error) {
-          console.error("Error sorting contributions:", error);
-          return 0;
-        }
-        return sortDirection === "asc" ? comparison : -comparison;
-      });
+      return sortByColumn(filtered, sortColumn, sortDirection, contributionSortValue);
     }
 
     return filtered;
@@ -496,7 +522,10 @@ export default function Contributions() {
 
   const fundOptions = [
     { id: "all", fundName: "All Funds" },
-    ...funds.map((f) => ({ id: f.fund_id, fundName: f.fund_name })),
+    ...funds.map((f) => ({
+      id: f.fund_id,
+      fundName: `${f.fund_name} · ${f.account_name}`,
+    })),
   ];
 
   const handleExportToExcel = () => {
@@ -504,8 +533,9 @@ export default function Contributions() {
       const exportData = filteredContributions.map((contribution) => ({
         "Date Received": contribution.dateReceived,
         Member: contribution.memberName,
+        Account: contribution.accountName,
         Fund: contribution.fundName,
-        Amount: contribution.amount,
+        Amount: contribution.amountValue.toFixed(2),
         Comment: contribution.comment || "—",
         "Payment Method": contribution.paymentMethod || contribution.channel,
         Status: contribution.status,
@@ -524,9 +554,14 @@ export default function Contributions() {
       };
 
       const csvRows = [
+        `Currency,${currencyCode}`,
         headers.join(","),
         ...exportData.map((row) =>
-          headers.map((header) => escapeValue((row as any)[header])).join(",")
+          headers
+            .map((header) =>
+              header === "Amount" ? row.Amount : escapeValue(row[header as keyof typeof row])
+            )
+            .join(",")
         ),
       ];
 
@@ -563,7 +598,9 @@ export default function Contributions() {
     <AppLayout>
       <PageHeader
         title="Contributions"
-        description="Track and manage all member contributions"
+        description={isOfficer
+          ? "View contributions across your assigned accounts."
+          : "Contributions across all managed accounts. Actions apply to the current account."}
         actions={
           <div className="flex gap-2">
             <Button 
@@ -575,10 +612,12 @@ export default function Contributions() {
               <Download className="h-4 w-4 mr-2" />
               Export Excel
             </Button>
-            <Button size="sm" onClick={() => setShowRecordContribution(true)}>
-              <HandCoins className="h-4 w-4 mr-2" />
-              Record Contribution
-            </Button>
+            {!isOfficer && (
+              <Button size="sm" onClick={() => setShowRecordContribution(true)}>
+                <HandCoins className="h-4 w-4 mr-2" />
+                Record Contribution
+              </Button>
+            )}
           </div>
         }
       />
@@ -714,38 +753,56 @@ export default function Contributions() {
         </>
       )}
 
-      <RecordContributionModal 
-        open={showRecordContribution} 
-        onOpenChange={setShowRecordContribution}
-        onSuccess={() => {
-          cache.contributions = null;
-          cache.contributionsTimestamp = 0;
-          loadContributions(true);
-          loadFunds(true);
-        }}
-      />
+      {!isOfficer && (
+        <>
+          <RecordContributionModal
+            open={showRecordContribution}
+            onOpenChange={setShowRecordContribution}
+            onSuccess={() => {
+              cache.contributions = null;
+              cache.contributionsTimestamp = 0;
+              loadContributions(true);
+              loadFunds(true);
+            }}
+          />
 
-      <EditContributionModal
-        open={!!editingContribution}
-        onOpenChange={(open) => !open && setEditingContribution(null)}
-        contribution={editingContribution}
-        onSuccess={() => {
-          cache.contributions = null; // Invalidate cache
-          loadContributions(true);
-          setEditingContribution(null);
-        }}
-      />
+          <EditContributionModal
+            open={!!editingContribution}
+            onOpenChange={(open) => !open && setEditingContribution(null)}
+            contribution={editingContribution}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              setEditingContribution(null);
+            }}
+          />
 
-      <DeleteContributionModal
-        open={!!deletingContribution}
-        onOpenChange={(open) => !open && setDeletingContribution(null)}
-        contribution={deletingContribution}
-        onSuccess={() => {
-          cache.contributions = null; // Invalidate cache
-          loadContributions(true);
-          setDeletingContribution(null);
-        }}
-      />
+          <DeleteContributionModal
+            open={!!deletingContribution}
+            onOpenChange={(open) => !open && setDeletingContribution(null)}
+            contribution={deletingContribution}
+            amountLabel={deletingContribution ? formatAmount(deletingContribution.amount) : undefined}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              setDeletingContribution(null);
+            }}
+          />
+
+          <ReverseContributionModal
+            open={!!reversingContribution}
+            onOpenChange={(open) => !open && setReversingContribution(null)}
+            contribution={reversingContribution}
+            amountLabel={reversingContribution ? formatAmount(reversingContribution.amount) : ""}
+            onSuccess={() => {
+              cache.contributions = null;
+              loadContributions(true);
+              loadFunds(true);
+              setReversingContribution(null);
+            }}
+          />
+        </>
+      )}
     </AppLayout>
   );
 }
