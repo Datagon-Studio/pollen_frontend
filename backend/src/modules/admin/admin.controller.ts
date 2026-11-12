@@ -7,12 +7,16 @@ import {
   assertPlatformAdmin,
   assertComplianceStaff,
   handleStaffError,
+  StaffAccessError,
 } from '../../shared/middleware/staff.middleware.js';
 import {
   SettlementRequestError,
   settlementRequestService,
 } from '../settlement-request/settlement-request.service.js';
 import type { SettlementRequestStatus } from '../settlement-request/settlement-request.entity.js';
+import { fundSettlementService } from '../fund-settlement/fund-settlement.service.js';
+import type { FundSettlementStatus } from '../fund-settlement/fund-settlement.entity.js';
+import { auditService } from '../../shared/services/audit.service.js';
 import { accountRepository } from '../account/account.repository.js';
 import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
@@ -413,6 +417,183 @@ adminRoutes.post('/settlement-requests/:requestId/status', async (req: Request, 
     res.status(200).json({ success: true, data });
   } catch (error) {
     handleSettlementError(error, res);
+  }
+});
+
+const FUND_SETTLEMENT_STATUSES: FundSettlementStatus[] = ['pending', 'successful', 'canceled'];
+
+function isFundSettlementStatus(value: string): value is FundSettlementStatus {
+  return FUND_SETTLEMENT_STATUSES.includes(value as FundSettlementStatus);
+}
+
+function handleFundSettlementError(error: unknown, res: Response): void {
+  if (error instanceof StaffAccessError) {
+    handleStaffError(error, res);
+    return;
+  }
+  const message = error instanceof Error ? error.message : 'Settlement failed';
+  const statusCode = /not found/i.test(message) ? 404 : 400;
+  res.status(statusCode).json({ success: false, error: message });
+}
+
+function optionalText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** GET /api/v1/admin/fund-settlements — recorded payouts across accounts */
+adminRoutes.get('/fund-settlements', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const statusQuery = typeof req.query.status === 'string' ? req.query.status : undefined;
+    let status: FundSettlementStatus | undefined;
+    if (statusQuery) {
+      if (!isFundSettlementStatus(statusQuery)) {
+        res.status(400).json({ success: false, error: 'Invalid settlement status' });
+        return;
+      }
+      status = statusQuery;
+    }
+    const data = await fundSettlementService.listForAdmin({
+      accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
+      fundId: typeof req.query.fundId === 'string' ? req.query.fundId : undefined,
+      status,
+      includeArchived: req.query.includeArchived === 'true',
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleFundSettlementError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/fund-settlements/availability?accountId=&fundId= */
+adminRoutes.get('/fund-settlements/availability', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertComplianceStaff(authReq.user?.id);
+    const accountId = typeof req.query.accountId === 'string' ? req.query.accountId : '';
+    const fundId = typeof req.query.fundId === 'string' ? req.query.fundId : '';
+    if (!accountId || !fundId) {
+      res.status(400).json({ success: false, error: 'Account and fund are required' });
+      return;
+    }
+    const data = await fundSettlementService.getAvailability(accountId, fundId);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleFundSettlementError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/fund-settlements — start a pending payout or record one already paid */
+adminRoutes.post('/fund-settlements', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertComplianceStaff(authReq.user?.id);
+    const status = req.body?.status ?? 'pending';
+    if (status !== 'pending' && status !== 'successful') {
+      res.status(400).json({ success: false, error: 'New settlements must be pending or successful' });
+      return;
+    }
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      res.status(400).json({ success: false, error: 'Valid amount is required (must be greater than 0)' });
+      return;
+    }
+    const accountId = typeof req.body?.account_id === 'string' ? req.body.account_id : '';
+    const fundId = typeof req.body?.fund_id === 'string' ? req.body.fund_id : '';
+    if (!accountId || !fundId) {
+      res.status(400).json({ success: false, error: 'Account and fund are required' });
+      return;
+    }
+
+    const created = await fundSettlementService.createSettlement({
+      account_id: accountId,
+      fund_id: fundId,
+      recorded_by_user_id: staff.user_id,
+      amount,
+      settlement_date:
+        typeof req.body?.settlement_date === 'string' && req.body.settlement_date
+          ? req.body.settlement_date
+          : new Date().toISOString().split('T')[0],
+      status,
+      reference: optionalText(req.body?.reference),
+      notes: optionalText(req.body?.notes),
+    });
+
+    await auditService.log({
+      actionType: 'FUND_SETTLEMENT_RECORDED',
+      actionCategory: 'PAYMENT',
+      userId: staff.user_id,
+      accountId,
+      entityType: 'fund_settlement',
+      entityId: created.settlement_id,
+      actionDetails: {
+        fund_id: fundId,
+        amount,
+        status,
+        reference: created.reference,
+      },
+    });
+
+    const data = await fundSettlementService.presentForAdmin(created);
+    res.status(201).json({ success: true, data, message: 'Settlement recorded' });
+  } catch (error) {
+    handleFundSettlementError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/fund-settlements/:settlementId/status */
+adminRoutes.post('/fund-settlements/:settlementId/status', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertComplianceStaff(authReq.user?.id);
+    const status = req.body?.status;
+    if (status !== 'successful' && status !== 'canceled') {
+      res.status(400).json({ success: false, error: 'Status must be successful or canceled' });
+      return;
+    }
+    const updated = await fundSettlementService.setStatusForAdmin(req.params.settlementId, status, {
+      reference: optionalText(req.body?.reference),
+      notes: optionalText(req.body?.notes),
+    });
+    await auditService.log({
+      actionType: 'FUND_SETTLEMENT_STATUS',
+      actionCategory: 'PAYMENT',
+      userId: staff.user_id,
+      accountId: updated.account_id,
+      entityType: 'fund_settlement',
+      entityId: updated.settlement_id,
+      actionDetails: { status: updated.status },
+    });
+    const data = await fundSettlementService.presentForAdmin(updated);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleFundSettlementError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/fund-settlements/:settlementId/archive */
+adminRoutes.post('/fund-settlements/:settlementId/archive', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertComplianceStaff(authReq.user?.id);
+    const archived = await fundSettlementService.archiveForAdmin(
+      req.params.settlementId,
+      staff.user_id
+    );
+    await auditService.log({
+      actionType: 'FUND_SETTLEMENT_ARCHIVED',
+      actionCategory: 'PAYMENT',
+      userId: staff.user_id,
+      accountId: archived.account_id,
+      entityType: 'fund_settlement',
+      entityId: archived.settlement_id,
+      actionDetails: { status: archived.status },
+    });
+    const data = await fundSettlementService.presentForAdmin(archived);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleFundSettlementError(error, res);
   }
 });
 

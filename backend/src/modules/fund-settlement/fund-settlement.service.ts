@@ -12,6 +12,8 @@ import { fundService } from '../fund/fund.service.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { feeService } from '../payment/fee.service.js';
 import {
+  AdminFundSettlementView,
+  FundSettlementStatus,
   FundSettlementWithDetails,
   CreateFundSettlementInput,
   UpdateFundSettlementInput,
@@ -26,6 +28,52 @@ function roundMoney(amount: number): number {
 export class FundSettlementService {
   async getSettlement(settlementId: string): Promise<FundSettlementWithDetails | null> {
     return fundSettlementRepository.findById(settlementId);
+  }
+
+  async listForAdmin(filters: {
+    accountId?: string;
+    fundId?: string;
+    status?: FundSettlementStatus;
+    includeArchived?: boolean;
+  }): Promise<AdminFundSettlementView[]> {
+    const rows = await fundSettlementRepository.list(filters);
+    return this.withAccountNames(rows);
+  }
+
+  async presentForAdmin(settlement: FundSettlementWithDetails): Promise<AdminFundSettlementView> {
+    const [view] = await this.withAccountNames([settlement]);
+    return view;
+  }
+
+  async setStatusForAdmin(
+    settlementId: string,
+    status: Extract<FundSettlementStatus, 'successful' | 'canceled'>,
+    extras?: { reference?: string; notes?: string }
+  ): Promise<FundSettlementWithDetails> {
+    const existing = await fundSettlementRepository.findById(settlementId);
+    if (!existing) {
+      throw new Error('Settlement not found');
+    }
+
+    const patch: UpdateFundSettlementInput = {};
+    if (extras?.reference !== undefined) patch.reference = extras.reference;
+    if (extras?.notes !== undefined) patch.notes = extras.notes;
+    if (Object.keys(patch).length > 0) {
+      await this.updateSettlement(settlementId, existing.account_id, patch);
+    }
+
+    if (status === 'successful') {
+      return this.markSuccessful(settlementId, existing.account_id);
+    }
+    return this.cancelSettlement(settlementId, existing.account_id);
+  }
+
+  async archiveForAdmin(settlementId: string, userId: string): Promise<FundSettlementWithDetails> {
+    const existing = await fundSettlementRepository.findById(settlementId);
+    if (!existing) {
+      throw new Error('Settlement not found');
+    }
+    return this.archiveSettlement(settlementId, existing.account_id, userId);
   }
 
   async getSettlementsByAccount(accountId: string): Promise<FundSettlementWithDetails[]> {
@@ -205,6 +253,18 @@ export class FundSettlementService {
         .filter((s) => s.status === 'successful')
         .reduce((sum, s) => sum + Number(s.amount), 0),
     };
+  }
+
+  private async withAccountNames(
+    rows: FundSettlementWithDetails[]
+  ): Promise<AdminFundSettlementView[]> {
+    const names = await fundSettlementRepository.accountNames([
+      ...new Set(rows.map((row) => row.account_id)),
+    ]);
+    return rows.map((row) => ({
+      ...row,
+      account_name: names.get(row.account_id) ?? null,
+    }));
   }
 
   private async requireOwnedSettlement(

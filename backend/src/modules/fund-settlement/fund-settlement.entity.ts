@@ -28,6 +28,10 @@ export interface FundSettlementWithDetails extends FundSettlement {
   fund_name: string;
 }
 
+export interface AdminFundSettlementView extends FundSettlementWithDetails {
+  account_name: string | null;
+}
+
 export interface CreateFundSettlementInput {
   account_id: string;
   fund_id: string;

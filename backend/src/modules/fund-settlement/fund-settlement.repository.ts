@@ -8,6 +8,7 @@
 import { supabase } from '../../shared/supabase/client.js';
 import {
   FundSettlement,
+  FundSettlementStatus,
   FundSettlementWithDetails,
   CreateFundSettlementInput,
   UpdateFundSettlementInput,
@@ -37,6 +38,52 @@ export const fundSettlementRepository = {
       throw new Error(`Failed to find settlement: ${error.message}`);
     }
     return mapWithFundName(data);
+  },
+
+  async list(filters: {
+    accountId?: string;
+    fundId?: string;
+    status?: FundSettlementStatus;
+    includeArchived?: boolean;
+  }): Promise<FundSettlementWithDetails[]> {
+    let query = supabase
+      .from('fund_settlements')
+      .select(`
+        *,
+        funds(fund_name)
+      `)
+      .order('settlement_date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (filters.accountId) query = query.eq('account_id', filters.accountId);
+    if (filters.fundId) query = query.eq('fund_id', filters.fundId);
+    if (filters.status) query = query.eq('status', filters.status);
+    if (!filters.includeArchived) query = query.eq('is_archived', false);
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Failed to list settlements: ${error.message}`);
+    }
+    return (data || []).map(mapWithFundName);
+  },
+
+  async accountNames(accountIds: string[]): Promise<Map<string, string | null>> {
+    const names = new Map<string, string | null>();
+    if (accountIds.length === 0) return names;
+
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('account_id, account_name')
+      .in('account_id', accountIds);
+
+    if (error) {
+      throw new Error(`Failed to fetch account names: ${error.message}`);
+    }
+
+    for (const row of data || []) {
+      names.set(row.account_id, row.account_name ?? null);
+    }
+    return names;
   },
 
   async findByAccountId(accountId: string): Promise<FundSettlementWithDetails[]> {
