@@ -96,26 +96,27 @@ export function AppLayout({ children }: AppLayoutProps) {
     accountRole,
     loading: rolesLoading,
   } = useRoles();
+  const roleKnown = !rolesLoading || accountRole !== null || isSuperAdmin;
   const [userProfile, setUserProfile] = useState<UserProfile | null>(cachedProfile);
   const [profileLoading, setProfileLoading] = useState(!cachedProfile);
   const [profileImage, setProfileImage] = useState<string | null>(
     cachedProfile?.profile_image_url ?? null
   );
 
-  // Filter nav items based on role - memoize to prevent recalculation on every render
-  // Only recompute when roles actually change (not when loading state changes)
+  // Keep the list empty until the account role is known. Otherwise collectors
+  // see every page on login and refresh, then the extra links disappear.
   const navItems = useMemo(() => {
+    if (!roleKnown) return [];
     return allNavItems.filter((item) => {
       if (isOfficer && !collectorNavPaths.has(item.href)) {
         return false;
       }
-      // Hide superadmin-only items from non-superadmins
       if (item.superAdminOnly && !isSuperAdmin) {
         return false;
       }
       return true;
     });
-  }, [isSuperAdmin, isOfficer]);
+  }, [isSuperAdmin, isOfficer, roleKnown]);
 
   const userProfileLoadingRef = useRef(false);
 
@@ -227,8 +228,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     allNavItems.find((item) => item.href === location.pathname);
   const currentPageTitle = account?.account_name || "Pollean";
   const currentPageSubtitle = currentNavItem?.label || "Dashboard";
-  const rawRole = accountRole || userProfile?.role || "admin";
-  const roleLabel = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+  const rawRole = roleKnown ? accountRole || userProfile?.role || "admin" : "";
+  const roleLabel = rawRole
+    ? rawRole.charAt(0).toUpperCase() + rawRole.slice(1)
+    : "Loading...";
 
   const handleThemeToggle = () => {
     setTheme(isDarkTheme ? "light" : "dark");
@@ -332,6 +335,13 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
+          {!roleKnown &&
+            Array.from({ length: sidebarOpen ? 6 : 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-10 rounded-md bg-muted animate-pulse"
+              />
+            ))}
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (

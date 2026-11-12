@@ -13,10 +13,50 @@ let cachedAccountId: string | null = null;
 let loadingPromise: Promise<{ platformRole: PlatformRole; accountRole: AccountRole | null }> | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const ROLES_STORAGE_KEY = "pollean.account-roles";
 
 function rolesCacheFresh(): boolean {
   return cacheTimestamp > 0 && Date.now() - cacheTimestamp < CACHE_DURATION;
 }
+
+function readStoredRoles(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    const raw = sessionStorage.getItem(ROLES_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as {
+      platformRole?: PlatformRole;
+      accountRole?: AccountRole | null;
+      accountId?: string | null;
+      timestamp?: number;
+    };
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > CACHE_DURATION) {
+      sessionStorage.removeItem(ROLES_STORAGE_KEY);
+      return;
+    }
+    cachedPlatformRole = parsed.platformRole || "user";
+    cachedAccountRole = parsed.accountRole ?? null;
+    cachedAccountId = parsed.accountId ?? null;
+    cacheTimestamp = parsed.timestamp;
+  } catch {
+    sessionStorage.removeItem(ROLES_STORAGE_KEY);
+  }
+}
+
+function writeStoredRoles(): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(
+    ROLES_STORAGE_KEY,
+    JSON.stringify({
+      platformRole: cachedPlatformRole,
+      accountRole: cachedAccountRole,
+      accountId: cachedAccountId,
+      timestamp: cacheTimestamp,
+    })
+  );
+}
+
+readStoredRoles();
 
 export function clearRolesCache() {
   cachedPlatformRole = "user";
@@ -24,10 +64,13 @@ export function clearRolesCache() {
   cachedAccountId = null;
   loadingPromise = null;
   cacheTimestamp = 0;
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem(ROLES_STORAGE_KEY);
+  }
 }
 
 export function useRoles() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { account, loading: accountLoading } = useAccount(user?.id);
   const [platformRole, setPlatformRole] = useState<PlatformRole>(cachedPlatformRole);
   const [accountRole, setAccountRole] = useState<AccountRole | null>(cachedAccountRole);
@@ -37,12 +80,14 @@ export function useRoles() {
   const mountedRef = useRef(true);
 
   useEffect(() => {
-    if (!user && rolesCacheFresh()) {
-      clearRolesCache();
-      setPlatformRole("user");
-      setAccountRole(null);
-    }
-  }, [user]);
+    // Auth starts signed-out on refresh until the session is restored.
+    // Don't wipe a stored role during that gap.
+    if (authLoading || user) return;
+    clearRolesCache();
+    setPlatformRole("user");
+    setAccountRole(null);
+    setLoading(false);
+  }, [user, authLoading]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -118,6 +163,7 @@ export function useRoles() {
       cachedAccountRole = accountRoleValue;
       cachedAccountId = account?.account_id || null;
       cacheTimestamp = Date.now();
+      writeStoredRoles();
       loadingPromise = null;
 
       if (mountedRef.current) {
