@@ -358,8 +358,9 @@ export class AccountController {
       const authReq = req as AuthenticatedRequest;
       await assertStaffUser(authReq.user?.id);
 
-      const filePath = req.query.path;
-      if (typeof filePath !== 'string' || !filePath.trim()) {
+      // Prefer filePath — `path` collides with Vercel's /api/:path* rewrite query.
+      const rawPath = req.query.filePath ?? req.query.path;
+      if (typeof rawPath !== 'string' || !rawPath.trim()) {
         res.status(400).json({
           success: false,
           error: 'Document path is required',
@@ -367,7 +368,7 @@ export class AccountController {
         return;
       }
 
-      const signedUrl = await accountKYCService.getDocumentSignedUrl(filePath.trim());
+      const signedUrl = await accountKYCService.getDocumentSignedUrl(rawPath.trim());
 
       res.status(200).json({
         success: true,

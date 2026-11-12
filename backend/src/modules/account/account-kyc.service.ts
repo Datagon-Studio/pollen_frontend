@@ -13,6 +13,30 @@ import { supabase } from '../../shared/supabase/client.js';
 const KYC_DOCUMENT_PATH_PATTERN =
   /^(business-registration|passport-photo|national-id)\/[0-9a-f-]{36}\/\d+\.[a-z0-9]+$/i;
 
+/** Normalize stored KYC paths / accidental full storage URLs into a bucket-relative path. */
+function normalizeKycDocumentPath(input: string): string {
+  let value = input.trim();
+  try {
+    value = decodeURIComponent(value);
+  } catch {
+    // keep raw value if it wasn't URI-encoded
+  }
+
+  // Full public/signed URL → extract object key after /kyc-documents/
+  const bucketMarker = '/kyc-documents/';
+  const bucketIdx = value.indexOf(bucketMarker);
+  if (bucketIdx !== -1) {
+    value = value.slice(bucketIdx + bucketMarker.length).split('?')[0] ?? value;
+  }
+
+  // Strip accidental bucket prefix if stored as "kyc-documents/..."
+  if (value.startsWith('kyc-documents/')) {
+    value = value.slice('kyc-documents/'.length);
+  }
+
+  return value.replace(/^\/+/, '');
+}
+
 export class AccountKYCService {
   /**
    * Submit or update KYC information
@@ -124,13 +148,14 @@ export class AccountKYCService {
    * Generate a signed URL for a KYC document (admin use only)
    */
   async getDocumentSignedUrl(filePath: string, expiresIn = 3600): Promise<string> {
-    if (!KYC_DOCUMENT_PATH_PATTERN.test(filePath)) {
+    const normalizedPath = normalizeKycDocumentPath(filePath);
+    if (!KYC_DOCUMENT_PATH_PATTERN.test(normalizedPath)) {
       throw new Error('Invalid KYC document path');
     }
 
     const { data, error } = await supabase.storage
       .from('kyc-documents')
-      .createSignedUrl(filePath, expiresIn);
+      .createSignedUrl(normalizedPath, expiresIn);
 
     if (error || !data?.signedUrl) {
       throw new Error(error?.message || 'Failed to generate signed URL');

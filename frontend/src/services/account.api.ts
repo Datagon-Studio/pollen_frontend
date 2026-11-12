@@ -193,7 +193,7 @@ export const kycAdminApi = {
    */
   async getDocumentSignedUrl(filePath: string): Promise<string> {
     const response = await request<{ signedUrl: string }>(
-      `/accounts/kyc/document-url?path=${encodeURIComponent(filePath)}`,
+      `/accounts/kyc/document-url?filePath=${encodeURIComponent(filePath)}`,
       { method: 'GET' }
     );
 

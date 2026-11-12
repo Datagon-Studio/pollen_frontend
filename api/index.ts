@@ -38,10 +38,18 @@ export default async function handler(req: any, res: any) {
   const incomingUrl = req.url || '/';
   const url = new URL(incomingUrl, 'http://local');
 
-  // If the rewrite provided the original path in ?path=..., prefer that.
-  // Example: ?path=v1%2Fusers%2Fprofile  ->  /api/v1/users/profile
+  // Vercel rewrite `/api/:path*` → `/api` may forward the matched route as `?path=v1/...`.
+  // Only consume that when we are still on the bare `/api` function path.
+  // Never steal application query params named `path` (e.g. KYC document-url).
   const forwardedPath = url.searchParams.get('path');
-  if (forwardedPath) {
+  const onBareApiFunction =
+    url.pathname === '/api' || url.pathname === '/api/' || url.pathname === '/';
+  const isVercelRouteForward =
+    typeof forwardedPath === 'string' &&
+    onBareApiFunction &&
+    /^\/?v1(\/|$)/i.test(forwardedPath);
+
+  if (isVercelRouteForward && forwardedPath) {
     url.searchParams.delete('path');
     url.pathname = `/api/${forwardedPath.replace(/^\/+/, '')}`;
   }
