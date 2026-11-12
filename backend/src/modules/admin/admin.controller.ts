@@ -18,6 +18,7 @@ import { AccountStatus } from '../account/account.entity.js';
 import { auditRepository } from '../audit/audit.repository.js';
 import { staffService, StaffInviteError } from './staff.service.js';
 import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
+import { feeService } from '../payment/fee.service.js';
 
 export const adminRoutes = Router();
 
@@ -61,6 +62,9 @@ adminRoutes.get('/reports', async (req: Request, res: Response) => {
       dateTo: typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined,
       month: typeof req.query.month === 'string' ? req.query.month : undefined,
       years: typeof req.query.years === 'string' ? req.query.years : undefined,
+      accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
+      channel: typeof req.query.channel === 'string' ? req.query.channel : undefined,
+      status: typeof req.query.status === 'string' ? req.query.status : undefined,
     });
     res.status(200).json({ success: true, data });
   } catch (error) {
@@ -424,6 +428,88 @@ function parseStaffRole(value: unknown): StaffRole | null {
   if (value === 'superadmin' || value === 'ops' || value === 'support') return value;
   return null;
 }
+
+function parseFeeRateInput(body: unknown): number | null | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const payload = body as { rate?: unknown; percent?: unknown; clear?: unknown };
+  if (payload.clear === true || payload.rate === null) return null;
+  if (typeof payload.rate === 'number') return payload.rate;
+  if (typeof payload.percent === 'number') return payload.percent / 100;
+  return undefined;
+}
+
+/** GET /api/v1/admin/fees — global fee + account overrides */
+adminRoutes.get('/fees', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertPlatformAdmin(authReq.user?.id);
+    const data = await feeService.getSnapshot();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** PUT /api/v1/admin/fees/global — set platform default fee rate */
+adminRoutes.put('/fees/global', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const rate = parseFeeRateInput(req.body);
+    if (rate === undefined || rate === null) {
+      res.status(400).json({ success: false, error: 'Provide a fee percent or rate' });
+      return;
+    }
+    const saved = await feeService.setGlobalRate(rate, staff.user_id);
+    res.status(200).json({
+      success: true,
+      data: { rate: saved, percent: Math.round(saved * 10000) / 100 },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Fee rate must be')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
+
+/** PUT /api/v1/admin/fees/accounts/:accountId — set or clear account override */
+adminRoutes.put('/fees/accounts/:accountId', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertPlatformAdmin(authReq.user?.id);
+    const account = await accountRepository.findByAccountId(req.params.accountId);
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+    const rate = parseFeeRateInput(req.body);
+    if (rate === undefined) {
+      res.status(400).json({ success: false, error: 'Provide a fee percent/rate, or clear: true' });
+      return;
+    }
+    const saved = await feeService.setAccountOverride(req.params.accountId, rate);
+    const resolved = await feeService.resolveForAccount(req.params.accountId);
+    res.status(200).json({
+      success: true,
+      data: {
+        account_id: req.params.accountId,
+        overrideRate: saved,
+        overridePercent: saved === null ? null : Math.round(saved * 10000) / 100,
+        effectiveRate: resolved.rate,
+        effectivePercent: resolved.percent,
+        source: resolved.source,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Fee rate must be')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
 
 /** GET /api/v1/admin/staff — platform staff roster */
 adminRoutes.get('/staff', async (req: Request, res: Response) => {

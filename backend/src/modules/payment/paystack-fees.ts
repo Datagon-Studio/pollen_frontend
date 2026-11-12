@@ -1,7 +1,10 @@
 /** Combined platform and payment-processing fee for online contributions. */
 export const PAYMENT_FEE_RATE = 0.02;
 
-export function calculatePaymentAmounts(desiredAmount: number): {
+export function calculatePaymentAmounts(
+  desiredAmount: number,
+  feeRate: number = PAYMENT_FEE_RATE
+): {
   contributionAmount: number;
   feeAmount: number;
   chargedAmount: number;
@@ -10,7 +13,8 @@ export function calculatePaymentAmounts(desiredAmount: number): {
     throw new Error('Desired amount must be a positive number');
   }
 
-  const feeAmount = Math.round(desiredAmount * PAYMENT_FEE_RATE * 100) / 100;
+  const rate = Number.isFinite(feeRate) && feeRate >= 0 ? feeRate : PAYMENT_FEE_RATE;
+  const feeAmount = Math.round(desiredAmount * rate * 100) / 100;
   const chargedAmount = Math.round((desiredAmount + feeAmount) * 100) / 100;
 
   return {

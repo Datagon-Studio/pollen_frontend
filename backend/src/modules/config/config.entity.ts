@@ -25,6 +25,8 @@ export interface Config {
   email_template: string | null;
   member_portal_enabled: boolean;
   expense_visibility_level: ExpenseVisibilityLevel;
+  /** Optional override for online contribution fee rate (0.02 = 2%). Null inherits global. */
+  transaction_fee_rate: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +43,7 @@ export interface CreateConfigInput {
   email_template?: string | null;
   member_portal_enabled?: boolean;
   expense_visibility_level?: ExpenseVisibilityLevel;
+  transaction_fee_rate?: number | null;
 }
 
 export interface UpdateConfigInput {
@@ -54,4 +57,5 @@ export interface UpdateConfigInput {
   email_template?: string | null;
   member_portal_enabled?: boolean;
   expense_visibility_level?: ExpenseVisibilityLevel;
+  transaction_fee_rate?: number | null;
 }

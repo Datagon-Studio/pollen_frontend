@@ -4,6 +4,7 @@ import { contributionService } from '../contribution/contribution.service.js';
 import { memberRepository } from '../member/member.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
 import { calculatePaymentAmounts } from './paystack-fees.js';
+import { feeService } from './fee.service.js';
 import {
   recordPaystackContribution,
   resolveContributionAmount,
@@ -89,10 +90,11 @@ export const paymentService = {
         };
       }
 
-      // Apply one combined 2% payment fee.
-      // e.g. contribute GHS 1000 → fee GHS 25 → charge GHS 1025
+      // Apply the configured account/global payment fee.
+      // e.g. contribute GHS 1000 at 2% → fee GHS 20 → charge GHS 1020
+      const fee = await feeService.resolveForAccount(input.account_id);
       const { contributionAmount, feeAmount, chargedAmount } =
-        calculatePaymentAmounts(input.amount);
+        calculatePaymentAmounts(input.amount, fee.rate);
 
       // Convert charged amount to pesewas (Paystack uses smallest currency unit)
       const amountInPesewas = Math.round(chargedAmount * 100);

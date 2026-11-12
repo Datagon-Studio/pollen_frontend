@@ -52,6 +52,7 @@ export interface FundSettlementAvailability {
   onlineCollected: number;
   offlineCollected: number;
   feeAmount: number;
+  feePercent?: number;
   reservedAmount: number;
   availableAmount: number;
 }

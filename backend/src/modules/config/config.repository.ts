@@ -97,6 +97,9 @@ export const configRepository = {
     if (input.expense_visibility_level !== undefined) {
       updateData.expense_visibility_level = input.expense_visibility_level;
     }
+    if (input.transaction_fee_rate !== undefined) {
+      updateData.transaction_fee_rate = input.transaction_fee_rate;
+    }
 
     const { data, error } = await supabase
       .from('config')

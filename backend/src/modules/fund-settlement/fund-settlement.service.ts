@@ -10,7 +10,7 @@ import { fundSettlementRepository } from './fund-settlement.repository.js';
 import { settlementRequestRepository } from '../settlement-request/settlement-request.repository.js';
 import { fundService } from '../fund/fund.service.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
-import { PAYMENT_FEE_RATE } from '../payment/paystack-fees.js';
+import { feeService } from '../payment/fee.service.js';
 import {
   FundSettlementWithDetails,
   CreateFundSettlementInput,
@@ -56,10 +56,11 @@ export class FundSettlementService {
       settlementRequestRepository.sumReservedForFund(fundId),
     ]);
 
+    const fee = await feeService.resolveForAccount(accountId);
     const collected = roundMoney(breakdown.total);
     const onlineCollected = roundMoney(breakdown.online);
     const offlineCollected = roundMoney(breakdown.offline);
-    const feeAmount = roundMoney(onlineCollected * PAYMENT_FEE_RATE);
+    const feeAmount = roundMoney(onlineCollected * fee.rate);
     const reserved = roundMoney(recordedAmount + requestedAmount);
     // Contribution amounts already exclude donor-paid transaction fees.
     const availableAmount = roundMoney(Math.max(0, collected - reserved));
@@ -70,6 +71,7 @@ export class FundSettlementService {
       onlineCollected,
       offlineCollected,
       feeAmount,
+      feePercent: fee.percent,
       reservedAmount: reserved,
       availableAmount,
     };

@@ -47,13 +47,30 @@ export function PaystackPaymentModal({
   const [amount, setAmount] = useState("");
   const [initializing, setInitializing] = useState(false);
   const [loadingMember, setLoadingMember] = useState(false);
+  const [feeRate, setFeeRate] = useState(0.02);
 
   const amountNum = parseFloat(amount);
   const feeBreakdown =
     !isNaN(amountNum) && amountNum > 0
-      ? calculatePaymentAmounts(amountNum)
+      ? calculatePaymentAmounts(amountNum, feeRate)
       : null;
   const currencySymbol = getCurrencyPrefix("GHS");
+
+  useEffect(() => {
+    if (!open || !accountId) return;
+    let cancelled = false;
+    paymentApi
+      .getFeeRate(accountId)
+      .then((fee) => {
+        if (!cancelled) setFeeRate(fee.rate);
+      })
+      .catch(() => {
+        if (!cancelled) setFeeRate(0.02);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId]);
 
   // Load member details when modal opens
   useEffect(() => {

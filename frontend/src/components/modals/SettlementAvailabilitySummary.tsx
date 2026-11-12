@@ -40,7 +40,10 @@ export function SettlementAvailabilitySummary({
       </div>
       {availability.feeAmount > 0 && (
         <div className="flex justify-between text-muted-foreground">
-          <span>Transaction fees (2%)</span>
+          <span>
+            Transaction fees
+            {availability.feePercent != null ? ` (${availability.feePercent}%)` : ""}
+          </span>
           <span>{formatAmount(availability.feeAmount)}</span>
         </div>
       )}

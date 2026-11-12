@@ -26,7 +26,24 @@ export interface VerifyPaymentResult {
   recording_error?: string;
 }
 
+export interface ResolvedFeeRate {
+  rate: number;
+  percent: number;
+  source: "account" | "global" | "default";
+  overrideRate: number | null;
+}
+
 export const paymentApi = {
+  async getFeeRate(accountId: string): Promise<ResolvedFeeRate> {
+    const response = await request<ResolvedFeeRate>(`/payments/fee-rate/${accountId}`, {
+      method: "GET",
+    });
+    if (!response.success || !response.data) {
+      throw new Error(response.error || "Failed to load fee rate");
+    }
+    return response.data;
+  },
+
   /**
    * Initialize Paystack payment
    */

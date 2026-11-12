@@ -523,6 +523,9 @@ export const adminService = {
     dateTo?: string;
     month?: string;
     years?: string;
+    accountId?: string;
+    channel?: string;
+    status?: string;
   }): Promise<PlatformReport> {
     const rawDuration = query.duration?.trim() || '30d';
     if (!isReportDuration(rawDuration)) {
@@ -533,6 +536,14 @@ export const adminService = {
     const bounds = resolveReportBounds(rawDuration, query.dateFrom, query.dateTo);
     const startIso = bounds.startDate ? `${bounds.startDate}T00:00:00.000Z` : null;
     const endIso = bounds.endDate ? `${bounds.endDate}T23:59:59.999Z` : null;
+    const accountId = query.accountId?.trim() || undefined;
+    const channel =
+      query.channel === 'online' || query.channel === 'offline' ? query.channel : undefined;
+    const status = query.status?.trim() || undefined;
+    const validStatuses = new Set(['pending', 'confirmed', 'failed', 'reversed']);
+    if (status && !validStatuses.has(status)) {
+      throw new ReportQueryError('Choose a supported contribution status');
+    }
 
     const [contributions, expenses, recordResult] = await Promise.all([
       fetchPages<ContributionAgg>((from, to) => {
@@ -544,6 +555,9 @@ export const adminService = {
           .range(from, to);
         if (startIso) request = request.gte('date_received', startIso);
         if (endIso) request = request.lte('date_received', endIso);
+        if (accountId) request = request.eq('account_id', accountId);
+        if (channel) request = request.eq('channel', channel);
+        if (status) request = request.eq('status', status);
         return request;
       }),
       fetchPages<{ amount: number | string; date: string }>((from, to) => {
@@ -555,6 +569,7 @@ export const adminService = {
           .range(from, to);
         if (bounds.startDate) request = request.gte('date', bounds.startDate);
         if (bounds.endDate) request = request.lte('date', bounds.endDate);
+        if (accountId) request = request.eq('account_id', accountId);
         return request;
       }),
       (async () => {
@@ -574,6 +589,9 @@ export const adminService = {
             .range(from, from + pageSize - 1);
           if (startIso) request = request.gte('date_received', startIso);
           if (endIso) request = request.lte('date_received', endIso);
+          if (accountId) request = request.eq('account_id', accountId);
+          if (channel) request = request.eq('channel', channel);
+          if (status) request = request.eq('status', status);
           const { data, error } = await request;
           if (error) throw new Error(error.message);
           const batch = data || [];
@@ -593,13 +611,16 @@ export const adminService = {
     const periodRows = contributions.filter((row) =>
       matchesReportPeriod(row.date_received, month, years)
     );
-    const confirmed = periodRows.filter((row) => row.status === 'confirmed');
+    // Money cards use confirmed rows unless a specific status filter is chosen.
+    const moneyRows = status
+      ? periodRows
+      : periodRows.filter((row) => row.status === 'confirmed');
     const accounts = new Set<string>();
     const funds = new Set<string>();
     let collected = 0;
     let online = 0;
     let manual = 0;
-    for (const row of confirmed) {
+    for (const row of moneyRows) {
       const amount = Number(row.amount);
       collected += amount;
       if (row.channel === 'online') online += amount;
@@ -607,9 +628,13 @@ export const adminService = {
       accounts.add(row.account_id);
       funds.add(row.fund_id);
     }
-    const expenseTotal = expenses
-      .filter((row) => matchesReportPeriod(row.date, month, years))
-      .reduce((sum, row) => sum + Number(row.amount), 0);
+    // Expenses are account/period scoped; hide when channel or status filters apply.
+    const expenseTotal =
+      channel || status
+        ? 0
+        : expenses
+            .filter((row) => matchesReportPeriod(row.date, month, years))
+            .reduce((sum, row) => sum + Number(row.amount), 0);
 
     let trendStart = bounds.startDate;
     let trendEnd = bounds.endDate;
@@ -642,7 +667,7 @@ export const adminService = {
         slot.key,
         { online: 0, manual: 0, label: slot.label },
       ]));
-      for (const row of confirmed) {
+      for (const row of moneyRows) {
         const key = trendKey(utcDay(row.date_received), grain);
         const bucket = buckets.get(key);
         if (!bucket) continue;
@@ -669,7 +694,7 @@ export const adminService = {
         collected,
         online,
         manual,
-        contributionCount: confirmed.length,
+        contributionCount: moneyRows.length,
         accountCount: accounts.size,
         fundCount: funds.size,
         expenses: expenseTotal,

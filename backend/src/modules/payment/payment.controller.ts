@@ -1,10 +1,27 @@
 import { Router, Request, Response } from 'express';
 import { sendSuccess, sendError, sendBadRequest } from '../../shared/utils/api-response.js';
 import { paymentService } from './payment.service.js';
+import { feeService } from './fee.service.js';
 import { paystackBankService } from './paystack-bank.service.js';
 import { auditService } from '../../shared/services/audit.service.js';
 
 export const paymentRoutes = Router();
+
+// Resolve the fee rate applied to an account (global default or override)
+// GET /api/v1/payments/fee-rate/:accountId
+paymentRoutes.get('/fee-rate/:accountId', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.params.accountId;
+    if (!accountId) {
+      return sendBadRequest(res, 'Account ID is required');
+    }
+    const fee = await feeService.resolveForAccount(accountId);
+    sendSuccess(res, fee);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to load fee rate';
+    sendBadRequest(res, message);
+  }
+});
 
 // Initialize Paystack payment
 // POST /api/v1/payments/initialize
