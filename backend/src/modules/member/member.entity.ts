@@ -31,7 +31,7 @@ export interface CreateMemberInput {
   isCollector?: boolean;
   /** When false, skip the welcome SMS. Omitted or true sends it. */
   send_welcome_sms?: boolean;
-  /** When true, an existing phone number keeps the member and takes this name. */
+  /** When true, an existing phone keeps the member. A membership ID is saved only if they do not already have one. */
   replace_existing_name?: boolean;
 }
 

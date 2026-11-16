@@ -208,7 +208,7 @@ memberRoutes.post('/bulk', async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       data: result,
-      message: `Imported ${result.created.length} member(s), updated ${result.updated.length} existing name(s)${result.failed.length ? `, ${result.failed.length} failed` : ''}`,
+      message: `Imported ${result.created.length} member(s), added ${result.updated.length} membership ID(s)${result.failed.length ? `, ${result.failed.length} failed` : ''}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to bulk import members';
@@ -313,14 +313,21 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
     
     console.log(`[Create Member] Base URL: ${baseUrl} (origin: ${req.headers.origin}, referer: ${req.headers.referer})`);
     
-    const { member, nameReplaced } = await memberService.importMember(input, baseUrl);
+    const { member, nameReplaced, membershipIdAssigned, membershipIdAlreadySet } =
+      await memberService.importMember(input, baseUrl);
     res.status(nameReplaced ? 200 : 201).json({
       success: true,
       data: member,
       name_replaced: nameReplaced,
-      message: nameReplaced
-        ? 'Existing member name updated to the official name'
-        : 'Member created successfully',
+      membership_id_assigned: membershipIdAssigned,
+      membership_id_already_set: membershipIdAlreadySet,
+      message: membershipIdAssigned
+        ? 'Membership ID added to the existing member'
+        : membershipIdAlreadySet
+          ? 'Existing member already has this membership ID'
+          : nameReplaced
+            ? 'Existing member left unchanged'
+            : 'Member created successfully',
     });
   } catch (error) {
     console.error('[Create Member] Error:', error);
@@ -340,15 +347,14 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
  */
 memberRoutes.put('/:id', async (req: Request, res: Response) => {
   try {
-    const input: UpdateMemberInput = {
-      full_name: req.body.full_name,
-      dob: req.body.dob,
-      phone: req.body.phone,
-      phone_verified: req.body.phone_verified,
-      email: req.body.email,
-      email_verified: req.body.email_verified,
-      membership_number: req.body.membership_number,
-    };
+    const input: UpdateMemberInput = {};
+    if (req.body.full_name !== undefined) input.full_name = req.body.full_name;
+    if (req.body.dob !== undefined) input.dob = req.body.dob;
+    if (req.body.phone !== undefined) input.phone = req.body.phone;
+    if (req.body.phone_verified !== undefined) input.phone_verified = req.body.phone_verified;
+    if (req.body.email !== undefined) input.email = req.body.email;
+    if (req.body.email_verified !== undefined) input.email_verified = req.body.email_verified;
+    if (req.body.membership_number !== undefined) input.membership_number = req.body.membership_number;
 
     const member = await memberService.updateMember(req.params.id, input);
 
