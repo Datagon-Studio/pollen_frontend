@@ -226,6 +226,7 @@ export function RecordSettlementModal({ open, onOpenChange, onSuccess }: RecordS
                 availability={availability}
                 loading={loadingAvailability}
                 currencyCode={currencyCode}
+                requestedAmount={Number(formData.amount) || 0}
                 onUseMax={() =>
                   availability &&
                   setFormData({ ...formData, amount: availability.availableAmount.toFixed(2) })

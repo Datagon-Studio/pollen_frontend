@@ -213,17 +213,6 @@ export function SettlementRequestModal({
             </Select>
           </div>
 
-          {fundId && (
-            <SettlementAvailabilitySummary
-              availability={availability}
-              loading={loadingAvailability}
-              currencyCode={currencyCode}
-              onUseMax={() =>
-                availability && setAmount(availability.availableAmount.toFixed(2))
-              }
-            />
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="request-amount">Requested amount</Label>
             <CurrencyInput
@@ -234,8 +223,21 @@ export function SettlementRequestModal({
               min="0.01"
               step="0.01"
               placeholder="0.00"
+              disabled={!fundId || availability?.availableAmount === 0}
             />
           </div>
+
+          {fundId && (
+            <SettlementAvailabilitySummary
+              availability={availability}
+              loading={loadingAvailability}
+              currencyCode={currencyCode}
+              requestedAmount={Number(amount) || 0}
+              onUseMax={() =>
+                availability && setAmount(availability.availableAmount.toFixed(2))
+              }
+            />
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="request-note">Note</Label>
