@@ -83,10 +83,13 @@ export default function ResetPassword() {
   }, []);
 
   useEffect(() => {
+    // token_hash links must be confirmed with Continue so an existing session
+    // cannot skip verifying the email token.
+    if (tokenHash) return;
     if (user) {
       setTokenReady(true);
     }
-  }, [user]);
+  }, [user, tokenHash]);
 
   /**
    * Verify hashed_token only when the user clicks Continue.
@@ -179,7 +182,8 @@ export default function ResetPassword() {
     );
   }
 
-  const canSetPassword = Boolean(user) || tokenReady;
+  // With a token_hash, require explicit Continue (tokenReady) even if a session already exists.
+  const canSetPassword = tokenHash ? tokenReady : Boolean(user) || tokenReady;
   const hasInviteToken = Boolean(tokenHash) && !canSetPassword;
 
   return (

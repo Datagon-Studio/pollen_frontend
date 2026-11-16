@@ -72,12 +72,17 @@ class PostmarkService {
       };
     }
 
+    const fromAddress = this.fromEmail.includes('<')
+      ? this.fromEmail
+      : `Pollean <${this.fromEmail}>`;
+
     const requestBody: Record<string, string> = {
-      From: this.fromEmail,
+      From: fromAddress,
       To: to,
       Subject: subject,
       HtmlBody: htmlBody,
       MessageStream: this.messageStream,
+      TrackLinks: 'None',
     };
 
     if (textBody) {
@@ -171,14 +176,19 @@ class PostmarkService {
       };
     }
 
+    const fromAddress = this.fromEmail.includes('<')
+      ? this.fromEmail
+      : `Pollean <${this.fromEmail}>`;
+
     const requestBody = emails.map(email => ({
-      From: this.fromEmail,
+      From: fromAddress,
       To: email.To,
       Subject: email.Subject,
       HtmlBody: email.HtmlBody,
       TextBody: email.TextBody || '',
       Tag: email.Tag || 'batch',
       MessageStream: this.messageStream,
+      TrackLinks: 'None',
     }));
 
     const endpoint = `${this.baseUrl}/email/batch`;

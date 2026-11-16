@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requestStaffPasswordReset } from './staff-password-reset.service.js';
+import { requestAppPasswordReset } from './app-password-reset.service.js';
 import {
   getAdminFrontendUrl,
   isAllowedAdminOrigin,
@@ -39,16 +40,25 @@ authRoutes.get('/admin-password-setup', (req, res) => {
   res.redirect(302, `${portalOrigin.replace(/\/$/, '')}/reset-password?${params.toString()}`);
 });
 
-/** Public. Staff password reset does not require a session. */
+function readEmailAndOrigin(req: { body?: unknown; headers: { origin?: string } }): {
+  email: string;
+  origin: string | null;
+} {
+  const body = (req.body || {}) as { email?: unknown; origin?: unknown };
+  const email = typeof body.email === 'string' ? body.email : '';
+  const origin =
+    typeof body.origin === 'string'
+      ? body.origin
+      : typeof req.headers.origin === 'string'
+        ? req.headers.origin
+        : null;
+  return { email, origin };
+}
+
+/** Public. Staff password reset for admin.pollean (no session required). */
 authRoutes.post('/forgot-password', async (req, res) => {
   try {
-    const email = typeof req.body?.email === 'string' ? req.body.email : '';
-    const origin =
-      typeof req.body?.origin === 'string'
-        ? req.body.origin
-        : typeof req.headers.origin === 'string'
-          ? req.headers.origin
-          : null;
+    const { email, origin } = readEmailAndOrigin(req);
     const result = await requestStaffPasswordReset(email, origin);
 
     if (!result.success) {
@@ -59,6 +69,27 @@ authRoutes.post('/forgot-password', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('[Staff password reset] Unexpected error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Could not send the reset email. Try again in a few minutes.',
+    });
+  }
+});
+
+/** Public. Group-app password reset for app.pollean (no session required). */
+authRoutes.post('/app-forgot-password', async (req, res) => {
+  try {
+    const { email, origin } = readEmailAndOrigin(req);
+    const result = await requestAppPasswordReset(email, origin);
+
+    if (!result.success) {
+      res.status(result.status).json({ success: false, error: result.error });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[App password reset] Unexpected error:', error);
     res.status(500).json({
       success: false,
       error: 'Could not send the reset email. Try again in a few minutes.',

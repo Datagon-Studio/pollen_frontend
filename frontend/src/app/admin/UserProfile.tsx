@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { userApi } from "@/services/user.api";
 import type { UserProfile } from "@/services/user.api";
 import { supabase } from "@/lib/supabase";
+import { request } from "@/services/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, Trash2, LogOut, KeyRound, Loader2, CheckCircle2, XCircle, Mail, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getAppUrl } from "@/lib/app-url";
 
 export default function UserProfile() {
   const { user, logout } = useAuth();
@@ -271,12 +271,16 @@ export default function UserProfile() {
 
     try {
       setResettingPassword(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${getAppUrl()}/reset-password`,
+      const response = await request("/auth/app-forgot-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: user.email,
+          origin: window.location.origin,
+        }),
       });
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || "Failed to send password reset email");
       }
 
       toast({

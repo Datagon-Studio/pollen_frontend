@@ -13,10 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
+import { request } from "@/services/api-client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { BrandSymbol } from "@/components/ui/brand";
-import { getAppUrl } from "@/lib/app-url";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -92,15 +92,16 @@ export default function SignIn() {
 
     try {
       setResettingPassword(true);
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo: `${getAppUrl()}/reset-password`,
-        },
-      );
+      const response = await request("/auth/app-forgot-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          origin: window.location.origin,
+        }),
+      });
 
-      if (resetError) {
-        throw resetError;
+      if (!response.success) {
+        throw new Error(response.error || "Failed to send password reset email");
       }
 
       toast({

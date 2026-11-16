@@ -20,6 +20,7 @@ import { accountRepository } from '../account/account.repository.js';
 import { supabase } from '../../shared/supabase/client.js';
 import { env } from '../../env.js';
 import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
+import { escapeHtml, renderBrandedEmail } from '../../shared/utils/email-html.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { bitlyService } from '../../shared/services/bitly.service.js';
 import crypto from 'crypto';
@@ -510,67 +511,24 @@ export class MemberService {
     ];
 
     const emailSubject = `Welcome to ${accountName} as a Collector`;
-    const emailBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to ${accountName}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #f8f9fa; padding: 20px; border-radius: 5px 5px 0 0; }
-          .content { background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; }
-          .footer { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; font-size: 12px; color: #666; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .button:hover { background-color: #0056b3; }
-          .roles { margin: 20px 0; padding-left: 20px; }
-          .roles li { margin: 8px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Welcome to ${accountName}!</h1>
-          </div>
-          <div class="content">
-            <p>Hello ${member.full_name},</p>
-            <p>You have been added to <strong>${accountName}</strong> as a collector.</p>
-            <p>Your role is to:</p>
-            <ul class="roles">
-              ${collectorRoles.map(role => `<li>${role}</li>`).join('')}
-            </ul>
-            <p>Click the button below to set a password for <strong>${member.email}</strong>, then sign in to access <strong>${accountName}</strong>.</p>
-            <a href="${resetLink}" class="button">Set Password & Login</a>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">${resetLink}</p>
-            <p><strong>This link expires in 1 hour</strong>. Open it, tap Continue, then set your password. If it no longer works, ask your admin to resend the invite.</p>
-          </div>
-          <div class="footer">
-            <p>If you didn't expect this email, please contact the administrator.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const plainText = `
-Hello ${member.full_name},
-
-You have been added to ${accountName} as a collector.
-
-Your role is to:
-${collectorRoles.map(role => `- ${role}`).join('\n')}
-
-Set a password for ${member.email}, then sign in to access ${accountName}.
-
-Reset Password Link: ${resetLink}
-
-This link expires in 1 hour. Open it, tap Continue, then set your password. If it no longer works, ask your admin to resend the invite.
-
-If you didn't expect this email, please contact the administrator.
-    `;
+    const rolesHtml = `<ul style="margin:0 0 16px;padding-left:20px;">${collectorRoles
+      .map((role) => `<li style="margin:6px 0;">${escapeHtml(role)}</li>`)
+      .join('')}</ul>`;
+    const { html: emailBody, text: plainText } = renderBrandedEmail({
+      preheader: `You've been added to ${accountName} as a collector.`,
+      title: `Welcome to ${accountName}`,
+      greeting: member.full_name || 'there',
+      paragraphs: [
+        `You have been added to <strong>${escapeHtml(accountName)}</strong> as a collector.`,
+        'Your role is to:',
+        rolesHtml,
+        `Click the button below to set a password for <strong>${escapeHtml(member.email || '')}</strong>, then sign in to access <strong>${escapeHtml(accountName)}</strong>.`,
+      ],
+      ctaLabel: 'Set password & sign in',
+      ctaUrl: resetLink,
+      footerNote:
+        'This link expires in 1 hour. Open it, tap Continue, then set your password. If it no longer works, ask your admin to resend the invite.',
+    });
 
     const result = await postmarkService.sendEmail(
       member.email,

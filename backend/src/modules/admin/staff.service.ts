@@ -11,6 +11,7 @@ import {
   buildAdminPasswordSetupLink,
   getAdminFrontendUrl,
 } from '../../shared/utils/frontend-url.js';
+import { escapeHtml, renderBrandedEmail } from '../../shared/utils/email-html.js';
 
 const STAFF_ROLES: StaffRole[] = ['superadmin', 'ops', 'support'];
 
@@ -50,14 +51,6 @@ export interface InviteStaffInput {
 
 function isStaffRole(value: string): value is StaffRole {
   return STAFF_ROLES.includes(value as StaffRole);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function roleLabel(role: StaffRole): string {
@@ -167,20 +160,19 @@ async function sendSetPasswordEmail(
   const resetLink = buildAdminPasswordSetupLink(hashedToken, 'recovery', portalOrigin);
   const name = fullName?.trim() || email;
   const subject = 'You are invited to the Pollean admin portal';
-  const text = [
-    `Hello ${name},`,
-    '',
-    `You have been invited to the Pollean admin portal as ${roleLabel(role)}.`,
-    'Set a password, then sign in.',
-    '',
-    resetLink,
-    '',
-    'This link expires in 1 hour. If it no longer works, ask a super admin to invite you again.',
-  ].join('\n');
-  const html = `<p>Hello ${escapeHtml(name)},</p>
-<p>You have been invited to the Pollean admin portal as <strong>${escapeHtml(roleLabel(role))}</strong>.</p>
-<p><a href="${escapeHtml(resetLink)}">Set your password</a>, then sign in.</p>
-<p>This link expires in 1 hour. If it no longer works, ask a super admin to invite you again.</p>`;
+  const { html, text } = renderBrandedEmail({
+    preheader: 'Set your password for the Pollean admin portal.',
+    title: 'Set your admin password',
+    greeting: name,
+    paragraphs: [
+      `You have been invited to the Pollean admin portal as <strong>${escapeHtml(roleLabel(role))}</strong>.`,
+      'Click the button below to set a password, then sign in. For your security, open the link and tap <strong>Continue</strong> before setting it.',
+    ],
+    ctaLabel: 'Set your password',
+    ctaUrl: resetLink,
+    footerNote:
+      'This link expires in 1 hour. If it no longer works, ask a super admin to invite you again.',
+  });
   const result = await postmarkService.sendEmail(email, subject, html, text, 'staff-invite');
   if (!result.success) {
     throw new StaffInviteError(
@@ -200,17 +192,18 @@ async function sendAccessEmail(
   const signIn = `${portal}/signin`;
   const name = fullName?.trim() || email;
   const subject = 'You now have Pollean admin portal access';
-  const text = [
-    `Hello ${name},`,
-    '',
-    `You can now sign in to the Pollean admin portal as ${roleLabel(role)}.`,
-    'Use the password you already have.',
-    '',
-    signIn,
-  ].join('\n');
-  const html = `<p>Hello ${escapeHtml(name)},</p>
-<p>You can now sign in to the Pollean admin portal as <strong>${escapeHtml(roleLabel(role))}</strong>. Use the password you already have.</p>
-<p><a href="${escapeHtml(signIn)}">Open the admin portal</a></p>`;
+  const { html, text } = renderBrandedEmail({
+    preheader: 'You can now sign in to the Pollean admin portal.',
+    title: 'Admin portal access',
+    greeting: name,
+    paragraphs: [
+      `You can now sign in to the Pollean admin portal as <strong>${escapeHtml(roleLabel(role))}</strong>.`,
+      'Use the password you already have.',
+    ],
+    ctaLabel: 'Open the admin portal',
+    ctaUrl: signIn,
+    footerNote: 'If you were not expecting this access, contact a super admin.',
+  });
   const result = await postmarkService.sendEmail(email, subject, html, text, 'staff-invite');
   if (!result.success) {
     throw new StaffInviteError(

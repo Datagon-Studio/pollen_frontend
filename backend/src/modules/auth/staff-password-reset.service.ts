@@ -5,6 +5,7 @@ import {
   buildAdminPasswordSetupLink,
   getAdminFrontendUrl,
 } from '../../shared/utils/frontend-url.js';
+import { renderBrandedEmail } from '../../shared/utils/email-html.js';
 
 const RESET_COOLDOWN_MS = 60_000;
 const recentResets = new Map<string, number>();
@@ -12,14 +13,6 @@ const recentResets = new Map<string, number>();
 export type StaffPasswordResetResult =
   | { success: true }
   | { success: false; status: number; error: string };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /**
  * Send a staff password-reset email through Postmark.
@@ -91,38 +84,27 @@ export async function requestStaffPasswordReset(
 
   const resetLink = buildAdminPasswordSetupLink(hashedToken, 'recovery', requestedOrigin);
   const name = profile.full_name?.trim() || 'there';
-  const safeName = escapeHtml(name);
-  const safeLink = escapeHtml(resetLink);
 
   const subject = 'Reset your Pollean admin password';
-  const htmlBody = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #2e2e2e; max-width: 560px;">
-      <h1 style="font-size: 20px;">Reset your password</h1>
-      <p>Hello ${safeName},</p>
-      <p>We received a request to reset the password for your Pollean system admin account.</p>
-      <p>
-        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #ffc15e; color: #2e2e2e; text-decoration: none; border-radius: 6px; font-weight: 600;">
-          Choose a new password
-        </a>
-      </p>
-      <p>Or copy this link into your browser:</p>
-      <p style="word-break: break-all;">${safeLink}</p>
-      <p>This link expires in 1 hour. Open it, choose Continue, then set your password. If you did not ask for this, you can ignore this email.</p>
-    </div>
-  `;
-  const textBody = `Hello ${name},
-
-We received a request to reset the password for your Pollean system admin account.
-
-Choose a new password: ${resetLink}
-
-This link expires in 1 hour. Open it, choose Continue, then set your password. If you did not ask for this, you can ignore this email.`;
+  const { html, text } = renderBrandedEmail({
+    preheader: 'Choose a new password for the Pollean admin portal.',
+    title: 'Reset your admin password',
+    greeting: name,
+    paragraphs: [
+      'We received a request to reset the password for your Pollean system admin account.',
+      'Click the button below to choose a new password. For your security, open the link and tap <strong>Continue</strong> before setting it.',
+    ],
+    ctaLabel: 'Choose a new password',
+    ctaUrl: resetLink,
+    footerNote:
+      'This link expires in 1 hour. If you did not ask for a password reset, you can ignore this email.',
+  });
 
   const sent = await postmarkService.sendEmail(
     profile.email || normalized,
     subject,
-    htmlBody,
-    textBody,
+    html,
+    text,
     'staff-password-reset'
   );
 
