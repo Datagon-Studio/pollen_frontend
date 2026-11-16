@@ -16,6 +16,8 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   ussd_code?: string;
   name_replaced?: boolean;
+  membership_id_assigned?: boolean;
+  membership_id_already_set?: boolean;
 }
 
 export async function request<T>(

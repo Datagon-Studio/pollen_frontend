@@ -117,30 +117,57 @@ export class MemberService {
   }
 
   /**
-   * Create a member, or replace the stored name when the phone already exists.
+   * Create a member, or attach a membership ID when the phone already exists.
+   * An existing name, phone, and membership ID are left unchanged.
    * Welcome SMS is sent only for newly created members.
    */
   async importMember(
     input: CreateMemberInput,
     baseUrl?: string
-  ): Promise<{ member: Member; nameReplaced: boolean }> {
+  ): Promise<{
+    member: Member;
+    nameReplaced: boolean;
+    membershipIdAssigned: boolean;
+    membershipIdAlreadySet: boolean;
+  }> {
     if (input.replace_existing_name && input.phone?.trim() && input.account_id) {
       const existing = await this.findExistingMemberByPhone(input.phone.trim(), input.account_id);
       if (existing) {
-        const officialName = input.full_name?.trim() ?? '';
-        if (!officialName) {
-          throw new Error('Full name is required');
+        const incomingId = input.membership_number?.trim() || '';
+        const currentId = existing.membership_number?.trim() || '';
+
+        if (!incomingId || currentId === incomingId) {
+          return {
+            member: existing,
+            nameReplaced: true,
+            membershipIdAssigned: false,
+            membershipIdAlreadySet: Boolean(currentId),
+          };
         }
-        if (existing.full_name.trim() === officialName) {
-          return { member: existing, nameReplaced: true };
+
+        if (currentId) {
+          throw new Error(`Member already has membership ID ${currentId}`);
         }
-        const member = await this.updateMember(existing.member_id, { full_name: officialName });
-        return { member, nameReplaced: true };
+
+        const member = await this.updateMember(existing.member_id, {
+          membership_number: incomingId,
+        });
+        return {
+          member,
+          nameReplaced: true,
+          membershipIdAssigned: true,
+          membershipIdAlreadySet: false,
+        };
       }
     }
 
     const member = await this.createMember({ ...input, replace_existing_name: false }, baseUrl);
-    return { member, nameReplaced: false };
+    return {
+      member,
+      nameReplaced: false,
+      membershipIdAssigned: false,
+      membershipIdAlreadySet: false,
+    };
   }
 
   private normalizeMemberPhone(phone: string): string {
@@ -683,7 +710,7 @@ If you didn't expect this email, please contact the administrator.
       }
 
       try {
-        const { member, nameReplaced } = await this.importMember({
+        const { member, nameReplaced, membershipIdAssigned } = await this.importMember({
           account_id: accountId,
           full_name: fullName,
           phone,
@@ -693,9 +720,9 @@ If you didn't expect this email, please contact the administrator.
           send_welcome_sms: options?.send_welcome_sms,
           replace_existing_name: true,
         }, options?.baseUrl);
-        if (nameReplaced) {
+        if (nameReplaced && membershipIdAssigned) {
           updated.push(member);
-        } else {
+        } else if (!nameReplaced) {
           created.push(member);
         }
         seenPhones.add(normalizedPhone);

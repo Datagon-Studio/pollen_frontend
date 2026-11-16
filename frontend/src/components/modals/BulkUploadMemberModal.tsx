@@ -35,11 +35,23 @@ interface ParsedRow {
   membership_number: string;
 }
 
+type UploadResult = BulkCreateMemberResult & { unchanged: Member[] };
+
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .trim()
     .toLowerCase()
     .replace(/[_\s]+/g, " ");
+}
+
+function normalizePhone(phone: string): string {
+  let normalized = phone.replace(/[\s\-+()]/g, "");
+  if (normalized.startsWith("00233") && normalized.length === 14) {
+    normalized = `0${normalized.substring(5)}`;
+  } else if (normalized.startsWith("233") && normalized.length === 12) {
+    normalized = `0${normalized.substring(3)}`;
+  }
+  return normalized;
 }
 
 function parseSpreadsheet(file: File): Promise<ParsedRow[]> {
@@ -147,13 +159,14 @@ export function BulkUploadMemberModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [result, setResult] = useState<BulkCreateMemberResult | null>(null);
+  const [result, setResult] = useState<UploadResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState({
     current: 0,
     total: 0,
     added: 0,
     updated: 0,
+    unchanged: 0,
     currentName: "",
   });
   const [sendWelcomeSms, setSendWelcomeSms] = useState(true);
@@ -163,7 +176,7 @@ export function BulkUploadMemberModal({
     setResult(null);
     setFileName(null);
     setUploading(false);
-    setImportProgress({ current: 0, total: 0, added: 0, updated: 0, currentName: "" });
+    setImportProgress({ current: 0, total: 0, added: 0, updated: 0, unchanged: 0, currentName: "" });
     setSendWelcomeSms(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -180,13 +193,27 @@ export function BulkUploadMemberModal({
   const importMembers = async (
     rows: ParsedRow[],
     shouldSendWelcomeSms: boolean
-  ): Promise<BulkCreateMemberResult> => {
+  ): Promise<UploadResult> => {
     if (!account?.account_id) {
       throw new Error("Account not found");
     }
 
+    const existingResponse = await memberApi.getByAccount(account.account_id);
+    if (!existingResponse.success || !existingResponse.data) {
+      throw new Error(existingResponse.error || "Failed to load members");
+    }
+
+    const membersByPhone = new Map<string, Member>();
+    for (const member of existingResponse.data) {
+      const key = normalizePhone(member.phone);
+      if (key && !membersByPhone.has(key)) {
+        membersByPhone.set(key, member);
+      }
+    }
+
     const created: Member[] = [];
     const updated: Member[] = [];
+    const unchanged: Member[] = [];
     const failed: BulkCreateMemberResult["failed"] = [];
     const seenPhones = new Set<string>();
     const seenMembershipNumbers = new Set<string>();
@@ -196,6 +223,7 @@ export function BulkUploadMemberModal({
       total: rows.length,
       added: 0,
       updated: 0,
+      unchanged: 0,
       currentName: rows[0]?.full_name ?? "",
     });
 
@@ -206,13 +234,14 @@ export function BulkUploadMemberModal({
         total: rows.length,
         added: created.length,
         updated: updated.length,
+        unchanged: unchanged.length,
         currentName: row.full_name || "Member",
       });
 
       const fullName = row.full_name.trim();
       const phone = row.phone.trim();
       const membershipNumber = row.membership_number.trim();
-      const normalizedPhone = phone.replace(/[\s\-+]/g, "");
+      const normalizedPhone = normalizePhone(phone);
 
       if (!fullName) {
         failed.push({
@@ -255,25 +284,53 @@ export function BulkUploadMemberModal({
       }
 
       try {
-        const response = await memberApi.create({
-          account_id: account.account_id,
-          full_name: fullName,
-          phone,
-          email: null,
-          dob: null,
-          membership_number: membershipNumber || null,
-          phone_verified: false,
-          email_verified: false,
-          send_welcome_sms: shouldSendWelcomeSms,
-          replace_existing_name: true,
-        });
+        const existing = membersByPhone.get(normalizedPhone);
+        let response;
 
-        if (response.success && response.data) {
-          if (response.name_replaced) {
-            updated.push(response.data);
-          } else {
-            created.push(response.data);
+        if (existing) {
+          const currentId = existing.membership_number?.trim() || "";
+          if (!membershipNumber || currentId === membershipNumber) {
+            unchanged.push(existing);
+            seenPhones.add(normalizedPhone);
+            if (membershipNumber) seenMembershipNumbers.add(membershipNumber);
+            continue;
           }
+          if (currentId) {
+            failed.push({
+              row: row.row,
+              full_name: fullName,
+              phone,
+              error: `Member already has membership ID ${currentId}`,
+            });
+            continue;
+          }
+
+          response = await memberApi.update(existing.member_id, {
+            membership_number: membershipNumber,
+          });
+          if (response.success && response.data) {
+            updated.push(response.data);
+            membersByPhone.set(normalizedPhone, response.data);
+          }
+        } else {
+          response = await memberApi.create({
+            account_id: account.account_id,
+            full_name: fullName,
+            phone,
+            email: null,
+            dob: null,
+            membership_number: membershipNumber || null,
+            phone_verified: false,
+            email_verified: false,
+            send_welcome_sms: shouldSendWelcomeSms,
+          });
+          if (response.success && response.data) {
+            created.push(response.data);
+            membersByPhone.set(normalizedPhone, response.data);
+          }
+        }
+
+        if (response?.success && response.data) {
           seenPhones.add(normalizedPhone);
           if (membershipNumber) {
             seenMembershipNumbers.add(membershipNumber);
@@ -283,14 +340,15 @@ export function BulkUploadMemberModal({
             total: rows.length,
             added: created.length,
             updated: updated.length,
+            unchanged: unchanged.length,
             currentName: row.full_name,
           });
-        } else {
+        } else if (response) {
           failed.push({
             row: row.row,
             full_name: fullName,
             phone,
-            error: response.error || "Failed to create member",
+            error: response.error || "Failed to save membership ID",
           });
         }
       } catch (error) {
@@ -303,7 +361,7 @@ export function BulkUploadMemberModal({
       }
     }
 
-    return { created, updated, failed };
+    return { created, updated, unchanged, failed };
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,7 +379,11 @@ export function BulkUploadMemberModal({
       const importResult = await importMembers(rows, sendWelcomeSms);
       setResult(importResult);
 
-      if (importResult.created.length > 0 || importResult.updated.length > 0) {
+      if (
+        importResult.created.length > 0 ||
+        importResult.updated.length > 0 ||
+        importResult.unchanged.length > 0
+      ) {
         onSuccess?.();
       }
 
@@ -332,18 +394,25 @@ export function BulkUploadMemberModal({
 
       const updatedNote =
         importResult.updated.length > 0
-          ? `, ${importResult.updated.length} existing name(s) replaced`
+          ? `, ${importResult.updated.length} membership ID(s) added`
+          : "";
+
+      const unchangedNote =
+        importResult.unchanged.length > 0
+          ? `, ${importResult.unchanged.length} already had an ID`
           : "";
 
       toast({
         title: "Import complete",
-        description: `${importResult.created.length} member(s) added${updatedNote}${
+        description: `${importResult.created.length} member(s) added${updatedNote}${unchangedNote}${
           importResult.failed.length
             ? `, ${importResult.failed.length} failed`
             : ""
         }.${welcomeNote}`,
         variant:
-          importResult.created.length === 0 && importResult.updated.length === 0
+          importResult.created.length === 0 &&
+          importResult.updated.length === 0 &&
+          importResult.unchanged.length === 0
             ? "destructive"
             : "default",
       });
@@ -367,11 +436,10 @@ export function BulkUploadMemberModal({
         <DialogHeader>
           <DialogTitle>Bulk Add Members</DialogTitle>
           <DialogDescription>
-            Upload an Excel or CSV file with <strong>Name</strong> and{" "}
-            <strong>Number</strong> columns. Add an <strong>ID</strong> column when
-            members have membership IDs. Rows without an ID are left blank. If a
-            phone number is already in Pollean, the name in the file replaces the
-            name on that member.
+            Upload an Excel or CSV file with <strong>Name</strong>, <strong>Phone</strong>,
+            and <strong>Membership #</strong>. If the phone is already in Pollean and
+            that member has no ID, the ID from the file is added. Name, phone, and
+            existing IDs stay as they are.
           </DialogDescription>
         </DialogHeader>
 
@@ -414,8 +482,8 @@ export function BulkUploadMemberModal({
                 <Loader2 className="h-8 w-8 animate-spin text-amber" />
                 <div className="text-center space-y-1">
                   <p className="text-sm font-medium text-foreground">
-                    {importProgress.added} added, {importProgress.updated} updated of{" "}
-                    {importProgress.total}
+                    {importProgress.added} added, {importProgress.updated} IDs added,{" "}
+                    {importProgress.unchanged} already had an ID of {importProgress.total}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Importing from {fileName}
@@ -438,7 +506,7 @@ export function BulkUploadMemberModal({
                   Click to upload Excel or CSV
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  .xlsx, .xls, or .csv with Name, Number, and optional ID
+                  .xlsx, .xls, or .csv with Name, Phone, and Membership #
                 </p>
               </div>
             )}
@@ -474,7 +542,18 @@ export function BulkUploadMemberModal({
                   <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
                   <div>
                     <p className="font-medium text-foreground">
-                      {result.updated.length} existing contact(s) updated to the official name
+                      {result.updated.length} membership ID(s) added
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {result.unchanged.length > 0 && (
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {result.unchanged.length} member(s) already had this ID
                     </p>
                   </div>
                 </div>
