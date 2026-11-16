@@ -54,6 +54,14 @@ function normalizePhone(phone: string): string {
   return normalized;
 }
 
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function oldestMember(members: Member[]): Member | undefined {
+  return [...members].sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+}
+
 function parseSpreadsheet(file: File): Promise<ParsedRow[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -203,13 +211,15 @@ export function BulkUploadMemberModal({
       throw new Error(existingResponse.error || "Failed to load members");
     }
 
-    const membersByPhone = new Map<string, Member>();
-    for (const member of existingResponse.data) {
-      const key = normalizePhone(member.phone);
-      if (key && !membersByPhone.has(key)) {
-        membersByPhone.set(key, member);
+    const members = existingResponse.data;
+    const replaceMember = (next: Member) => {
+      const index = members.findIndex((member) => member.member_id === next.member_id);
+      if (index >= 0) {
+        members[index] = next;
+      } else {
+        members.push(next);
       }
-    }
+    };
 
     const created: Member[] = [];
     const updated: Member[] = [];
@@ -284,7 +294,14 @@ export function BulkUploadMemberModal({
       }
 
       try {
-        const existing = membersByPhone.get(normalizedPhone);
+        const normalizedFullName = normalizeName(fullName);
+        const phoneMatches = members.filter(
+          (member) => normalizePhone(member.phone) === normalizedPhone
+        );
+        const nameMatches = members.filter(
+          (member) => normalizeName(member.full_name) === normalizedFullName
+        );
+        const existing = oldestMember(phoneMatches) ?? oldestMember(nameMatches);
         let response;
 
         if (existing) {
@@ -305,12 +322,42 @@ export function BulkUploadMemberModal({
             continue;
           }
 
+          const idHolder = members.find(
+            (member) =>
+              member.member_id !== existing.member_id &&
+              (member.membership_number?.trim() || "") === membershipNumber
+          );
+          if (idHolder) {
+            const cleared = await memberApi.update(idHolder.member_id, {
+              membership_number: null,
+            });
+            if (!cleared.success || cleared.data?.membership_number) {
+              failed.push({
+                row: row.row,
+                full_name: fullName,
+                phone,
+                error: cleared.error || "Could not move the existing membership ID",
+              });
+              continue;
+            }
+            idHolder.membership_number = null;
+          }
+
           response = await memberApi.update(existing.member_id, {
             membership_number: membershipNumber,
           });
-          if (response.success && response.data) {
+          const savedId = response.data?.membership_number?.trim() || "";
+          if (response.success && response.data && savedId === membershipNumber) {
             updated.push(response.data);
-            membersByPhone.set(normalizedPhone, response.data);
+            replaceMember(response.data);
+          } else {
+            failed.push({
+              row: row.row,
+              full_name: fullName,
+              phone,
+              error: response.error || "Membership ID was not saved",
+            });
+            continue;
           }
         } else {
           response = await memberApi.create({
@@ -324,33 +371,33 @@ export function BulkUploadMemberModal({
             email_verified: false,
             send_welcome_sms: shouldSendWelcomeSms,
           });
-          if (response.success && response.data) {
+          const savedId = response.data?.membership_number?.trim() || "";
+          if (response.success && response.data && (!membershipNumber || savedId === membershipNumber)) {
             created.push(response.data);
-            membersByPhone.set(normalizedPhone, response.data);
+            replaceMember(response.data);
+          } else {
+            failed.push({
+              row: row.row,
+              full_name: fullName,
+              phone,
+              error: response.error || "Membership ID was not saved",
+            });
+            continue;
           }
         }
 
-        if (response?.success && response.data) {
-          seenPhones.add(normalizedPhone);
-          if (membershipNumber) {
-            seenMembershipNumbers.add(membershipNumber);
-          }
-          setImportProgress({
-            current: index + 1,
-            total: rows.length,
-            added: created.length,
-            updated: updated.length,
-            unchanged: unchanged.length,
-            currentName: row.full_name,
-          });
-        } else if (response) {
-          failed.push({
-            row: row.row,
-            full_name: fullName,
-            phone,
-            error: response.error || "Failed to save membership ID",
-          });
+        seenPhones.add(normalizedPhone);
+        if (membershipNumber) {
+          seenMembershipNumbers.add(membershipNumber);
         }
+        setImportProgress({
+          current: index + 1,
+          total: rows.length,
+          added: created.length,
+          updated: updated.length,
+          unchanged: unchanged.length,
+          currentName: row.full_name,
+        });
       } catch (error) {
         failed.push({
           row: row.row,

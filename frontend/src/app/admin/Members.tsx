@@ -350,6 +350,9 @@ export default function Members() {
             </div>
             <div>
               <p className="font-medium text-foreground">{item.full_name}</p>
+              {item.membership_number ? (
+                <p className="text-xs text-muted-foreground">{item.membership_number}</p>
+              ) : null}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 {item.email ? (
                   <>
