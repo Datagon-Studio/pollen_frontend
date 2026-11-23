@@ -101,7 +101,8 @@ paymentRoutes.post('/webhook', async (req: Request, res: Response) => {
       return sendError(res, 'Missing signature', 401);
     }
 
-    const result = await paymentService.handleWebhook(req.body, hash);
+    const rawBody = (req as Request & { rawBody?: string }).rawBody;
+    const result = await paymentService.handleWebhook(req.body, hash, rawBody);
 
     if (!result.success) {
       return sendError(res, result.error || 'Webhook processing failed', 400);

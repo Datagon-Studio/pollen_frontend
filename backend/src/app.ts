@@ -37,8 +37,12 @@ const corsOptions =
       };
 app.use(cors(corsOptions));
 
-// Body parsing
-app.use(express.json());
+// Body parsing. Keep the raw body so Paystack webhook signatures can be checked.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as express.Request & { rawBody?: string }).rawBody = buf.toString('utf8');
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Debug middleware to log all incoming requests

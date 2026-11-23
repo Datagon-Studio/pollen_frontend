@@ -250,12 +250,21 @@ export class MemberService {
    */
   async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
-    const message = `Hi ${memberName}! Welcome to PollenHive, Your welfare and contributions platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
+    const message = `Hi ${memberName}! ${accountName} has invited you to Pollean, a welfare and contributions management platform.\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {
       throw new Error(result.error || 'Failed to send welcome SMS');
     }
+  }
+
+  /**
+   * SMS body for login and phone-verification codes.
+   * %otp_code% is filled in by Arkesel.
+   */
+  buildVerificationSms(memberName: string | null | undefined, accountName: string): string {
+    const name = memberName?.trim() || 'there';
+    return `Hi ${name}! See your login verification code below. Valid for %expiry% minutes.\n\n%otp_code%\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
   }
 
   /**

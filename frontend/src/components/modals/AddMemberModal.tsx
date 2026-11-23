@@ -328,7 +328,11 @@ export function AddMemberModal({ open, onOpenChange, onSuccess }: AddMemberModal
     
     setPhoneSending(true);
     try {
-      const response = await memberApi.sendPhoneVerificationOTP(formData.phone.trim(), account.account_id);
+      const response = await memberApi.sendPhoneVerificationOTP(
+        formData.phone.trim(),
+        account.account_id,
+        formData.fullName
+      );
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to send OTP');

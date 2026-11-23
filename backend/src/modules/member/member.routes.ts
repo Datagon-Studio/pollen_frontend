@@ -161,9 +161,10 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(member.full_name, accountName),
       5,
       6
     );
@@ -351,9 +352,13 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(
+        typeof req.body.fullName === 'string' ? req.body.fullName : req.body.name,
+        accountName
+      ),
       5,
       6
     );
@@ -922,9 +927,13 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, requireAccoun
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(
+        typeof req.body.fullName === 'string' ? req.body.fullName : req.body.name,
+        accountName
+      ),
       5,
       6
     );

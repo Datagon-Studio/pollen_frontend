@@ -56,7 +56,7 @@ class ArkeselService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sender: 'PollenHive',
+          sender: 'Pollean',
           message,
           recipients: [formattedPhone],
         }),
@@ -129,7 +129,7 @@ class ArkeselService {
     console.log('📱 [Arkesel] Formatted phone:', formattedPhone);
 
     // Default message template - Arkesel uses %otp_code% as placeholder
-    const defaultMessage = `Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.`;
+    const defaultMessage = `Hi there! See your login verification code below. Valid for %expiry% minutes.\n\n%otp_code%\n\nPowered by Pollean! Your welfare and contributions platform.`;
     const smsMessage = message || defaultMessage;
 
     // Ensure message contains %otp_code% placeholder (required by Arkesel)
@@ -142,7 +142,7 @@ class ArkeselService {
 
     const requestBody = {
       number: formattedPhone,
-      sender_id: 'PollenHive',
+      sender_id: 'Pollean',
       message: smsMessage,
       expiry: Math.min(Math.max(expiry, 1), 10), // Clamp between 1-10
       length: Math.min(Math.max(length, 6), 15), // Clamp between 6-15

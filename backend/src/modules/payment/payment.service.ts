@@ -288,7 +288,7 @@ export const paymentService = {
   /**
    * Handle Paystack webhook
    */
-  async handleWebhook(payload: any, signature: string): Promise<{
+  async handleWebhook(payload: any, signature: string, rawBody?: string): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -299,13 +299,23 @@ export const paymentService = {
       };
     }
     try {
-      // Verify webhook signature
+      // Paystack signs the original request body. Re-serializing the parsed JSON
+      // changes the bytes, so prefer the raw body when it is available.
+      const signedBody = rawBody && rawBody.length > 0 ? rawBody : JSON.stringify(payload);
       const hash = crypto
         .createHmac('sha512', PAYSTACK_SECRET_KEY)
-        .update(JSON.stringify(payload))
+        .update(signedBody)
         .digest('hex');
 
       if (hash !== signature) {
+        const reference = payload?.data?.reference ? String(payload.data.reference) : '';
+        if (payload?.event === 'charge.success' && reference) {
+          console.warn(`[Webhook] Signature mismatch for ${reference}. Confirming with Paystack before recording.`);
+          const verified = await this.verifyPayment(reference);
+          if (verified.success) {
+            return { success: true };
+          }
+        }
         return {
           success: false,
           error: 'Invalid signature',
