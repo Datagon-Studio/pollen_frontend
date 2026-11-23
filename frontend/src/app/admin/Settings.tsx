@@ -207,8 +207,6 @@ export default function Settings() {
         setLoading(true);
       }
       const accountData = await accountApi.getMyAccount();
-      console.log("Loaded account data:", accountData);
-      console.log("KYC Status:", accountData.kyc_status);
       setAccount(accountData);
       setAccountName(accountData.account_name || "");
       setLogoPreview(accountData.account_logo);
@@ -314,14 +312,11 @@ export default function Settings() {
 
     try {
       setLoadingBanks(true);
-      console.log("Loading banks from Paystack...");
       const banksList = await paystackBankApi.getBanks("GH");
-      console.log("Banks received:", banksList.length);
       const activeBanks = banksList.filter(
         (b) => b.active !== false && b.is_deleted !== true,
       );
       setBanks(activeBanks);
-      console.log("Active banks:", activeBanks.length);
 
       if (activeBanks.length === 0) {
         toast({
@@ -662,7 +657,6 @@ export default function Settings() {
         data: { publicUrl },
       } = supabase.storage.from("account-logos").getPublicUrl(fileName);
 
-      console.log("Logo uploaded successfully:", { fileName, publicUrl });
       return publicUrl;
     } catch (err) {
       console.error("Error uploading logo:", err);
@@ -867,15 +861,12 @@ export default function Settings() {
 
       const updatedKYC = await kycApi.submitKYC(input);
       setKyc(updatedKYC);
-      console.log("KYC submitted, updated KYC:", updatedKYC);
 
       // Reload account to get updated KYC status (skip loading state to avoid UI flicker)
       await loadAccount(true);
 
       // Double-check by fetching account directly
       const refreshedAccount = await accountApi.getMyAccount();
-      console.log("Refreshed account after submission:", refreshedAccount);
-      console.log("Account KYC status:", refreshedAccount.kyc_status);
       setAccount(refreshedAccount);
 
       // Clear file inputs
@@ -1003,17 +994,10 @@ export default function Settings() {
       const updatedAccountName =
         accountName.trim() === "" ? null : accountName.trim();
 
-      console.log("Saving account with:", {
-        account_name: updatedAccountName,
-        account_logo: logoUrl,
-      });
-
       const updatedAccount = await accountApi.updateMyAccount({
         account_name: updatedAccountName,
         account_logo: logoUrl,
       });
-
-      console.log("Account updated successfully:", updatedAccount);
 
       // Update local state with the response
       setAccount(updatedAccount);

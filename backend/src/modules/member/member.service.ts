@@ -299,7 +299,6 @@ export class MemberService {
     let userId = await this.findAuthUserIdByEmail(email);
 
     if (!userId) {
-      console.log(`[Create Collector] Creating new auth user for ${email}`);
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -317,7 +316,6 @@ export class MemberService {
           createError.message?.toLowerCase().includes('email_exists');
 
         if (alreadyExists) {
-          console.log(`[Create Collector] Auth reports existing user for ${email}, resolving via Auth API`);
           userId = await this.findAuthUserIdByEmail(email);
           if (!userId) {
             throw new Error(
@@ -353,10 +351,8 @@ export class MemberService {
     }
 
     if (!existingLink) {
-      console.log(`[Create Collector] Linking user ${userId} to account ${accountId}`);
       await accountRepository.linkUserToAccount(userId, accountId, 'officer');
     } else {
-      console.log(`[Create Collector] User ${userId} already linked to account ${accountId}`);
     }
 
     await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
@@ -512,7 +508,6 @@ export class MemberService {
 
     const frontendUrl = getFrontendUrl(baseUrl);
     const email = member.email.toLowerCase().trim();
-    console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
     // Generate recovery token once, then link to OUR app with hashed_token.
     // Do not email Supabase's action_link (auth/v1/verify...) — email security scanners

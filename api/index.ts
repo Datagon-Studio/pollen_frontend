@@ -61,8 +61,6 @@ export default async function handler(req: any, res: any) {
 
   req.url = `${url.pathname}${url.search}`;
 
-  console.log('🚀 /api handler:', { incoming: incomingUrl, rewritten: req.url, method: req.method });
-
   try {
     const app = await loadApp();
     return app(req, res);

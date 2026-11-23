@@ -51,7 +51,6 @@ export const paystackBankService = {
     try {
       // Paystack API expects lowercase country name, not country code
       const countryName = country === 'GH' ? 'ghana' : 'nigeria';
-      console.log('Calling Paystack API for banks, country:', countryName, options);
 
       const params: Record<string, string> = { country: countryName };
       if (options?.type) params.type = options.type;
@@ -63,24 +62,9 @@ export const paystackBankService = {
           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
         },
       });
-      
-      console.log('Paystack API response:', {
-        status: response.data.status,
-        dataLength: response.data.data?.length,
-        message: response.data.message,
-      });
-
-      console.log('Paystack API response status:', response.data.status);
-      console.log('Paystack API response data length:', response.data.data?.length);
-      
-      // Log first bank structure if available
-      if (response.data.data && response.data.data.length > 0) {
-        console.log('Sample bank structure:', JSON.stringify(response.data.data[0], null, 2));
-      }
 
       if (response.data.status && response.data.data) {
         const allBanks = response.data.data;
-        console.log('Total banks from Paystack:', allBanks.length);
         
         // Return all banks - Paystack already filters by country
         return allBanks;

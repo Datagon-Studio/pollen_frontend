@@ -284,18 +284,10 @@ export default function PublicGroupPage() {
         localStorage.removeItem("payment_completed_reload");
         // Wait a bit longer for webhook to process, then reload
         setTimeout(async () => {
-          console.log(
-            "[PublicGroupPage] Reloading contributions after payment, memberId:",
-            memberId,
-          );
           await loadMemberData(memberId);
           await reloadFundStats();
         }, 2000);
       } else {
-        console.log(
-          "[PublicGroupPage] Reloading contributions for tab switch, memberId:",
-          memberId,
-        );
         loadMemberData(memberId);
       }
     }
@@ -313,7 +305,6 @@ export default function PublicGroupPage() {
     if (!accountId) return;
     try {
       setLoading(true);
-      console.log("[PublicGroupPage] Loading group:", accountId);
 
       // Parallelize data loading for better performance
       const [
@@ -385,36 +376,6 @@ export default function PublicGroupPage() {
         setFundStats(statsMap);
 
         // Debug: Log fund_goal values
-        console.log(
-          "Public funds loaded with fund_goal values:",
-          funds.map((f) => {
-            const goalValue = f.fund_goal;
-            let numericValue = null;
-            if (goalValue != null) {
-              if (typeof goalValue === "number") {
-                numericValue = goalValue;
-              } else if (typeof goalValue === "string") {
-                numericValue = parseFloat(goalValue);
-              } else if (typeof goalValue === "object" && goalValue !== null) {
-                // Handle Decimal/object types - try to extract numeric value
-                const obj = goalValue as { valueOf?: () => unknown };
-                numericValue = obj.valueOf
-                  ? Number(obj.valueOf())
-                  : Number(goalValue);
-              }
-            }
-            return {
-              name: f.fund_name,
-              fund_goal: goalValue,
-              fund_goal_type: typeof goalValue,
-              fund_goal_value: numericValue,
-              hasGoal:
-                goalValue != null &&
-                numericValue != null &&
-                !isNaN(numericValue),
-            };
-          }),
-        );
       } else {
         console.error("Failed to load funds:", fundsResult.reason);
       }
@@ -458,29 +419,10 @@ export default function PublicGroupPage() {
 
   const loadMemberData = async (memberId: string) => {
     try {
-      console.log(
-        "[PublicGroupPage] Loading contributions for member:",
-        memberId,
-      );
       const contributionsData = await contributionApi.getByMember(memberId);
-      console.log("[PublicGroupPage] Contributions API response:", {
-        success: contributionsData.success,
-        dataLength: contributionsData.data?.length || 0,
-        error: contributionsData.error,
-        sampleData: contributionsData.data?.[0] || null,
-      });
       if (contributionsData.success && contributionsData.data) {
-        console.log(
-          "[PublicGroupPage] Setting contributions:",
-          contributionsData.data.length,
-          "contributions",
-        );
         setContributions(contributionsData.data);
       } else {
-        console.log(
-          "[PublicGroupPage] No contributions found or error:",
-          contributionsData.error,
-        );
         setContributions([]);
       }
     } catch (error) {
@@ -493,7 +435,6 @@ export default function PublicGroupPage() {
     if (!publicFunds.length) return;
 
     try {
-      console.log("[PublicGroupPage] Reloading fund stats");
       const statsMap: Record<
         string,
         { totalCollected: number; contributorCount: number }
@@ -1326,14 +1267,6 @@ export default function PublicGroupPage() {
 
                     // Debug log for fund calculation
                     if (f.fund_goal != null) {
-                      console.log(`[Fund Calculation] ${f.fund_name}:`, {
-                        fund_goal_raw: f.fund_goal,
-                        fund_goal_type: typeof f.fund_goal,
-                        fund_goal_extracted: fundGoal,
-                        totalCollected: stats.totalCollected,
-                        hasGoal:
-                          fundGoal != null && !isNaN(fundGoal) && fundGoal > 0,
-                      });
                     }
 
                     const hasGoal =

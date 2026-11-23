@@ -40,8 +40,6 @@ export const paystackBankApi = {
         method: 'GET',
       });
 
-      console.log('Paystack banks API response:', response);
-
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch banks');
       }

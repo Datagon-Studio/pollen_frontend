@@ -162,7 +162,6 @@ Thank you for using Pollean!
       );
 
     await Promise.allSettled(emailPromises);
-    console.log(`📧 [Contribution] Sent confirmation email notifications to ${admins.filter(a => a.email).length} admin(s)`);
   } catch (error) {
     // Don't fail contribution confirmation if email fails
     console.error('Error sending contribution confirmation emails:', error);
@@ -189,9 +188,6 @@ async function sendContributionConfirmationSMS(
 
     const phone = member?.phone?.trim() || smsRecipient?.phone?.trim();
     if (!phone) {
-      console.log(
-        `[Contribution] Skipping confirmation SMS for contribution ${contribution.contribution_id}: no phone on file`
-      );
       return;
     }
 
@@ -238,7 +234,6 @@ async function sendContributionConfirmationSMS(
       return;
     }
 
-    console.log(`📱 [Contribution] Sent confirmation SMS to contributor (${phone})`);
   } catch (error) {
     console.error('Error sending contribution confirmation SMS:', error);
   }

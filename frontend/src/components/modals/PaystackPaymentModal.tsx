@@ -94,9 +94,8 @@ export function PaystackPaymentModal({
               setEmail(response.data.email);
             }
           })
-          .catch((error) => {
-            // Silently fail - email will remain empty and user can fill it manually
-            console.log("Could not fetch member email (may require authentication):", error);
+          .catch(() => {
+            // Email stays empty so the user can fill it in
           })
           .finally(() => {
             setLoadingMember(false);
