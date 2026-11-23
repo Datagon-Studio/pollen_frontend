@@ -1052,7 +1052,16 @@ export default function PublicSettings() {
                   )}
 
                 <p className="text-xs opacity-60" style={{ color: previewTextColor }}>
-                  Powered by Pollean
+                  Powered by{" "}
+                  <a
+                    href="https://pollean.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:opacity-100"
+                    style={{ color: previewTextColor }}
+                  >
+                    Pollean
+                  </a>
                 </p>
               </div>
             </div>

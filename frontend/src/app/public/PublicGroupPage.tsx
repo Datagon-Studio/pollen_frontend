@@ -1647,7 +1647,16 @@ export default function PublicGroupPage() {
           className="text-center text-xs opacity-60 mt-8"
           style={{ color: foregroundColor }}
         >
-          Powered by Pollean
+          Powered by{" "}
+          <a
+            href="https://pollean.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:opacity-100"
+            style={{ color: foregroundColor }}
+          >
+            Pollean
+          </a>
         </p>
       </div>
 
