@@ -142,6 +142,7 @@ class ArkeselService {
 
     const requestBody = {
       number: formattedPhone,
+      phone_number: formattedPhone,
       sender_id: 'Pollean',
       message: smsMessage,
       expiry: Math.min(Math.max(expiry, 1), 10), // Clamp between 1-10
@@ -242,6 +243,7 @@ class ArkeselService {
 
     const requestBody = {
       number: formattedPhone,
+      phone_number: formattedPhone,
       code: code,
     };
 
