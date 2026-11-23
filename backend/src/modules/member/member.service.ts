@@ -263,8 +263,19 @@ export class MemberService {
    * %otp_code% is filled in by Arkesel.
    */
   buildVerificationSms(memberName: string | null | undefined, accountName: string): string {
-    const name = memberName?.trim() || 'there';
-    return `Hi ${name}! See your login verification code below. Valid for %expiry% minutes.\n\n%otp_code%\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
+    const name = (memberName?.trim() || 'there').replace(/\s+/g, ' ');
+    const account = (accountName || '').replace(/\s+/g, ' ').trim();
+    const limit = 145;
+    const build = (n: string, a: string) =>
+      a
+        ? `Hi ${n}! See your login code below. Valid for %expiry% min.\n%otp_code%\n~ ${a}\nPowered by Pollean`
+        : `Hi ${n}! See your login code below. Valid for %expiry% min.\n%otp_code%\nPowered by Pollean`;
+
+    if (build(name, account).length <= limit) return build(name, account);
+    if (build(name, '').length <= limit) return build(name, '');
+
+    const room = limit - build('', '').length;
+    return build(name.slice(0, Math.max(1, room)).trim(), '');
   }
 
   /**

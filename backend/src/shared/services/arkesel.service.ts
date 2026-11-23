@@ -129,7 +129,7 @@ class ArkeselService {
     console.log('📱 [Arkesel] Formatted phone:', formattedPhone);
 
     // Default message template - Arkesel uses %otp_code% as placeholder
-    const defaultMessage = `Hi there! See your login verification code below. Valid for %expiry% minutes.\n\n%otp_code%\n\nPowered by Pollean! Your welfare and contributions platform.`;
+    const defaultMessage = `Hi there! See your login code below. Valid for %expiry% min.\n%otp_code%\nPowered by Pollean`;
     const smsMessage = message || defaultMessage;
 
     // Ensure message contains %otp_code% placeholder (required by Arkesel)
@@ -205,7 +205,7 @@ class ArkeselService {
         '1011': 'Internal error',
       };
 
-      const errorMessage = errorMessages[data.code] || data.message || `Failed to send OTP (code: ${data.code})`;
+      const errorMessage = data.message || errorMessages[data.code] || `Failed to send OTP (code: ${data.code})`;
       console.error('Arkesel OTP Error:', errorMessage, 'Response:', data);
       
       return {
