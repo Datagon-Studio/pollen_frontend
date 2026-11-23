@@ -1055,49 +1055,50 @@ export default function PublicGroupPage() {
           </Button>
         </div>
 
-        {/* Header — stacks on narrow screens so title never fights the logo */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6 mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 sm:block flex-shrink-0">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4 mb-4">
             {account?.account_logo ? (
               <img
                 src={account.account_logo}
                 alt={account.account_name || "Logo"}
-                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl object-cover shadow-lg border-2"
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-xl object-cover shadow-lg border-2 shrink-0"
                 style={{ borderColor: foregroundColor + "20" }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
               <div
-                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card"
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card shrink-0"
                 style={{
                   borderColor: foregroundColor + "20",
                 }}
               >
-                <BrandSymbol className="h-7 w-7 sm:h-10 sm:w-10" alt="Pollean" />
+                <BrandSymbol className="h-6 w-6 sm:h-8 sm:w-8" alt="Pollean" />
               </div>
             )}
-            {/* Mobile: group name sits beside logo for a compact first row */}
             <h1
-              className="text-xl font-bold leading-tight break-words sm:hidden min-w-0 flex-1"
+              className="text-xl sm:text-3xl font-bold leading-tight break-words min-w-0"
               style={{ color: foregroundColor }}
             >
               {account?.account_name || "Community Group"}
             </h1>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h1
-              className="hidden sm:block text-3xl font-bold mb-2 break-words"
-              style={{ color: foregroundColor }}
+          {isVerified && memberName ? (
+            <div
+              className="relative rounded-2xl border bg-card px-4 py-4 sm:px-5"
+              style={{ borderColor: foregroundColor + "22" }}
             >
-              {account?.account_name || "Community Group"}
-            </h1>
-            {isVerified && memberName ? (
-              <div
-                className="rounded-2xl border bg-card px-4 py-4 sm:px-5 mb-4"
-                style={{ borderColor: foregroundColor + "22" }}
+              <Button
+                onClick={handleLogout}
+                size="sm"
+                variant="outline"
+                className="absolute top-3 right-3 h-9 px-3"
               >
+                <LogOut className="h-4 w-4 mr-1.5" />
+                Leave
+              </Button>
+              <div className="pr-[5.5rem] sm:pr-28">
                 <p
                   className="text-[11px] font-semibold tracking-wider uppercase opacity-60"
                   style={{ color: foregroundColor }}
@@ -1105,7 +1106,7 @@ export default function PublicGroupPage() {
                   Name
                 </p>
                 <p
-                  className="text-lg font-semibold leading-tight mt-0.5"
+                  className="text-base sm:text-lg font-semibold leading-tight mt-0.5 break-words"
                   style={{ color: foregroundColor }}
                 >
                   {memberName}
@@ -1117,55 +1118,41 @@ export default function PublicGroupPage() {
                   Member ID
                 </p>
                 <p
-                  className="text-base font-medium mt-0.5"
+                  className="text-sm sm:text-base font-medium mt-0.5 break-all"
                   style={{ color: foregroundColor }}
                 >
                   {membershipNumber || "—"}
                 </p>
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <p
-                    className="text-sm opacity-80"
-                    style={{ color: foregroundColor }}
-                  >
-                    {formatMemberPhone(phone)}
-                  </p>
-                  <span
-                    className={cn(
-                      "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
-                      memberActive
-                        ? isDark
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-emerald-500/15 text-emerald-700"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {memberActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
               </div>
-            ) : (
-              <p
-                className="text-sm sm:text-base opacity-80 mb-4 leading-relaxed"
-                style={{ color: foregroundColor }}
-              >
-                Support our community by contributing to our active funds
-              </p>
-            )}
-
-            {isVerified && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
-                <Button
-                  onClick={handleLogout}
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto min-h-11"
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p
+                  className="text-sm opacity-80 break-all"
+                  style={{ color: foregroundColor }}
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Leave
-                </Button>
+                  {formatMemberPhone(phone)}
+                </p>
+                <span
+                  className={cn(
+                    "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
+                    memberActive
+                      ? isDark
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : "bg-emerald-500/15 text-emerald-700"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {memberActive ? "Active" : "Inactive"}
+                </span>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <p
+              className="text-sm sm:text-base opacity-80 leading-relaxed"
+              style={{ color: foregroundColor }}
+            >
+              Support our community by contributing to our active funds
+            </p>
+          )}
         </div>
 
         {/* Tabs — equal grid, compact labels on phone */}
