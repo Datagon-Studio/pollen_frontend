@@ -266,6 +266,7 @@ export default function JoinGroupPage() {
       const response = await memberApi.sendRegistrationOTP(
         formData.phone.trim(),
         accountId,
+        formData.fullName,
       );
 
       if (!response.success) {

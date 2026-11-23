@@ -141,8 +141,8 @@ export const memberApi = {
   /**
    * Send OTP for phone verification during member creation (admin only)
    */
-  async sendPhoneVerificationOTP(phone: string, accountId: string) {
-    return apiClient.post('/members/verify-phone/send', { phone, accountId });
+  async sendPhoneVerificationOTP(phone: string, accountId: string, fullName?: string) {
+    return apiClient.post('/members/verify-phone/send', { phone, accountId, fullName });
   },
 
   /**
@@ -155,8 +155,8 @@ export const memberApi = {
   /**
    * Send OTP for new member registration (public - for join page)
    */
-  async sendRegistrationOTP(phone: string, accountId: string) {
-    return apiClient.post('/members/register-otp/send', { phone, accountId });
+  async sendRegistrationOTP(phone: string, accountId: string, fullName?: string) {
+    return apiClient.post('/members/register-otp/send', { phone, accountId, fullName });
   },
 
   /**
