@@ -262,20 +262,19 @@ export class MemberService {
    * SMS body for login and phone-verification codes.
    * %otp_code% is filled in by Arkesel.
    */
-  buildVerificationSms(memberName: string | null | undefined, accountName: string): string {
-    const name = (memberName?.trim() || 'there').replace(/\s+/g, ' ');
+  buildVerificationSms(_memberName: string | null | undefined, accountName: string): string {
     const account = (accountName || '').replace(/\s+/g, ' ').trim();
     const limit = 145;
-    const build = (n: string, a: string) =>
+    const build = (a: string) =>
       a
-        ? `Hi ${n}! See your login code below. Valid for %expiry% min.\n%otp_code%\n~ ${a}\nPowered by Pollean`
-        : `Hi ${n}! See your login code below. Valid for %expiry% min.\n%otp_code%\nPowered by Pollean`;
+        ? `Hi, your login code is %otp_code%. Valid for %expiry% mins.\n~${a}\nPowered by Pollean!`
+        : `Hi, your login code is %otp_code%. Valid for %expiry% mins.\nPowered by Pollean!`;
 
-    if (build(name, account).length <= limit) return build(name, account);
-    if (build(name, '').length <= limit) return build(name, '');
+    if (build(account).length <= limit) return build(account);
 
-    const room = limit - build('', '').length;
-    return build(name.slice(0, Math.max(1, room)).trim(), '');
+    const room = limit - build('').length - '\n~'.length;
+    const trimmed = account.slice(0, Math.max(1, room)).trim();
+    return build(trimmed);
   }
 
   /**

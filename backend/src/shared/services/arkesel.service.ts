@@ -129,7 +129,7 @@ class ArkeselService {
     console.log('📱 [Arkesel] Formatted phone:', formattedPhone);
 
     // Default message template - Arkesel uses %otp_code% as placeholder
-    const defaultMessage = `Hi there! See your login code below. Valid for %expiry% min.\n%otp_code%\nPowered by Pollean`;
+    const defaultMessage = `Hi, your login code is %otp_code%. Valid for %expiry% mins.\nPowered by Pollean!`;
     const smsMessage = message || defaultMessage;
 
     // Ensure message contains %otp_code% placeholder (required by Arkesel)
