@@ -1425,7 +1425,7 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full h-10 sm:min-h-11 relative font-normal justify-start pl-9 px-2 sm:px-3",
+                            "w-full h-10 sm:min-h-11 font-normal justify-start gap-1.5 px-2.5 sm:px-3 min-w-0",
                             !contributionStartDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1433,7 +1433,7 @@ export default function PublicGroupPage() {
                             color: foregroundColor,
                           }}
                         >
-                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4 shrink-0" />
                           <span className="truncate">
                             {contributionStartDate
                               ? format(contributionStartDate, "MMM d, yyyy")
@@ -1461,7 +1461,7 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full h-10 sm:min-h-11 relative font-normal justify-start pl-9 px-2 sm:px-3",
+                            "w-full h-10 sm:min-h-11 font-normal justify-start gap-1.5 px-2.5 sm:px-3 min-w-0",
                             !contributionEndDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1469,7 +1469,7 @@ export default function PublicGroupPage() {
                             color: foregroundColor,
                           }}
                         >
-                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4 shrink-0" />
                           <span className="truncate">
                             {contributionEndDate
                               ? format(contributionEndDate, "MMM d, yyyy")
