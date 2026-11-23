@@ -1111,26 +1111,38 @@ export default function PublicGroupPage() {
                 >
                   {memberName}
                 </p>
-                <p
-                  className="text-[11px] font-semibold tracking-wider uppercase opacity-60 mt-4"
-                  style={{ color: foregroundColor }}
-                >
-                  Member ID
-                </p>
-                <p
-                  className="text-sm sm:text-base font-medium mt-0.5 break-all"
-                  style={{ color: foregroundColor }}
-                >
-                  {membershipNumber || "—"}
-                </p>
+                {membershipNumber?.trim() ? (
+                  <>
+                    <p
+                      className="text-[11px] font-semibold tracking-wider uppercase opacity-60 mt-4"
+                      style={{ color: foregroundColor }}
+                    >
+                      Member ID
+                    </p>
+                    <p
+                      className="text-sm sm:text-base font-medium mt-0.5 break-all"
+                      style={{ color: foregroundColor }}
+                    >
+                      {membershipNumber}
+                    </p>
+                  </>
+                ) : null}
               </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p
-                  className="text-sm opacity-80 break-all"
-                  style={{ color: foregroundColor }}
-                >
-                  {formatMemberPhone(phone)}
-                </p>
+              <div className="mt-4 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p
+                    className="text-[11px] font-semibold tracking-wider uppercase opacity-60"
+                    style={{ color: foregroundColor }}
+                  >
+                    Phone
+                  </p>
+                  <p
+                    className="text-sm sm:text-base font-medium mt-0.5 break-all"
+                    style={{ color: foregroundColor }}
+                  >
+                    {formatMemberPhone(phone)}
+                  </p>
+                </div>
                 <span
                   className={cn(
                     "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
@@ -1350,14 +1362,14 @@ export default function PublicGroupPage() {
             ) : (
               <div className="space-y-4">
                 {/* Filters — stack on phone so controls stay full-width and tappable */}
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search contributions..."
                       value={contributionSearch}
                       onChange={(e) => setContributionSearch(e.target.value)}
-                      className="pl-9 min-h-11 text-base sm:text-sm"
+                      className="pl-9 h-10 sm:min-h-11 text-base sm:text-sm"
                       style={{
                         backgroundColor: backgroundColor,
                         color: foregroundColor,
@@ -1365,17 +1377,17 @@ export default function PublicGroupPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <Select
                       value={contributionFundFilter}
                       onValueChange={setContributionFundFilter}
                     >
                       <SelectTrigger
-                        className="w-full min-h-11"
+                        className="w-full h-10 sm:min-h-11 min-w-0 px-2 sm:px-3"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2 shrink-0" />
-                        <SelectValue placeholder="Filter by fund" />
+                        <Filter className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                        <SelectValue placeholder="Fund" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="all">All Funds</SelectItem>
@@ -1391,11 +1403,11 @@ export default function PublicGroupPage() {
                       onValueChange={setContributionStatusFilter}
                     >
                       <SelectTrigger
-                        className="w-full min-h-11"
+                        className="w-full h-10 sm:min-h-11 min-w-0 px-2 sm:px-3"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2 shrink-0" />
-                        <SelectValue placeholder="Filter by status" />
+                        <Filter className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                        <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="all">All Status</SelectItem>
@@ -1406,14 +1418,14 @@ export default function PublicGroupPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full min-h-11 relative font-normal justify-start pl-10",
+                            "w-full h-10 sm:min-h-11 relative font-normal justify-start pl-9 px-2 sm:px-3",
                             !contributionStartDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1449,7 +1461,7 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full min-h-11 relative font-normal justify-start pl-10",
+                            "w-full h-10 sm:min-h-11 relative font-normal justify-start pl-9 px-2 sm:px-3",
                             !contributionEndDate && "text-muted-foreground",
                           )}
                           style={{
