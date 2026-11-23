@@ -74,6 +74,13 @@ const categoryColors: Record<string, string> = {
 const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const SESSION_STORAGE_KEY = "public_group_session";
 
+function formatMemberPhone(phone: string): string {
+  const digits = phone.replace(/[^\d]/g, "");
+  if (digits.startsWith("233") && digits.length === 12) return `+${digits}`;
+  if (digits.startsWith("0") && digits.length === 10) return `+233${digits.slice(1)}`;
+  return phone;
+}
+
 export default function PublicGroupPage() {
   const { accountId: pathAccountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -124,6 +131,8 @@ export default function PublicGroupPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState<string | null>(null);
+  const [membershipNumber, setMembershipNumber] = useState<string | null>(null);
+  const [memberActive, setMemberActive] = useState(true);
 
   // Contribution/Payment states
   const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
@@ -131,11 +140,19 @@ export default function PublicGroupPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Session management
-  const saveSession = (memberId: string, memberName: string, phone: string) => {
+  const saveSession = (
+    memberId: string,
+    memberName: string,
+    phone: string,
+    membershipNumber?: string | null,
+    active?: boolean,
+  ) => {
     const sessionData = {
       memberId,
       memberName,
       phone,
+      membershipNumber: membershipNumber ?? null,
+      active: active ?? true,
       accountId: accountId || "",
       expiresAt: Date.now() + SESSION_DURATION,
     };
@@ -173,6 +190,8 @@ export default function PublicGroupPage() {
     setIsVerified(false);
     setMemberId(null);
     setMemberName(null);
+    setMembershipNumber(null);
+    setMemberActive(true);
     setContributions([]);
     setPhone("");
     setOtp("");
@@ -189,8 +208,29 @@ export default function PublicGroupPage() {
         setMemberId(session.memberId);
         setMemberName(session.memberName);
         setPhone(session.phone || "");
+        setMembershipNumber(session.membershipNumber ?? null);
+        setMemberActive(session.active ?? true);
         setIsVerified(true);
         loadMemberData(session.memberId);
+        if (session.phone) {
+          memberApi
+            .getPublicCard(accountId, session.memberId, session.phone)
+            .then((card) => {
+              if (!card.success || !card.data) return;
+              setMemberName(card.data.full_name);
+              setMembershipNumber(card.data.membership_number);
+              setMemberActive(card.data.active);
+              setPhone(card.data.phone);
+              saveSession(
+                card.data.member_id,
+                card.data.full_name,
+                card.data.phone,
+                card.data.membership_number,
+                card.data.active,
+              );
+            })
+            .catch(() => {});
+        }
       }
 
       // Check session timeout every 30 seconds (only for public page, not admin)
@@ -563,14 +603,20 @@ export default function PublicGroupPage() {
       if (response.success && response.data) {
         const memberId = response.data.member_id;
         const memberName = response.data.full_name;
+        const memberPhone = response.data.phone || phone;
+        const memberNumber = response.data.membership_number ?? null;
+        const active = response.data.active ?? true;
 
         setMemberId(memberId);
         setMemberName(memberName);
+        setPhone(memberPhone);
+        setMembershipNumber(memberNumber);
+        setMemberActive(active);
         setIsVerified(true);
         setShowOtpVerification(false);
 
         // Save session to localStorage
-        saveSession(memberId, memberName, phone);
+        saveSession(memberId, memberName, memberPhone, memberNumber, active);
 
         // Load member data (contributions)
         await loadMemberData(memberId);
@@ -1106,20 +1152,64 @@ export default function PublicGroupPage() {
             >
               {account?.account_name || "Community Group"}
             </h1>
-            <p
-              className="text-sm sm:text-base opacity-80 mb-4 leading-relaxed"
-              style={{ color: foregroundColor }}
-            >
-              {isVerified && memberName ? (
-                <>
-                  Welcome back,{" "}
-                  <strong className="uppercase">{memberName}</strong>! Support
-                  our community by contributing to our active groups.
-                </>
-              ) : (
-                "Support our community by contributing to our active funds"
-              )}
-            </p>
+            {isVerified && memberName ? (
+              <div
+                className="rounded-2xl border bg-card px-4 py-4 sm:px-5 mb-4"
+                style={{ borderColor: foregroundColor + "22" }}
+              >
+                <p
+                  className="text-[11px] font-semibold tracking-wider uppercase opacity-60"
+                  style={{ color: foregroundColor }}
+                >
+                  Name
+                </p>
+                <p
+                  className="text-lg font-semibold leading-tight mt-0.5"
+                  style={{ color: foregroundColor }}
+                >
+                  {memberName}
+                </p>
+                <p
+                  className="text-[11px] font-semibold tracking-wider uppercase opacity-60 mt-4"
+                  style={{ color: foregroundColor }}
+                >
+                  Member ID
+                </p>
+                <p
+                  className="text-base font-medium mt-0.5"
+                  style={{ color: foregroundColor }}
+                >
+                  {membershipNumber || "—"}
+                </p>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <p
+                    className="text-sm opacity-80"
+                    style={{ color: foregroundColor }}
+                  >
+                    {formatMemberPhone(phone)}
+                  </p>
+                  <span
+                    className={cn(
+                      "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
+                      memberActive
+                        ? isDark
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-emerald-500/15 text-emerald-700"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {memberActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p
+                className="text-sm sm:text-base opacity-80 mb-4 leading-relaxed"
+                style={{ color: foregroundColor }}
+              >
+                Support our community by contributing to our active funds
+              </p>
+            )}
 
             {isVerified && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">

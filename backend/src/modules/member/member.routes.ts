@@ -191,6 +191,53 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/v1/members/card - Member card for a verified public session
+memberRoutesWithAuth.post('/card', async (req: Request, res: Response) => {
+  try {
+    const { accountId, memberId, phone } = req.body;
+
+    if (!accountId || typeof accountId !== 'string' || !memberId || typeof memberId !== 'string') {
+      return res.status(400).json({ success: false, error: 'Account and member are required' });
+    }
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({ success: false, error: 'Phone number is required' });
+    }
+
+    const normalizePhone = (phoneNum: string): string => {
+      let normalized = phoneNum.replace(/[\s\-+()]/g, '');
+      if (normalized.startsWith('233') && normalized.length === 12) {
+        normalized = '0' + normalized.substring(3);
+      }
+      return normalized;
+    };
+
+    const members = await memberService.getMembersByAccount(accountId);
+    const normalizedPhone = normalizePhone(phone.trim());
+    const member = members.find((m) => {
+      if (m.member_id !== memberId) return false;
+      const memberPhone = normalizePhone(m.phone);
+      return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, error: 'Member not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        member_id: member.member_id,
+        full_name: member.full_name,
+        phone: member.phone,
+        membership_number: member.membership_number,
+        active: member.phone_verified || member.email_verified,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to load member card' });
+  }
+});
+
 // POST /api/v1/members/otp/verify - Verify OTP (public)
 memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => {
   console.log('[OTP Verify] Route hit:', { phone: req.body.phone, accountId: req.body.accountId, codeLength: req.body.code?.length });
@@ -296,6 +343,9 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       data: {
         member_id: verifiedMember.member_id,
         full_name: verifiedMember.full_name,
+        phone: verifiedMember.phone,
+        membership_number: verifiedMember.membership_number,
+        active: verifiedMember.phone_verified || verifiedMember.email_verified,
         phone_verified: verifiedMember.phone_verified,
       },
       message: 'OTP verified successfully',

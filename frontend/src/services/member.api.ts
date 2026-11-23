@@ -131,11 +131,28 @@ export const memberApi = {
    * Verify OTP code (public endpoint - for viewing contributions / first-time phone verify)
    */
   async verifyOTP(phone: string, code: string, accountId: string) {
-    return apiClient.post<{ member_id: string; full_name: string; phone_verified?: boolean }>('/members/otp/verify', {
+    return apiClient.post<{
+      member_id: string;
+      full_name: string;
+      phone?: string;
+      membership_number?: string | null;
+      active?: boolean;
+      phone_verified?: boolean;
+    }>('/members/otp/verify', {
       phone,
       code,
       accountId,
     });
+  },
+
+  async getPublicCard(accountId: string, memberId: string, phone: string) {
+    return apiClient.post<{
+      member_id: string;
+      full_name: string;
+      phone: string;
+      membership_number: string | null;
+      active: boolean;
+    }>('/members/card', { accountId, memberId, phone });
   },
 
   /**
