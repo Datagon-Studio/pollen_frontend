@@ -61,6 +61,12 @@ export default async function handler(req: any, res: any) {
 
   req.url = `${url.pathname}${url.search}`;
 
+  if (typeof req.body === 'string') {
+    req.rawBody = req.body;
+  } else if (Buffer.isBuffer(req.body)) {
+    req.rawBody = req.body.toString('utf8');
+  }
+
   console.log('🚀 /api handler:', { incoming: incomingUrl, rewritten: req.url, method: req.method });
 
   try {

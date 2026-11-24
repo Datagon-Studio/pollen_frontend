@@ -107,6 +107,28 @@ export const kycApi = {
   },
 
   /**
+   * Create a signed Storage upload URL for a KYC document
+   */
+  async createUploadUrl(
+    folder: string,
+    fileExt: string
+  ): Promise<{ path: string; token: string; signedUrl: string }> {
+    const response = await request<{ path: string; token: string; signedUrl: string }>(
+      '/accounts/me/kyc/upload-url',
+      {
+        method: 'POST',
+        body: JSON.stringify({ folder, fileExt }),
+      }
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to create KYC upload URL');
+    }
+
+    return response.data;
+  },
+
+  /**
    * Submit KYC information
    */
   async submitKYC(input: SubmitKYCInput): Promise<AccountKYC> {

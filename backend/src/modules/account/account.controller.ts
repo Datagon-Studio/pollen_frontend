@@ -241,6 +241,49 @@ export class AccountController {
   }
 
   /**
+   * POST /api/v1/accounts/me/kyc/upload-url
+   * Create a signed Storage upload URL for a KYC document
+   */
+  async createKYCUploadUrl(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const userAccount = await accountService.getUserAccount(userId);
+      if (!userAccount) {
+        res.status(404).json({
+          success: false,
+          error: 'Account not found',
+        });
+        return;
+      }
+
+      const folder = typeof req.body.folder === 'string' ? req.body.folder : '';
+      const fileExt = typeof req.body.fileExt === 'string' ? req.body.fileExt : '';
+      const data = await accountKYCService.createDocumentUploadUrl(userId, folder, fileExt);
+
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create upload URL';
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  }
+
+  /**
    * PUT /api/v1/accounts/me/kyc
    * Update KYC information
    */

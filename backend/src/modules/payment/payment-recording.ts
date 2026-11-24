@@ -86,7 +86,7 @@ export async function recordPaystackContribution(input: {
   paidAt?: string;
   customerEmail?: string | null;
   customerPhone?: string | null;
-  source: 'verify' | 'webhook';
+  source: 'verify' | 'webhook' | 'reconcile' | 'admin';
   ipAddress?: string;
   userAgent?: string;
 }): Promise<{ contributionId: string | null; recordingError?: string; alreadyExists?: boolean }> {

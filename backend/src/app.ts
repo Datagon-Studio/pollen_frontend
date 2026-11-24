@@ -37,8 +37,14 @@ const corsOptions =
       };
 app.use(cors(corsOptions));
 
-// Body parsing
-app.use(express.json());
+// Body parsing — capture the raw JSON bytes so Paystack webhook HMAC can be verified
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: string }).rawBody = buf.toString('utf8');
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Debug middleware to log all incoming requests

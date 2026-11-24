@@ -23,6 +23,8 @@ import { auditRepository } from '../audit/audit.repository.js';
 import { staffService, StaffInviteError } from './staff.service.js';
 import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
 import { feeService } from '../payment/fee.service.js';
+import { paymentService } from '../payment/payment.service.js';
+import type { PaymentStatus } from '../payment/payment.entity.js';
 
 export const adminRoutes = Router();
 
@@ -299,6 +301,74 @@ adminRoutes.get('/contributions/:contributionId', async (req: Request, res: Resp
       return;
     }
     res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+const PAYMENT_STATUSES: PaymentStatus[] = [
+  'pending',
+  'successful',
+  'failed',
+  'abandoned',
+  'needs_review',
+];
+
+/** GET /api/v1/admin/payments */
+adminRoutes.get('/payments', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const data = await paymentService.listAdminPayments({
+      status: status && PAYMENT_STATUSES.includes(status as PaymentStatus)
+        ? (status as PaymentStatus)
+        : undefined,
+      accountId: typeof req.query.accountId === 'string' ? req.query.accountId : undefined,
+      dateFrom: typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined,
+      dateTo: typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined,
+      search: typeof req.query.search === 'string' ? req.query.search : undefined,
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** GET /api/v1/admin/payments/:paymentId */
+adminRoutes.get('/payments/:paymentId', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const data = await paymentService.getAdminPayment(req.params.paymentId);
+    if (!data) {
+      res.status(404).json({ success: false, error: 'Payment not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/payments/:paymentId/verify */
+adminRoutes.post('/payments/:paymentId/verify', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertStaffUser(authReq.user?.id);
+    const result = await paymentService.verifyAdminPayment(
+      req.params.paymentId,
+      auditService.extractRequestInfo(req)
+    );
+    if (!result.success) {
+      res.status(result.error === 'Payment not found' ? 404 : 400).json({
+        success: false,
+        error: result.error,
+        data: result.payment ?? undefined,
+      });
+      return;
+    }
+    res.status(200).json({ success: true, data: result.payment });
   } catch (error) {
     handleStaffError(error, res);
   }

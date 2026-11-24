@@ -5,12 +5,13 @@ import { memberRepository } from '../member/member.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
 import { calculatePaymentAmounts } from './paystack-fees.js';
 import { feeService } from './fee.service.js';
-import {
-  recordPaystackContribution,
-  resolveContributionAmount,
-  normalizePhone,
-} from './payment-recording.js';
 import { auditService } from '../../shared/services/audit.service.js';
+import { paymentRepository } from './payment.repository.js';
+import {
+  processPaymentByReference,
+  type PaymentRequestContext,
+} from './payment-processor.js';
+import type { PaymentListFilters } from './payment.entity.js';
 
 import { env } from '../../env.js';
 import { getFrontendUrl } from '../../shared/utils/frontend-url.js';
@@ -19,13 +20,15 @@ const PAYSTACK_SECRET_KEY = env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_PUBLIC_KEY = env.PAYSTACK_PUBLIC_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
-if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
-  console.warn('⚠️  Paystack keys not configured. Payment features will not work.');
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
 }
 
-interface PaymentRequestContext {
-  ipAddress?: string;
-  userAgent?: string;
+if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
+  console.warn('⚠️  Paystack keys not configured. Payment features will not work.');
 }
 
 interface InitializePaymentInput {
@@ -131,6 +134,39 @@ export const paymentService = {
 
       if (response.data.status) {
         const reference = response.data.data.reference;
+        try {
+          await paymentRepository.create({
+            reference,
+            account_id: input.account_id,
+            fund_id: input.fund_id,
+            member_id: input.member_id || null,
+            user_email: input.email,
+            contributor_name: input.name,
+            phone: input.phone || null,
+            contribution_amount: contributionAmount,
+            fee_amount: feeAmount,
+            charged_amount: chargedAmount,
+            currency: 'GHS',
+            metadata: {
+              account_id: input.account_id,
+              fund_id: input.fund_id,
+              name: input.name,
+              email: input.email,
+              contribution_amount: contributionAmount,
+              fee_amount: feeAmount,
+              charged_amount: chargedAmount,
+              fees_passed_to_customer: true,
+              ...(input.phone && { phone: input.phone }),
+              ...(input.member_id && { member_id: input.member_id }),
+            },
+          });
+        } catch (error) {
+          console.error(
+            `[Payment] Paystack initialized ${reference} but pending payment row was not saved:`,
+            error
+          );
+        }
+
         await auditService.logPaymentInitialized({
           reference,
           accountId: input.account_id,
@@ -188,79 +224,31 @@ export const paymentService = {
     }
 
     try {
-      const response = await axios.get(
-        `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          },
-        }
-      );
+      const result = await processPaymentByReference(reference, 'verify', requestContext);
+      const paystackSucceeded =
+        result.alreadyProcessed ||
+        result.paystackStatus === 'success' ||
+        !!result.contributionId;
 
-      if (response.data.status && response.data.data.status === 'success') {
-        const transaction = response.data.data;
-        const metadata = transaction.metadata || {};
-        const customer = transaction.customer || {};
-        const customerEmail =
-          customer.email ||
-          transaction.customer_email ||
-          transaction.email ||
-          metadata.email ||
-          (typeof customer === 'object' && customer !== null ? (customer as any).email : null);
-        const customerPhone =
-          customer.phone ||
-          transaction.customer_phone ||
-          metadata.phone ||
-          (typeof customer === 'object' && customer !== null ? (customer as any).phone : null);
-        const chargedAmount = transaction.amount / 100;
-        const accountId = metadata.account_id ? String(metadata.account_id) : null;
-
-        await auditService.logPaymentVerified({
-          reference,
-          accountId,
-          amount: resolveContributionAmount(metadata, chargedAmount),
-          source: 'verify',
-          ipAddress: requestContext?.ipAddress,
-          userAgent: requestContext?.userAgent,
-        });
-
-        const { contributionId, recordingError } = await recordPaystackContribution({
-          reference,
-          metadata,
-          chargedAmount,
-          paidAt: transaction.paid_at || new Date().toISOString(),
-          customerEmail,
-          customerPhone,
-          source: 'verify',
-          ipAddress: requestContext?.ipAddress,
-          userAgent: requestContext?.userAgent,
-        });
-
+      if (!paystackSucceeded) {
         return {
-          success: true,
-          data: {
-            status: transaction.status,
-            reference,
-            amount: resolveContributionAmount(metadata, chargedAmount),
-            contribution_id: contributionId,
-            account_id: accountId,
-            ...(recordingError && { recording_error: recordingError }),
-          },
+          success: false,
+          error: result.error || result.recordingError || 'Failed to verify payment',
         };
       }
 
-      const errorMessage = response.data.message || 'Payment verification failed';
-      await auditService.logPaymentFailed({
-        reference,
-        source: 'verify',
-        error: errorMessage,
-        ipAddress: requestContext?.ipAddress,
-        userAgent: requestContext?.userAgent,
-      });
-
       return {
-        success: false,
-        error: errorMessage,
+        success: true,
+        data: {
+          status: result.paystackStatus || 'success',
+          reference,
+          amount: result.payment?.contribution_amount ?? 0,
+          contribution_id: result.contributionId,
+          account_id: result.payment?.account_id ?? null,
+          ...((result.recordingError || (!result.contributionId && result.error)) && {
+            recording_error: result.recordingError || result.error,
+          }),
+        },
       };
     } catch (error) {
       console.error('Paystack verification error:', error);
@@ -288,24 +276,30 @@ export const paymentService = {
   /**
    * Handle Paystack webhook
    */
-  async handleWebhook(payload: any, signature: string): Promise<{
+  async handleWebhook(
+    payload: any,
+    signature: string,
+    rawBody?: string
+  ): Promise<{
     success: boolean;
     error?: string;
+    retryable?: boolean;
   }> {
     if (!PAYSTACK_SECRET_KEY) {
       return {
         success: false,
         error: 'Paystack secret key is not configured',
+        retryable: true,
       };
     }
     try {
-      // Verify webhook signature
+      const bodyToHash = rawBody ?? JSON.stringify(payload);
       const hash = crypto
         .createHmac('sha512', PAYSTACK_SECRET_KEY)
-        .update(JSON.stringify(payload))
+        .update(bodyToHash)
         .digest('hex');
 
-      if (hash !== signature) {
+      if (!safeEqual(hash, signature)) {
         return {
           success: false,
           error: 'Invalid signature',
@@ -316,44 +310,32 @@ export const paymentService = {
       const data = payload.data;
 
       if (event === 'charge.success') {
-        const metadata = data.metadata || {};
-        const customer = data.customer || {};
-        const reference = data.reference;
-        const customerEmail =
-          customer.email ||
-          data.customer_email ||
-          data.email ||
-          metadata.email ||
-          (typeof customer === 'object' && customer !== null ? (customer as any).email : null);
-        const customerPhone =
-          customer.phone ||
-          data.customer_phone ||
-          metadata.phone ||
-          (typeof customer === 'object' && customer !== null ? (customer as any).phone : null);
-        const chargedAmount = data.amount / 100;
-        const accountId = metadata.account_id ? String(metadata.account_id) : null;
+        const reference = data?.reference;
+        if (!reference) {
+          return { success: false, error: 'Webhook missing transaction reference', retryable: true };
+        }
 
-        await auditService.logPaymentVerified({
-          reference,
-          accountId,
-          amount: resolveContributionAmount(metadata, chargedAmount),
-          source: 'webhook',
+        const result = await processPaymentByReference(reference, 'webhook', undefined, {
+          markWebhookReceived: true,
         });
 
-        const { contributionId, recordingError } = await recordPaystackContribution({
-          reference,
-          metadata,
-          chargedAmount,
-          paidAt: new Date(data.paid_at || Date.now()).toISOString(),
-          customerEmail,
-          customerPhone,
-          source: 'webhook',
-        });
+        if (result.recordingError || (!result.success && !result.needsReview && !result.alreadyProcessed)) {
+          const error = result.recordingError || result.error || 'Webhook fulfilment failed';
+          console.error(
+            `[Webhook] ✗ Payment ${reference} succeeded but was not fulfilled:`,
+            error
+          );
+          return {
+            success: false,
+            error,
+            retryable: true,
+          };
+        }
 
-        if (recordingError) {
-          console.error(`[Webhook] ✗ Payment ${reference} succeeded but contribution was NOT recorded:`, recordingError);
-        } else if (contributionId) {
-          console.log(`[Webhook] ✓ Contribution recorded for reference ${reference}: ${contributionId}`);
+        if (result.contributionId) {
+          console.log(
+            `[Webhook] ✓ Contribution recorded for reference ${reference}: ${result.contributionId}`
+          );
         }
       }
 
@@ -365,8 +347,88 @@ export const paymentService = {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Webhook processing failed',
+        retryable: true,
       };
     }
+  },
+
+  async reconcilePendingPayments(): Promise<{
+    checked: number;
+    fulfilled: number;
+    failed: number;
+    needsReview: number;
+  }> {
+    const staleAfter = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const pending = await paymentRepository.findStaleForReconciliation({
+      olderThanIso: staleAfter,
+      limit: 50,
+      maxAttempts: 30,
+    });
+
+    let fulfilled = 0;
+    let failed = 0;
+    let needsReview = 0;
+
+    for (const payment of pending) {
+      const result = await processPaymentByReference(payment.reference, 'reconcile');
+      if (result.contributionId && result.success) {
+        fulfilled += 1;
+      } else if (result.needsReview) {
+        needsReview += 1;
+      } else if (!result.success) {
+        failed += 1;
+      }
+    }
+
+    return {
+      checked: pending.length,
+      fulfilled,
+      failed,
+      needsReview,
+    };
+  },
+
+  async listAdminPayments(filters: PaymentListFilters = {}) {
+    const [payments, summary] = await Promise.all([
+      paymentRepository.list(filters),
+      paymentRepository.countByStatus(),
+    ]);
+    return { payments, summary };
+  },
+
+  async getAdminPayment(paymentId: string) {
+    return paymentRepository.findByIdWithDetails(paymentId);
+  },
+
+  async verifyAdminPayment(
+    paymentId: string,
+    requestContext?: PaymentRequestContext
+  ) {
+    const payment = await paymentRepository.findById(paymentId);
+    if (!payment) {
+      return { success: false as const, error: 'Payment not found' };
+    }
+
+    const result = await processPaymentByReference(
+      payment.reference,
+      'admin',
+      requestContext
+    );
+    const updated = await paymentRepository.findByIdWithDetails(paymentId);
+
+    if (!result.success && !result.alreadyProcessed) {
+      return {
+        success: false as const,
+        error: result.error || result.recordingError || 'Verification did not complete',
+        payment: updated,
+      };
+    }
+
+    return {
+      success: true as const,
+      payment: updated,
+      alreadyProcessed: result.alreadyProcessed,
+    };
   },
 
   /**

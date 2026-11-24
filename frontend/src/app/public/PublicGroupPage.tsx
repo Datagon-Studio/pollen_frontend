@@ -124,6 +124,7 @@ export default function PublicGroupPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState<string | null>(null);
+  const [memberEmail, setMemberEmail] = useState<string | null>(null);
 
   // Contribution/Payment states
   const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
@@ -131,11 +132,17 @@ export default function PublicGroupPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Session management
-  const saveSession = (memberId: string, memberName: string, phone: string) => {
+  const saveSession = (
+    memberId: string,
+    memberName: string,
+    phone: string,
+    email?: string | null,
+  ) => {
     const sessionData = {
       memberId,
       memberName,
       phone,
+      email: email || null,
       accountId: accountId || "",
       expiresAt: Date.now() + SESSION_DURATION,
     };
@@ -173,6 +180,7 @@ export default function PublicGroupPage() {
     setIsVerified(false);
     setMemberId(null);
     setMemberName(null);
+    setMemberEmail(null);
     setContributions([]);
     setPhone("");
     setOtp("");
@@ -188,6 +196,7 @@ export default function PublicGroupPage() {
       if (session) {
         setMemberId(session.memberId);
         setMemberName(session.memberName);
+        setMemberEmail(session.email || null);
         setPhone(session.phone || "");
         setIsVerified(true);
         loadMemberData(session.memberId);
@@ -563,14 +572,16 @@ export default function PublicGroupPage() {
       if (response.success && response.data) {
         const memberId = response.data.member_id;
         const memberName = response.data.full_name;
+        const email = response.data.email || null;
 
         setMemberId(memberId);
         setMemberName(memberName);
+        setMemberEmail(email);
         setIsVerified(true);
         setShowOtpVerification(false);
 
         // Save session to localStorage
-        saveSession(memberId, memberName, phone);
+        saveSession(memberId, memberName, phone, email);
 
         // Load member data (contributions)
         await loadMemberData(memberId);
@@ -1672,6 +1683,7 @@ export default function PublicGroupPage() {
           memberId={memberId}
           memberName={memberName}
           memberPhone={phone}
+          memberEmail={memberEmail}
           onSuccess={async () => {
             setShowPaymentModal(false);
             setSelectedFund(null);

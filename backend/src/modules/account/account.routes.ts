@@ -83,6 +83,11 @@ accountRoutes.post('/me/kyc', async (req, res) => {
   await accountController.submitKYC(req, res);
 });
 
+// POST /api/v1/accounts/me/kyc/upload-url - Signed upload URL for KYC documents
+accountRoutes.post('/me/kyc/upload-url', async (req, res) => {
+  await accountController.createKYCUploadUrl(req, res);
+});
+
 // PUT /api/v1/accounts/me/kyc - Update KYC information
 accountRoutes.put('/me/kyc', async (req, res) => {
   await accountController.updateKYC(req, res);

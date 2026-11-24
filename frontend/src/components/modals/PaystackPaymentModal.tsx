@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Fund } from "@/services/fund.api";
 import { paymentApi, InitializePaymentInput } from "@/services/payment.api";
 import { memberApi } from "@/services/member.api";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { calculatePaymentAmounts } from "@/lib/paystack-fees";
 import { getAppUrl } from "@/lib/app-url";
@@ -27,6 +28,7 @@ interface PaystackPaymentModalProps {
   memberId?: string | null;
   memberName?: string | null;
   memberPhone?: string | null;
+  memberEmail?: string | null;
   onSuccess?: () => void;
 }
 
@@ -38,6 +40,7 @@ export function PaystackPaymentModal({
   memberId,
   memberName,
   memberPhone,
+  memberEmail,
   onSuccess,
 }: PaystackPaymentModalProps) {
   const { toast } = useToast();
@@ -74,42 +77,53 @@ export function PaystackPaymentModal({
 
   // Load member details when modal opens
   useEffect(() => {
-    if (open && fund) {
-      // Auto-fill form with member details if available
-      if (memberName) {
-        setName(memberName);
-      }
-      if (memberPhone) {
-        setPhone(memberPhone);
-      }
-      // Set default amount
-      setAmount(fund.default_amount?.toString() || "");
-      
-      // Try to fetch email if memberId is available (for authenticated users)
-      if (memberId) {
-        setLoadingMember(true);
-        memberApi.getById(memberId)
-          .then((response) => {
-            if (response.success && response.data && response.data.email) {
+    if (!open || !fund) return;
+
+    // Auto-fill form with member details if available
+    if (memberName) setName(memberName);
+    if (memberPhone) setPhone(memberPhone);
+    if (memberEmail) setEmail(memberEmail);
+    setAmount(fund.default_amount?.toString() || "");
+
+    // Public group pages use phone OTP (no Supabase session). Only call
+    // the auth-protected getById when a session exists.
+    if (memberId && !memberEmail) {
+      let cancelled = false;
+      setLoadingMember(true);
+      supabase.auth
+        .getSession()
+        .then(({ data: { session } }) => {
+          if (!session?.access_token || cancelled) {
+            setLoadingMember(false);
+            return;
+          }
+          return memberApi.getById(memberId).then((response) => {
+            if (
+              !cancelled &&
+              response.success &&
+              response.data?.email
+            ) {
               setEmail(response.data.email);
             }
-          })
-          .catch((error) => {
-            // Silently fail - email will remain empty and user can fill it manually
-            console.log("Could not fetch member email (may require authentication):", error);
-          })
-          .finally(() => {
-            setLoadingMember(false);
           });
-      } else {
-        // Reset form when modal opens without member
-        setEmail("");
-        setName("");
-        setPhone("");
-        setAmount(fund.default_amount?.toString() || "");
-      }
+        })
+        .catch(() => {
+          // Email stays empty; user can enter it manually
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingMember(false);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [open, fund, memberId, memberName, memberPhone]);
+
+    if (!memberId && !memberEmail) {
+      setEmail("");
+      setName("");
+      setPhone("");
+    }
+  }, [open, fund, memberId, memberName, memberPhone, memberEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

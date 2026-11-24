@@ -677,24 +677,15 @@ export default function Settings() {
 
   const uploadKYCDocument = async (
     file: File,
-    bucket: string,
+    _bucket: string,
     folder: string,
   ): Promise<string> => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${folder}/${user.id}/${Date.now()}.${fileExt}`;
-
+      const fileExt = file.name.split(".").pop() || "";
+      const { path, token } = await kycApi.createUploadUrl(folder, fileExt);
       const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .from("kyc-documents")
+        .uploadToSignedUrl(path, token, file);
 
       if (uploadError) {
         throw uploadError;
@@ -702,7 +693,7 @@ export default function Settings() {
 
       // Store the file path (not URL) in the database
       // We'll generate signed URLs on-demand when viewing
-      return fileName;
+      return path;
     } catch (err) {
       console.error(`Error uploading ${folder}:`, err);
       throw err;

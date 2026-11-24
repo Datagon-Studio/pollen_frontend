@@ -362,7 +362,7 @@ class AuditService {
     reference: string;
     accountId?: string | null;
     amount: number;
-    source: 'verify' | 'webhook';
+    source: 'verify' | 'webhook' | 'reconcile' | 'admin';
     ipAddress?: string;
     userAgent?: string;
   }): Promise<void> {
@@ -392,7 +392,7 @@ class AuditService {
     amount: number;
     fundId?: string;
     memberId?: string | null;
-    source: 'verify' | 'webhook';
+    source: 'verify' | 'webhook' | 'reconcile' | 'admin';
     ipAddress?: string;
     userAgent?: string;
     details?: Record<string, unknown>;
@@ -423,7 +423,7 @@ class AuditService {
   async logPaymentRecordingFailed(input: {
     reference: string;
     accountId?: string | null;
-    source: 'verify' | 'webhook';
+    source: 'verify' | 'webhook' | 'reconcile' | 'admin';
     error: string;
     ipAddress?: string;
     userAgent?: string;
@@ -452,7 +452,7 @@ class AuditService {
   async logPaymentFailed(input: {
     reference: string;
     accountId?: string | null;
-    source: 'verify' | 'webhook';
+    source: 'verify' | 'webhook' | 'reconcile' | 'admin';
     error: string;
     ipAddress?: string;
     userAgent?: string;

@@ -23,6 +23,8 @@ const envSchema = z.object({
   OPS_SETTLEMENT_EMAIL: z.preprocess(blankToUndefined, z.string().email().optional()),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  /** Vercel Cron sends Authorization: Bearer $CRON_SECRET when this is set. */
+  CRON_SECRET: z.preprocess(blankToUndefined, z.string().min(1).optional()),
   EMAIL_VERIFICATION_SECRET: z.string().optional(),
   ARKESEL_API_KEY: z.string().optional(),
   POSTMARK_API_TOKEN: z.string().optional(),
@@ -60,6 +62,9 @@ if (!env.EMAIL_VERIFICATION_SECRET) {
 }
 if (!env.BITLY_ACCESS_TOKEN) {
   console.warn('⚠️  BITLY_ACCESS_TOKEN not set. Link shortening will not work.');
+}
+if (!env.CRON_SECRET && env.NODE_ENV === 'production') {
+  console.warn('⚠️  CRON_SECRET not set. Payment reconciliation cron will be rejected.');
 }
 
 export { env };

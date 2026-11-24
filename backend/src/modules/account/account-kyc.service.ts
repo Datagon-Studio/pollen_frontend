@@ -10,8 +10,16 @@ import { CreateAccountKYCInput, UpdateAccountKYCInput, AccountKYC } from './acco
 import { KYCStatus } from './account.entity.js';
 import { supabase } from '../../shared/supabase/client.js';
 
+const KYC_DOCUMENT_FOLDERS = [
+  'business-registration',
+  'passport-photo',
+  'national-id',
+] as const;
+
 const KYC_DOCUMENT_PATH_PATTERN =
   /^(business-registration|passport-photo|national-id)\/[0-9a-f-]{36}\/\d+\.[a-z0-9]+$/i;
+
+const KYC_ALLOWED_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
 
 /** Normalize stored KYC paths / accidental full storage URLs into a bucket-relative path. */
 function normalizeKycDocumentPath(input: string): string {
@@ -142,6 +150,41 @@ export class AccountKYCService {
     });
 
     return kyc;
+  }
+
+  /**
+   * Mint a signed upload URL so group admins can put files in kyc-documents
+   * without depending on Storage RLS (service role bypasses it).
+   */
+  async createDocumentUploadUrl(
+    userId: string,
+    folder: string,
+    fileExt: string
+  ): Promise<{ path: string; token: string; signedUrl: string }> {
+    const normalizedFolder = folder.trim().toLowerCase();
+    if (!KYC_DOCUMENT_FOLDERS.includes(normalizedFolder as (typeof KYC_DOCUMENT_FOLDERS)[number])) {
+      throw new Error('Invalid KYC document folder');
+    }
+
+    const normalizedExt = fileExt.trim().toLowerCase().replace(/^\./, '');
+    if (!KYC_ALLOWED_EXTENSIONS.has(normalizedExt)) {
+      throw new Error('Unsupported file type');
+    }
+
+    const path = `${normalizedFolder}/${userId}/${Date.now()}.${normalizedExt}`;
+    const { data, error } = await supabase.storage
+      .from('kyc-documents')
+      .createSignedUploadUrl(path);
+
+    if (error || !data?.signedUrl || !data.token) {
+      throw new Error(error?.message || 'Failed to create KYC upload URL');
+    }
+
+    return {
+      path: data.path || path,
+      token: data.token,
+      signedUrl: data.signedUrl,
+    };
   }
 
   /**

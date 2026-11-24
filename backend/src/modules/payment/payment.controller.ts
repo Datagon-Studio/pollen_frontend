@@ -1,9 +1,31 @@
 import { Router, Request, Response } from 'express';
-import { sendSuccess, sendError, sendBadRequest } from '../../shared/utils/api-response.js';
+import { sendSuccess, sendError, sendBadRequest, sendUnauthorized } from '../../shared/utils/api-response.js';
 import { paymentService } from './payment.service.js';
 import { feeService } from './fee.service.js';
 import { paystackBankService } from './paystack-bank.service.js';
 import { auditService } from '../../shared/services/audit.service.js';
+import { env } from '../../env.js';
+import crypto from 'crypto';
+
+type RawBodyRequest = Request & { rawBody?: string };
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function isCronAuthorized(req: Request): boolean {
+  const secret = env.CRON_SECRET;
+  if (!secret) {
+    return env.NODE_ENV !== 'production';
+  }
+  const header = req.headers.authorization;
+  const bearer = header?.startsWith('Bearer ') ? header.slice(7) : '';
+  const alt = typeof req.headers['x-cron-secret'] === 'string' ? req.headers['x-cron-secret'] : '';
+  return (!!bearer && safeEqual(bearer, secret)) || (!!alt && safeEqual(alt, secret));
+}
 
 export const paymentRoutes = Router();
 
@@ -101,10 +123,12 @@ paymentRoutes.post('/webhook', async (req: Request, res: Response) => {
       return sendError(res, 'Missing signature', 401);
     }
 
-    const result = await paymentService.handleWebhook(req.body, hash);
+    const rawBody = (req as RawBodyRequest).rawBody;
+    const result = await paymentService.handleWebhook(req.body, hash, rawBody);
 
     if (!result.success) {
-      return sendError(res, result.error || 'Webhook processing failed', 400);
+      const status = result.error === 'Invalid signature' ? 401 : result.retryable ? 500 : 400;
+      return sendError(res, result.error || 'Webhook processing failed', status);
     }
 
     // Paystack expects a 200 response
@@ -115,6 +139,25 @@ paymentRoutes.post('/webhook', async (req: Request, res: Response) => {
     sendError(res, message, 500);
   }
 });
+
+// Scheduled reconciliation (Vercel Cron GET, also accepts POST)
+// GET|POST /api/v1/payments/reconcile
+async function handleReconcile(req: Request, res: Response) {
+  try {
+    if (!isCronAuthorized(req)) {
+      return sendUnauthorized(res, 'Invalid cron secret');
+    }
+
+    const result = await paymentService.reconcilePendingPayments();
+    sendSuccess(res, result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Reconciliation failed';
+    sendError(res, message, 500);
+  }
+}
+
+paymentRoutes.get('/reconcile', handleReconcile);
+paymentRoutes.post('/reconcile', handleReconcile);
 
 // Link anonymous contributions to member
 // POST /api/v1/payments/link-contributions

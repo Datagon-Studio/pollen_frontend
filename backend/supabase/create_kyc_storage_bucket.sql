@@ -21,18 +21,15 @@ DROP POLICY IF EXISTS "Admins can view all KYC documents" ON storage.objects;
 -- =====================================================
 -- Policy 1: Authenticated users can upload their own KYC documents
 -- =====================================================
--- File path structure: folder/user_id/timestamp.ext
--- We check if the path contains the user's ID
+-- File path structure: {doc-type}/{user_id}/timestamp.ext
+-- foldername[1] is the doc type; foldername[2] is the user id
 CREATE POLICY "Users can upload their own KYC documents"
 ON storage.objects
 FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'kyc-documents'
-  AND (
-    (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
-  )
+  AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
 );
 
 -- =====================================================
@@ -44,10 +41,7 @@ FOR SELECT
 TO authenticated
 USING (
   bucket_id = 'kyc-documents'
-  AND (
-    (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
-  )
+  AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
 );
 
 -- =====================================================
@@ -59,17 +53,11 @@ FOR UPDATE
 TO authenticated
 USING (
   bucket_id = 'kyc-documents'
-  AND (
-    (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
-  )
+  AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
 )
 WITH CHECK (
   bucket_id = 'kyc-documents'
-  AND (
-    (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
-  )
+  AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
 );
 
 -- =====================================================
@@ -81,10 +69,7 @@ FOR DELETE
 TO authenticated
 USING (
   bucket_id = 'kyc-documents'
-  AND (
-    (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    OR name LIKE '%/' || (SELECT auth.uid())::text || '/%'
-  )
+  AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
 );
 
 -- =====================================================

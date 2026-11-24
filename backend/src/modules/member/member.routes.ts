@@ -295,6 +295,7 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       data: {
         member_id: verifiedMember.member_id,
         full_name: verifiedMember.full_name,
+        email: verifiedMember.email || null,
         phone_verified: verifiedMember.phone_verified,
       },
       message: 'OTP verified successfully',
