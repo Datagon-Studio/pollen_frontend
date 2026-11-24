@@ -47,21 +47,8 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 
-// Debug middleware to log all incoming requests
-app.use((req, _res, next) => {
-  console.log('📥 Express received request:', {
-    method: req.method,
-    url: req.url,
-    originalUrl: req.originalUrl,
-    path: req.path,
-    baseUrl: req.baseUrl,
-  });
-  next();
-});
-
 // Health check - accessible at both /health and /api/v1/health
 app.get('/health', (_req, res) => {
-  console.log('🏥 Health check called');
   // Prevent caching of health checks
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -70,7 +57,6 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/api/v1/health', (_req, res) => {
-  console.log('🏥 Health check called (via /api/v1/health)');
   // Prevent caching of health checks
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -80,7 +66,6 @@ app.get('/api/v1/health', (_req, res) => {
 
 // Test endpoint to verify backend is running
 app.get('/test', (_req, res) => {
-  console.log('🧪 Test endpoint called');
   res.json({ 
     message: 'Backend is running!',
     timestamp: new Date().toISOString(),

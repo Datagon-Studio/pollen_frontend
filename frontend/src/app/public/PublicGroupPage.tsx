@@ -74,6 +74,13 @@ const categoryColors: Record<string, string> = {
 const SESSION_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const SESSION_STORAGE_KEY = "public_group_session";
 
+function formatMemberPhone(phone: string): string {
+  const digits = phone.replace(/[^\d]/g, "");
+  if (digits.startsWith("233") && digits.length === 12) return `+${digits}`;
+  if (digits.startsWith("0") && digits.length === 10) return `+233${digits.slice(1)}`;
+  return phone;
+}
+
 export default function PublicGroupPage() {
   const { accountId: pathAccountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -125,6 +132,8 @@ export default function PublicGroupPage() {
   const [memberId, setMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState<string | null>(null);
   const [memberEmail, setMemberEmail] = useState<string | null>(null);
+  const [membershipNumber, setMembershipNumber] = useState<string | null>(null);
+  const [memberActive, setMemberActive] = useState(true);
 
   // Contribution/Payment states
   const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
@@ -137,12 +146,16 @@ export default function PublicGroupPage() {
     memberName: string,
     phone: string,
     email?: string | null,
+    membershipNumber?: string | null,
+    active?: boolean,
   ) => {
     const sessionData = {
       memberId,
       memberName,
       phone,
       email: email || null,
+      membershipNumber: membershipNumber ?? null,
+      active: active ?? true,
       accountId: accountId || "",
       expiresAt: Date.now() + SESSION_DURATION,
     };
@@ -181,6 +194,8 @@ export default function PublicGroupPage() {
     setMemberId(null);
     setMemberName(null);
     setMemberEmail(null);
+    setMembershipNumber(null);
+    setMemberActive(true);
     setContributions([]);
     setPhone("");
     setOtp("");
@@ -198,8 +213,30 @@ export default function PublicGroupPage() {
         setMemberName(session.memberName);
         setMemberEmail(session.email || null);
         setPhone(session.phone || "");
+        setMembershipNumber(session.membershipNumber ?? null);
+        setMemberActive(session.active ?? true);
         setIsVerified(true);
         loadMemberData(session.memberId);
+        if (session.phone) {
+          memberApi
+            .getPublicCard(accountId, session.memberId, session.phone)
+            .then((card) => {
+              if (!card.success || !card.data) return;
+              setMemberName(card.data.full_name);
+              setMembershipNumber(card.data.membership_number);
+              setMemberActive(card.data.active);
+              setPhone(card.data.phone);
+              saveSession(
+                card.data.member_id,
+                card.data.full_name,
+                card.data.phone,
+                session.email || null,
+                card.data.membership_number,
+                card.data.active,
+              );
+            })
+            .catch(() => {});
+        }
       }
 
       // Check session timeout every 30 seconds (only for public page, not admin)
@@ -253,18 +290,10 @@ export default function PublicGroupPage() {
         localStorage.removeItem("payment_completed_reload");
         // Wait a bit longer for webhook to process, then reload
         setTimeout(async () => {
-          console.log(
-            "[PublicGroupPage] Reloading contributions after payment, memberId:",
-            memberId,
-          );
           await loadMemberData(memberId);
           await reloadFundStats();
         }, 2000);
       } else {
-        console.log(
-          "[PublicGroupPage] Reloading contributions for tab switch, memberId:",
-          memberId,
-        );
         loadMemberData(memberId);
       }
     }
@@ -282,7 +311,6 @@ export default function PublicGroupPage() {
     if (!accountId) return;
     try {
       setLoading(true);
-      console.log("[PublicGroupPage] Loading group:", accountId);
 
       // Parallelize data loading for better performance
       const [
@@ -354,36 +382,6 @@ export default function PublicGroupPage() {
         setFundStats(statsMap);
 
         // Debug: Log fund_goal values
-        console.log(
-          "Public funds loaded with fund_goal values:",
-          funds.map((f) => {
-            const goalValue = f.fund_goal;
-            let numericValue = null;
-            if (goalValue != null) {
-              if (typeof goalValue === "number") {
-                numericValue = goalValue;
-              } else if (typeof goalValue === "string") {
-                numericValue = parseFloat(goalValue);
-              } else if (typeof goalValue === "object" && goalValue !== null) {
-                // Handle Decimal/object types - try to extract numeric value
-                const obj = goalValue as { valueOf?: () => unknown };
-                numericValue = obj.valueOf
-                  ? Number(obj.valueOf())
-                  : Number(goalValue);
-              }
-            }
-            return {
-              name: f.fund_name,
-              fund_goal: goalValue,
-              fund_goal_type: typeof goalValue,
-              fund_goal_value: numericValue,
-              hasGoal:
-                goalValue != null &&
-                numericValue != null &&
-                !isNaN(numericValue),
-            };
-          }),
-        );
       } else {
         console.error("Failed to load funds:", fundsResult.reason);
       }
@@ -427,29 +425,10 @@ export default function PublicGroupPage() {
 
   const loadMemberData = async (memberId: string) => {
     try {
-      console.log(
-        "[PublicGroupPage] Loading contributions for member:",
-        memberId,
-      );
       const contributionsData = await contributionApi.getByMember(memberId);
-      console.log("[PublicGroupPage] Contributions API response:", {
-        success: contributionsData.success,
-        dataLength: contributionsData.data?.length || 0,
-        error: contributionsData.error,
-        sampleData: contributionsData.data?.[0] || null,
-      });
       if (contributionsData.success && contributionsData.data) {
-        console.log(
-          "[PublicGroupPage] Setting contributions:",
-          contributionsData.data.length,
-          "contributions",
-        );
         setContributions(contributionsData.data);
       } else {
-        console.log(
-          "[PublicGroupPage] No contributions found or error:",
-          contributionsData.error,
-        );
         setContributions([]);
       }
     } catch (error) {
@@ -462,7 +441,6 @@ export default function PublicGroupPage() {
     if (!publicFunds.length) return;
 
     try {
-      console.log("[PublicGroupPage] Reloading fund stats");
       const statsMap: Record<
         string,
         { totalCollected: number; contributorCount: number }
@@ -573,15 +551,21 @@ export default function PublicGroupPage() {
         const memberId = response.data.member_id;
         const memberName = response.data.full_name;
         const email = response.data.email || null;
+        const memberPhone = response.data.phone || phone;
+        const memberNumber = response.data.membership_number ?? null;
+        const active = response.data.active ?? true;
 
         setMemberId(memberId);
         setMemberName(memberName);
         setMemberEmail(email);
+        setPhone(memberPhone);
+        setMembershipNumber(memberNumber);
+        setMemberActive(active);
         setIsVerified(true);
         setShowOtpVerification(false);
 
         // Save session to localStorage
-        saveSession(memberId, memberName, phone, email);
+        saveSession(memberId, memberName, memberPhone, email, memberNumber, active);
 
         // Load member data (contributions)
         await loadMemberData(memberId);
@@ -1079,73 +1063,116 @@ export default function PublicGroupPage() {
           </Button>
         </div>
 
-        {/* Header — stacks on narrow screens so title never fights the logo */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6 mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 sm:block flex-shrink-0">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4 mb-4">
             {account?.account_logo ? (
               <img
                 src={account.account_logo}
                 alt={account.account_name || "Logo"}
-                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl object-cover shadow-lg border-2"
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-xl object-cover shadow-lg border-2 shrink-0"
                 style={{ borderColor: foregroundColor + "20" }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
               <div
-                className="h-14 w-14 sm:h-20 sm:w-20 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card"
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center shadow-lg border-2 bg-card shrink-0"
                 style={{
                   borderColor: foregroundColor + "20",
                 }}
               >
-                <BrandSymbol className="h-7 w-7 sm:h-10 sm:w-10" alt="Pollean" />
+                <BrandSymbol className="h-6 w-6 sm:h-8 sm:w-8" alt="Pollean" />
               </div>
             )}
-            {/* Mobile: group name sits beside logo for a compact first row */}
             <h1
-              className="text-xl font-bold leading-tight break-words sm:hidden min-w-0 flex-1"
+              className="text-xl sm:text-3xl font-bold leading-tight break-words min-w-0"
               style={{ color: foregroundColor }}
             >
               {account?.account_name || "Community Group"}
             </h1>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h1
-              className="hidden sm:block text-3xl font-bold mb-2 break-words"
-              style={{ color: foregroundColor }}
+          {isVerified && memberName ? (
+            <div
+              className="relative rounded-2xl border bg-card px-4 py-4 sm:px-5"
+              style={{ borderColor: foregroundColor + "22" }}
             >
-              {account?.account_name || "Community Group"}
-            </h1>
-            <p
-              className="text-sm sm:text-base opacity-80 mb-4 leading-relaxed"
-              style={{ color: foregroundColor }}
-            >
-              {isVerified && memberName ? (
-                <>
-                  Welcome back,{" "}
-                  <strong className="uppercase">{memberName}</strong>! Support
-                  our community by contributing to our active groups.
-                </>
-              ) : (
-                "Support our community by contributing to our active funds"
-              )}
-            </p>
-
-            {isVerified && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
-                <Button
-                  onClick={handleLogout}
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto min-h-11"
+              <Button
+                onClick={handleLogout}
+                size="sm"
+                variant="outline"
+                className="absolute top-3 right-3 h-9 px-3"
+              >
+                <LogOut className="h-4 w-4 mr-1.5" />
+                Leave
+              </Button>
+              <div className="pr-[5.5rem] sm:pr-28">
+                <p
+                  className="text-[11px] font-semibold tracking-wider uppercase opacity-60"
+                  style={{ color: foregroundColor }}
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Leave
-                </Button>
+                  Name
+                </p>
+                <p
+                  className="text-base sm:text-lg font-semibold leading-tight mt-0.5 break-words"
+                  style={{ color: foregroundColor }}
+                >
+                  {memberName}
+                </p>
+                {membershipNumber?.trim() ? (
+                  <>
+                    <p
+                      className="text-[11px] font-semibold tracking-wider uppercase opacity-60 mt-4"
+                      style={{ color: foregroundColor }}
+                    >
+                      Member ID
+                    </p>
+                    <p
+                      className="text-sm sm:text-base font-medium mt-0.5 break-all"
+                      style={{ color: foregroundColor }}
+                    >
+                      {membershipNumber}
+                    </p>
+                  </>
+                ) : null}
               </div>
-            )}
-          </div>
+              <div className="mt-4 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p
+                    className="text-[11px] font-semibold tracking-wider uppercase opacity-60"
+                    style={{ color: foregroundColor }}
+                  >
+                    Phone
+                  </p>
+                  <p
+                    className="text-sm sm:text-base font-medium mt-0.5 break-all"
+                    style={{ color: foregroundColor }}
+                  >
+                    {formatMemberPhone(phone)}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
+                    memberActive
+                      ? isDark
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : "bg-emerald-500/15 text-emerald-700"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {memberActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p
+              className="text-sm sm:text-base opacity-80 leading-relaxed"
+              style={{ color: foregroundColor }}
+            >
+              Support our community by contributing to our active funds
+            </p>
+          )}
         </div>
 
         {/* Tabs — equal grid, compact labels on phone */}
@@ -1247,14 +1274,6 @@ export default function PublicGroupPage() {
 
                     // Debug log for fund calculation
                     if (f.fund_goal != null) {
-                      console.log(`[Fund Calculation] ${f.fund_name}:`, {
-                        fund_goal_raw: f.fund_goal,
-                        fund_goal_type: typeof f.fund_goal,
-                        fund_goal_extracted: fundGoal,
-                        totalCollected: stats.totalCollected,
-                        hasGoal:
-                          fundGoal != null && !isNaN(fundGoal) && fundGoal > 0,
-                      });
                     }
 
                     const hasGoal =
@@ -1351,14 +1370,14 @@ export default function PublicGroupPage() {
             ) : (
               <div className="space-y-4">
                 {/* Filters — stack on phone so controls stay full-width and tappable */}
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search contributions..."
                       value={contributionSearch}
                       onChange={(e) => setContributionSearch(e.target.value)}
-                      className="pl-9 min-h-11 text-base sm:text-sm"
+                      className="pl-9 h-10 sm:min-h-11 text-base sm:text-sm"
                       style={{
                         backgroundColor: backgroundColor,
                         color: foregroundColor,
@@ -1366,17 +1385,17 @@ export default function PublicGroupPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <Select
                       value={contributionFundFilter}
                       onValueChange={setContributionFundFilter}
                     >
                       <SelectTrigger
-                        className="w-full min-h-11"
+                        className="w-full h-10 sm:min-h-11 min-w-0 px-2 sm:px-3"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2 shrink-0" />
-                        <SelectValue placeholder="Filter by fund" />
+                        <Filter className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                        <SelectValue placeholder="Fund" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="all">All Funds</SelectItem>
@@ -1392,11 +1411,11 @@ export default function PublicGroupPage() {
                       onValueChange={setContributionStatusFilter}
                     >
                       <SelectTrigger
-                        className="w-full min-h-11"
+                        className="w-full h-10 sm:min-h-11 min-w-0 px-2 sm:px-3"
                         style={{ backgroundColor: backgroundColor }}
                       >
-                        <Filter className="h-4 w-4 mr-2 shrink-0" />
-                        <SelectValue placeholder="Filter by status" />
+                        <Filter className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                        <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="all">All Status</SelectItem>
@@ -1407,14 +1426,14 @@ export default function PublicGroupPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full min-h-11 relative font-normal justify-start pl-10",
+                            "w-full h-10 sm:min-h-11 font-normal justify-start gap-1.5 px-2.5 sm:px-3 min-w-0",
                             !contributionStartDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1422,7 +1441,7 @@ export default function PublicGroupPage() {
                             color: foregroundColor,
                           }}
                         >
-                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4 shrink-0" />
                           <span className="truncate">
                             {contributionStartDate
                               ? format(contributionStartDate, "MMM d, yyyy")
@@ -1450,7 +1469,7 @@ export default function PublicGroupPage() {
                           type="button"
                           variant="outline"
                           className={cn(
-                            "w-full min-h-11 relative font-normal justify-start pl-10",
+                            "w-full h-10 sm:min-h-11 font-normal justify-start gap-1.5 px-2.5 sm:px-3 min-w-0",
                             !contributionEndDate && "text-muted-foreground",
                           )}
                           style={{
@@ -1458,7 +1477,7 @@ export default function PublicGroupPage() {
                             color: foregroundColor,
                           }}
                         >
-                          <CalendarIcon className="absolute left-3 h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4 shrink-0" />
                           <span className="truncate">
                             {contributionEndDate
                               ? format(contributionEndDate, "MMM d, yyyy")
@@ -1658,7 +1677,16 @@ export default function PublicGroupPage() {
           className="text-center text-xs opacity-60 mt-8"
           style={{ color: foregroundColor }}
         >
-          Powered by Pollean
+          Powered by{" "}
+          <a
+            href="https://pollean.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:opacity-100"
+            style={{ color: foregroundColor }}
+          >
+            Pollean
+          </a>
         </p>
       </div>
 

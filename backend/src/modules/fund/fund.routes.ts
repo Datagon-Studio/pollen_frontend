@@ -47,17 +47,14 @@ fundRoutesWithAuth.get('/:id', async (req: Request, res: Response) => {
   }
   
   try {
-    console.log('[Public Fund Route] Fetching fund:', fundId);
     const fund = await fundService.getFund(fundId);
     if (!fund) {
-      console.log('[Public Fund Route] Fund not found in database:', fundId);
       return res.status(404).json({
         success: false,
         error: 'Fund not found',
       });
     }
     
-    console.log('[Public Fund Route] Fund found:', fund.fund_id);
     res.status(200).json({
       success: true,
       data: fund,
@@ -76,5 +73,4 @@ fundRoutesWithAuth.get('/:id', async (req: Request, res: Response) => {
 fundRoutesWithAuth.use(authenticateToken);
 fundRoutesWithAuth.use(requireAccountAdminForWrites);
 fundRoutesWithAuth.use('/', fundRoutes);
-
 

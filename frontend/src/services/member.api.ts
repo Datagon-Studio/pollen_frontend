@@ -135,6 +135,9 @@ export const memberApi = {
       member_id: string;
       full_name: string;
       email?: string | null;
+      phone?: string;
+      membership_number?: string | null;
+      active?: boolean;
       phone_verified?: boolean;
     }>('/members/otp/verify', {
       phone,
@@ -143,11 +146,21 @@ export const memberApi = {
     });
   },
 
+  async getPublicCard(accountId: string, memberId: string, phone: string) {
+    return apiClient.post<{
+      member_id: string;
+      full_name: string;
+      phone: string;
+      membership_number: string | null;
+      active: boolean;
+    }>('/members/card', { accountId, memberId, phone });
+  },
+
   /**
    * Send OTP for phone verification during member creation (admin only)
    */
-  async sendPhoneVerificationOTP(phone: string, accountId: string) {
-    return apiClient.post('/members/verify-phone/send', { phone, accountId });
+  async sendPhoneVerificationOTP(phone: string, accountId: string, fullName?: string) {
+    return apiClient.post('/members/verify-phone/send', { phone, accountId, fullName });
   },
 
   /**
@@ -160,8 +173,8 @@ export const memberApi = {
   /**
    * Send OTP for new member registration (public - for join page)
    */
-  async sendRegistrationOTP(phone: string, accountId: string) {
-    return apiClient.post('/members/register-otp/send', { phone, accountId });
+  async sendRegistrationOTP(phone: string, accountId: string, fullName?: string) {
+    return apiClient.post('/members/register-otp/send', { phone, accountId, fullName });
   },
 
   /**

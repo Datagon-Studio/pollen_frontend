@@ -56,7 +56,7 @@ class ArkeselService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sender: 'PollenHive',
+          sender: 'Pollean',
           message,
           recipients: [formattedPhone],
         }),
@@ -114,7 +114,6 @@ class ArkeselService {
     expiry: number = 5,
     length: number = 6
   ): Promise<{ success: boolean; ussdCode?: string; error?: string }> {
-    console.log('📱 [Arkesel] Sending OTP to:', phone);
     
     if (!this.apiKey) {
       console.error('❌ [Arkesel] API key not configured');
@@ -126,10 +125,9 @@ class ArkeselService {
 
     // Format phone number (remove spaces, dashes, plus signs)
     const formattedPhone = phone.replace(/[\s\-+]/g, '');
-    console.log('📱 [Arkesel] Formatted phone:', formattedPhone);
 
     // Default message template - Arkesel uses %otp_code% as placeholder
-    const defaultMessage = `Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.`;
+    const defaultMessage = `Hi, your login code is %otp_code%. Valid for %expiry% mins.\nPowered by Pollean!`;
     const smsMessage = message || defaultMessage;
 
     // Ensure message contains %otp_code% placeholder (required by Arkesel)
@@ -142,7 +140,8 @@ class ArkeselService {
 
     const requestBody = {
       number: formattedPhone,
-      sender_id: 'PollenHive',
+      phone_number: formattedPhone,
+      sender_id: 'Pollean',
       message: smsMessage,
       expiry: Math.min(Math.max(expiry, 1), 10), // Clamp between 1-10
       length: Math.min(Math.max(length, 6), 15), // Clamp between 6-15
@@ -151,7 +150,6 @@ class ArkeselService {
     };
 
     const endpoint = `${this.baseUrl}/api/otp/generate`;
-    console.log('📤 [Arkesel] Request body:', JSON.stringify(requestBody, null, 2));
 
     try {
       // Exact format matching Arkesel documentation
@@ -167,8 +165,6 @@ class ArkeselService {
       const responseText = await response.text();
       
       // Log response for debugging
-      console.log('Arkesel OTP Response Status:', response.status);
-      console.log('Arkesel OTP Response Text:', responseText);
 
       let data: SendOTPResponse;
       try {
@@ -183,7 +179,6 @@ class ArkeselService {
 
       // Check response code
       if (data.code === '1000') {
-        console.log('OTP sent successfully via Arkesel');
         return {
           success: true,
           ussdCode: data.ussd_code,
@@ -204,7 +199,7 @@ class ArkeselService {
         '1011': 'Internal error',
       };
 
-      const errorMessage = errorMessages[data.code] || data.message || `Failed to send OTP (code: ${data.code})`;
+      const errorMessage = data.message || errorMessages[data.code] || `Failed to send OTP (code: ${data.code})`;
       console.error('Arkesel OTP Error:', errorMessage, 'Response:', data);
       
       return {
@@ -219,7 +214,6 @@ class ArkeselService {
       };
     }
   }
-
 
   /**
    * Verify OTP code
@@ -242,6 +236,7 @@ class ArkeselService {
 
     const requestBody = {
       number: formattedPhone,
+      phone_number: formattedPhone,
       code: code,
     };
 

@@ -250,12 +250,31 @@ export class MemberService {
    */
   async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
-    const message = `Hi ${memberName}! Welcome to PollenHive, Your welfare and contributions platform. ${accountName} has invited you to manage your dues/pledges. Give, contribute, view, and track here: ${groupPageUrl}`;
+    const message = `Hi ${memberName}! ${accountName} has invited you to Pollean, a welfare and contributions management platform.\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {
       throw new Error(result.error || 'Failed to send welcome SMS');
     }
+  }
+
+  /**
+   * SMS body for login and phone-verification codes.
+   * %otp_code% is filled in by Arkesel.
+   */
+  buildVerificationSms(_memberName: string | null | undefined, accountName: string): string {
+    const account = (accountName || '').replace(/\s+/g, ' ').trim();
+    const limit = 145;
+    const build = (a: string) =>
+      a
+        ? `Hi, your login code is %otp_code%. Valid for %expiry% mins.\n~${a}\nPowered by Pollean!`
+        : `Hi, your login code is %otp_code%. Valid for %expiry% mins.\nPowered by Pollean!`;
+
+    if (build(account).length <= limit) return build(account);
+
+    const room = limit - build('').length - '\n~'.length;
+    const trimmed = account.slice(0, Math.max(1, room)).trim();
+    return build(trimmed);
   }
 
   /**
@@ -280,7 +299,6 @@ export class MemberService {
     let userId = await this.findAuthUserIdByEmail(email);
 
     if (!userId) {
-      console.log(`[Create Collector] Creating new auth user for ${email}`);
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -298,7 +316,6 @@ export class MemberService {
           createError.message?.toLowerCase().includes('email_exists');
 
         if (alreadyExists) {
-          console.log(`[Create Collector] Auth reports existing user for ${email}, resolving via Auth API`);
           userId = await this.findAuthUserIdByEmail(email);
           if (!userId) {
             throw new Error(
@@ -334,10 +351,8 @@ export class MemberService {
     }
 
     if (!existingLink) {
-      console.log(`[Create Collector] Linking user ${userId} to account ${accountId}`);
       await accountRepository.linkUserToAccount(userId, accountId, 'officer');
     } else {
-      console.log(`[Create Collector] User ${userId} already linked to account ${accountId}`);
     }
 
     await this.sendCollectorWelcomeEmail(member, accountName, accountId, baseUrl);
@@ -493,7 +508,6 @@ export class MemberService {
 
     const frontendUrl = getFrontendUrl(baseUrl);
     const email = member.email.toLowerCase().trim();
-    console.log(`[Send Collector Welcome Email] Using frontend URL: ${frontendUrl}`);
 
     // Generate recovery token once, then link to OUR app with hashed_token.
     // Do not email Supabase's action_link (auth/v1/verify...) — email security scanners

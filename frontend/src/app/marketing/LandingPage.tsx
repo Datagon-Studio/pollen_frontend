@@ -884,7 +884,7 @@ function FooterSection() {
           {/* Links */}
           {[
             { head: 'Product', links: [{ l: 'Features', h: '#features' }, { l: 'How it works', h: '#how-it-works' }, { l: 'Sign up free', h: APP_SIGNUP }] },
-            { head: 'Company', links: [{ l: 'About', h: '#' }, { l: 'Contact', h: '#' }, { l: 'Powered by Pollean', h: '#' }] },
+            { head: 'Company', links: [{ l: 'About', h: '#' }, { l: 'Contact', h: '#' }, { l: 'Powered by Pollean', h: 'https://pollean.com/' }] },
             { head: 'Legal', links: [{ l: 'Privacy Policy', h: '#' }, { l: 'Terms of Service', h: '#' }, { l: 'Paystack Terms', h: '#' }] },
           ].map((col, i) => (
             <div key={i} style={{ flex: '0 0 auto' }}>

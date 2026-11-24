@@ -102,17 +102,7 @@ contributionRoutes.get('/fund/:fundId/stats', async (req: Request, res: Response
 contributionRoutes.get('/member/:memberId', async (req: Request, res: Response) => {
   try {
     const memberId = req.params.memberId;
-    console.log(`[Contributions API] Fetching contributions for member: ${memberId}`);
     const contributions = await contributionService.getContributionsByMember(memberId);
-    console.log(`[Contributions API] Found ${contributions.length} contributions for member ${memberId}`);
-    if (contributions.length > 0) {
-      console.log(`[Contributions API] Sample contribution:`, {
-        contribution_id: contributions[0].contribution_id,
-        member_id: contributions[0].member_id,
-        amount: contributions[0].amount,
-        status: contributions[0].status,
-      });
-    }
     sendSuccess(res, contributions);
   } catch (error) {
     console.error('[Contributions API] Error fetching member contributions:', error);

@@ -92,7 +92,6 @@ export class AccountKYCService {
       const updatedAccount = await accountRepository.update(input.account_id, {
         kyc_status: KYCStatus.PENDING,
       });
-      console.log('Account KYC status updated to pending:', updatedAccount.kyc_status);
     } catch (error) {
       console.error('Failed to update account KYC status:', error);
       throw new Error(`Failed to update account KYC status: ${error instanceof Error ? error.message : 'Unknown error'}`);

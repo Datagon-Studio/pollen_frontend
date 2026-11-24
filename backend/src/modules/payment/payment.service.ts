@@ -293,13 +293,25 @@ export const paymentService = {
       };
     }
     try {
-      const bodyToHash = rawBody ?? JSON.stringify(payload);
+      // Paystack signs the original request body. Re-serializing the parsed JSON
+      // changes the bytes, so prefer the raw body when it is available.
+      const signedBody = rawBody && rawBody.length > 0 ? rawBody : JSON.stringify(payload);
       const hash = crypto
         .createHmac('sha512', PAYSTACK_SECRET_KEY)
-        .update(bodyToHash)
+        .update(signedBody)
         .digest('hex');
 
       if (!safeEqual(hash, signature)) {
+        const reference = payload?.data?.reference ? String(payload.data.reference) : '';
+        if (payload?.event === 'charge.success' && reference) {
+          console.warn(
+            `[Webhook] Signature mismatch for ${reference}. Confirming with Paystack before recording.`
+          );
+          const verified = await this.verifyPayment(reference);
+          if (verified.success) {
+            return { success: true };
+          }
+        }
         return {
           success: false,
           error: 'Invalid signature',
@@ -450,11 +462,8 @@ export const paymentService = {
       }
 
       // Get all anonymous contributions for this account
-      console.log(`[Link] Starting auto-link for member ${memberId} (${member.full_name}) in account ${accountId}`);
       const allContributions = await contributionService.getContributionsByAccount(accountId);
-      console.log(`[Link] Found ${allContributions.length} total contributions`);
       const anonymousContributions = allContributions.filter(c => !c.member_id && c.channel === 'online' && c.payment_method === 'Paystack');
-      console.log(`[Link] Found ${anonymousContributions.length} anonymous Paystack contributions`);
 
       let linked = 0;
       const normalizePhone = (phoneNum: string): string => {
@@ -467,8 +476,6 @@ export const paymentService = {
 
       const memberEmail = member.email?.trim().toLowerCase();
       const memberPhone = member.phone ? normalizePhone(member.phone) : null;
-
-      console.log(`[Link] Member email: ${memberEmail || 'none'}, phone: ${memberPhone || 'none'}`);
 
       // Try to match by email or phone from payment comment or payment reference
       for (const contribution of anonymousContributions) {
@@ -513,16 +520,11 @@ export const paymentService = {
               member_id: memberId,
             });
             linked++;
-            console.log(`[Link] ✓ Linked contribution ${contribution.contribution_id} (${contribution.amount}) to member ${memberId} by ${linkReason}`);
           } catch (error) {
             console.error(`[Link] ✗ Failed to link contribution ${contribution.contribution_id}:`, error);
           }
-        } else {
-          console.log(`[Link] ✗ No match for contribution ${contribution.contribution_id}, comment: "${contribution.comment}"`);
         }
       }
-
-      console.log(`[Link] Auto-link complete: ${linked} contributions linked`);
 
       return {
         success: true,

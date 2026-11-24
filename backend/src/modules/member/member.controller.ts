@@ -28,23 +28,12 @@ const generateEmailOTP = (): string => {
  * Test endpoint to verify Arkesel configuration
  */
 memberRoutes.get('/test-otp', async (req: Request, res: Response) => {
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('🧪 [TEST] OTP Configuration Check');
-  console.log('═══════════════════════════════════════════════════════');
   
   const apiKey = process.env.ARKESEL_API_KEY;
   const hasApiKey = !!apiKey;
   const apiKeyPreview = apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET';
   
-  console.log('🔑 API Key Status:', {
-    exists: hasApiKey,
-    length: apiKey?.length || 0,
-    preview: apiKeyPreview,
-  });
   
-  console.log('🌐 Base URL: https://sms.arkesel.com');
-  console.log('📍 Endpoint: /api/otp/generate');
-  console.log('═══════════════════════════════════════════════════════');
   
   res.status(200).json({
     success: true,
@@ -311,7 +300,6 @@ memberRoutes.post('/', async (req: Request, res: Response) => {
                     (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
                     process.env.FRONTEND_URL;
     
-    console.log(`[Create Member] Base URL: ${baseUrl} (origin: ${req.headers.origin}, referer: ${req.headers.referer})`);
     
     const { member, nameReplaced, membershipIdAssigned, membershipIdAlreadySet } =
       await memberService.importMember(input, baseUrl);
@@ -521,24 +509,14 @@ memberRoutes.post('/:id/resend-collector-invite', async (req: Request, res: Resp
   }
 });
 
-
-
-
-
 /**
  * POST /api/v1/members/:id/send-phone-otp
  * Send OTP to member's phone number
  */
 memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => {
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('📞 [CONTROLLER] POST /members/:id/send-phone-otp');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('🆔 Member ID:', req.params.id);
-  console.log('📋 Request Body:', JSON.stringify(req.body, null, 2));
   
   try {
     const member = await memberService.getMember(req.params.id);
-    console.log('👤 Member Found:', member ? 'Yes' : 'No');
     
     if (!member) {
       console.error('❌ Member not found');
@@ -548,7 +526,6 @@ memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => 
       });
     }
 
-    console.log('📱 Member Phone:', member.phone);
     
     if (!member.phone) {
       console.error('❌ Member does not have a phone number');
@@ -558,17 +535,15 @@ memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => 
       });
     }
 
-    console.log('🚀 Calling Arkesel service to send OTP...');
     
     // Send OTP via Arkesel (Arkesel generates and sends the OTP)
+    const { accountName } = await memberService.resolveAccountMessageContext(member.account_id);
     const result = await arkeselService.sendOTP(
       member.phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(member.full_name, accountName),
       5,
       6
     );
-
-    console.log('📊 Arkesel Service Result:', JSON.stringify(result, null, 2));
 
     if (!result.success) {
       console.error('❌ Arkesel service returned error:', result.error);
@@ -577,9 +552,6 @@ memberRoutes.post('/:id/send-phone-otp', async (req: Request, res: Response) => 
         error: result.error || 'Failed to send OTP',
       });
     }
-
-    console.log('✅ OTP sent successfully via Arkesel');
-    console.log('═══════════════════════════════════════════════════════');
 
     // Note: Arkesel generates the OTP, we don't get it in response
     // Verification will be done via Arkesel's verify endpoint

@@ -103,7 +103,6 @@ memberRoutesWithAuth.get('/test-otp', async (req: Request, res: Response) => {
 // POST /api/v1/members/otp/send - Send OTP (public)
 // IMPORTANT: This route MUST be defined BEFORE authenticateToken middleware
 memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
-  console.log('[OTP Send] Route hit:', req.body);
   try {
     const { phone, accountId } = req.body;
 
@@ -161,9 +160,10 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(member.full_name, accountName),
       5,
       6
     );
@@ -190,9 +190,55 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/v1/members/card - Member card for a verified public session
+memberRoutesWithAuth.post('/card', async (req: Request, res: Response) => {
+  try {
+    const { accountId, memberId, phone } = req.body;
+
+    if (!accountId || typeof accountId !== 'string' || !memberId || typeof memberId !== 'string') {
+      return res.status(400).json({ success: false, error: 'Account and member are required' });
+    }
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({ success: false, error: 'Phone number is required' });
+    }
+
+    const normalizePhone = (phoneNum: string): string => {
+      let normalized = phoneNum.replace(/[\s\-+()]/g, '');
+      if (normalized.startsWith('233') && normalized.length === 12) {
+        normalized = '0' + normalized.substring(3);
+      }
+      return normalized;
+    };
+
+    const members = await memberService.getMembersByAccount(accountId);
+    const normalizedPhone = normalizePhone(phone.trim());
+    const member = members.find((m) => {
+      if (m.member_id !== memberId) return false;
+      const memberPhone = normalizePhone(m.phone);
+      return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, error: 'Member not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        member_id: member.member_id,
+        full_name: member.full_name,
+        phone: member.phone,
+        membership_number: member.membership_number,
+        active: member.phone_verified || member.email_verified,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to load member card' });
+  }
+});
+
 // POST /api/v1/members/otp/verify - Verify OTP (public)
 memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => {
-  console.log('[OTP Verify] Route hit:', { phone: req.body.phone, accountId: req.body.accountId, codeLength: req.body.code?.length });
   try {
     const { phone, code, accountId } = req.body;
 
@@ -278,7 +324,6 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
     let verifiedMember = member;
     if (!member.phone_verified) {
       verifiedMember = await memberService.verifyPhone(member.member_id);
-      console.log(`[OTP Verify] Marked phone verified for member ${member.member_id}`);
     }
 
     // Auto-link anonymous Paystack contributions to this member
@@ -296,6 +341,9 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
         member_id: verifiedMember.member_id,
         full_name: verifiedMember.full_name,
         email: verifiedMember.email || null,
+        phone: verifiedMember.phone,
+        membership_number: verifiedMember.membership_number,
+        active: verifiedMember.phone_verified || verifiedMember.email_verified,
         phone_verified: verifiedMember.phone_verified,
       },
       message: 'OTP verified successfully',
@@ -310,7 +358,6 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
 
 // POST /api/v1/members/register-otp/send - Send OTP for new member registration (public)
 memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Response) => {
-  console.log('[Register OTP Send] Route hit:', req.body);
   try {
     const { phone, accountId } = req.body;
 
@@ -352,9 +399,13 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(
+        typeof req.body.fullName === 'string' ? req.body.fullName : req.body.name,
+        accountName
+      ),
       5,
       6
     );
@@ -383,7 +434,6 @@ memberRoutesWithAuth.post('/register-otp/send', async (req: Request, res: Respon
 
 // POST /api/v1/members/register-otp/verify - Verify OTP for new member registration (public)
 memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Response) => {
-  console.log('[Register OTP Verify] Route hit:', req.body);
   try {
     const { phone, code, accountId } = req.body;
 
@@ -430,7 +480,6 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
     // Mark phone as verified for this account (valid for 10 minutes)
     markPhoneVerified(accountId, phone);
     const normalizedPhoneValue = normalizePhone(phone);
-    console.log(`[Register OTP Verify] Phone verified and stored: ${accountId}:${normalizedPhoneValue}`);
 
     res.status(200).json({
       success: true,
@@ -447,7 +496,6 @@ memberRoutesWithAuth.post('/register-otp/verify', async (req: Request, res: Resp
 
 // POST /api/v1/members/register-email-otp/send - Send email OTP for new member registration (public)
 memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: Response) => {
-  console.log('[Register Email OTP Send] Route hit:', req.body);
   try {
     const { email, accountId } = req.body;
 
@@ -513,7 +561,6 @@ memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: 
         expires_at: expiresAt,
         max_attempts: 3,
       });
-      console.log(`[Register Email OTP Send] OTP stored in database for ${normalizedEmail}`);
     } catch (dbError) {
       console.error('[Register Email OTP Send] Failed to store OTP in database:', dbError);
       return res.status(500).json({
@@ -583,7 +630,6 @@ memberRoutesWithAuth.post('/register-email-otp/send', async (req: Request, res: 
 
 // POST /api/v1/members/register-email-otp/verify - Verify email OTP for new member registration (public)
 memberRoutesWithAuth.post('/register-email-otp/verify', async (req: Request, res: Response) => {
-  console.log('[Register Email OTP Verify] Route hit:', req.body);
   try {
     const { email, code, accountId } = req.body;
 
@@ -635,7 +681,6 @@ memberRoutesWithAuth.post('/register-email-otp/verify', async (req: Request, res
 
     // Mark email as verified for this account (valid for 10 minutes)
     markEmailVerified(accountId, email);
-    console.log(`[Register Email OTP Verify] Email verified and stored: ${accountId}:${normalizedEmail}`);
 
     res.status(200).json({
       success: true,
@@ -652,7 +697,6 @@ memberRoutesWithAuth.post('/register-email-otp/verify', async (req: Request, res
 
 // POST /api/v1/members/verify-email-token - Verify email via token (public)
 memberRoutesWithAuth.post('/verify-email-token', async (req: Request, res: Response) => {
-  console.log('[Verify Email Token] Route hit');
   try {
     const { token } = req.body;
 
@@ -750,7 +794,6 @@ memberRoutesWithAuth.post('/verify-email-token', async (req: Request, res: Respo
 
 // POST /api/v1/members/register - Create new member (public - for join page)
 memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
-  console.log('[Register Member] Route hit:', req.body);
   try {
     const { accountId, full_name, phone, dob, email, membership_number } = req.body;
 
@@ -789,10 +832,6 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
     const verificationKey = `${accountId}:${normalizedPhoneForCheck}`;
     const isVerified = isPhoneVerified(accountId, phone);
     
-    console.log(`[Register Member] Checking verification for key: ${verificationKey}`);
-    console.log(`[Register Member] Is verified: ${isVerified}`);
-    console.log(`[Register Member] Verified phones map size: ${verifiedPhones.size}`);
-    console.log(`[Register Member] All verified keys:`, Array.from(verifiedPhones.keys()));
     
     if (!isVerified) {
       return res.status(400).json({
@@ -836,7 +875,6 @@ memberRoutesWithAuth.post('/register', async (req: Request, res: Response) => {
                         (req.headers.referer ? new URL(req.headers.referer).origin : null) ||
                         process.env.FRONTEND_URL;
         await memberService.sendVerificationEmail(member.member_id, baseUrl);
-        console.log(`[Register Member] Verification email sent to ${member.email}`);
       } catch (emailError) {
         // Don't fail registration if email sending fails, just log it
         console.error('[Register Member] Failed to send verification email:', emailError);
@@ -923,9 +961,13 @@ memberRoutesWithAuth.post('/verify-phone/send', authenticateToken, requireAccoun
       });
     }
 
+    const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
       phone,
-      'Your PollenHive verification code is %otp_code%. Valid for %expiry% minutes.',
+      memberService.buildVerificationSms(
+        typeof req.body.fullName === 'string' ? req.body.fullName : req.body.name,
+        accountName
+      ),
       5,
       6
     );
@@ -1048,5 +1090,4 @@ authenticatedMemberRoutes.use('/', memberRoutes);
 // Mount authenticated routes AFTER public routes
 // Express matches routes in order, so public routes defined above will be matched first
 memberRoutesWithAuth.use('/', authenticatedMemberRoutes);
-
 

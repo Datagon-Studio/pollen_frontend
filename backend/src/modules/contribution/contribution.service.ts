@@ -162,7 +162,6 @@ Thank you for using Pollean!
       );
 
     await Promise.allSettled(emailPromises);
-    console.log(`📧 [Contribution] Sent confirmation email notifications to ${admins.filter(a => a.email).length} admin(s)`);
   } catch (error) {
     // Don't fail contribution confirmation if email fails
     console.error('Error sending contribution confirmation emails:', error);
@@ -189,9 +188,6 @@ async function sendContributionConfirmationSMS(
 
     const phone = member?.phone?.trim() || smsRecipient?.phone?.trim();
     if (!phone) {
-      console.log(
-        `[Contribution] Skipping confirmation SMS for contribution ${contribution.contribution_id}: no phone on file`
-      );
       return;
     }
 
@@ -230,7 +226,7 @@ async function sendContributionConfirmationSMS(
           .replace(/\{\{transaction_date\}\}/g, `${formattedDate} at ${formattedTime}`)
           .replace(/\{\{group_page_url\}\}/g, groupPageUrl)
           .replace(/\{\{account_name\}\}/g, accountName)
-      : `Hi ${memberName}! Your ${formattedAmount} contribution to ${fundName} was received and recorded on ${formattedDate} at ${formattedTime}. Thank you for giving!\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by PollenHive, Your welfare and contributions platform.`;
+      : `Hi ${memberName}! Your ${formattedAmount} contribution to ${fundName} was received and recorded on ${formattedDate} at ${formattedTime}. Thank you for giving!\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
 
     const result = await arkeselService.sendSMS(phone, message);
     if (!result.success) {
@@ -238,7 +234,6 @@ async function sendContributionConfirmationSMS(
       return;
     }
 
-    console.log(`📱 [Contribution] Sent confirmation SMS to contributor (${phone})`);
   } catch (error) {
     console.error('Error sending contribution confirmation SMS:', error);
   }

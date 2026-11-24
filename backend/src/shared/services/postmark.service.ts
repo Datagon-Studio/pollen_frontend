@@ -54,7 +54,6 @@ class PostmarkService {
     textBody?: string,
     tag?: string
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    console.log('📧 [Postmark] Sending email to:', to);
     
     if (!this.apiToken) {
       console.error('❌ [Postmark] API token not configured');
@@ -94,7 +93,6 @@ class PostmarkService {
     }
 
     const endpoint = `${this.baseUrl}/email`;
-    console.log('📤 [Postmark] Sending email:', { to, subject, tag });
 
     try {
       const response = await fetch(endpoint, {
@@ -108,8 +106,6 @@ class PostmarkService {
       });
 
       const responseText = await response.text();
-      console.log('📧 [Postmark] Response Status:', response.status);
-      console.log('📧 [Postmark] Response Text:', responseText);
 
       let data: PostmarkEmailResponse;
       try {
@@ -124,7 +120,6 @@ class PostmarkService {
 
       // Postmark returns ErrorCode 0 for success
       if (data.ErrorCode === 0) {
-        console.log('✅ [Postmark] Email sent successfully:', data.MessageID);
         return {
           success: true,
           messageId: data.MessageID,
@@ -160,7 +155,6 @@ class PostmarkService {
       Tag?: string;
     }>
   ): Promise<{ success: boolean; results?: Array<{ success: boolean; to: string; messageId?: string; error?: string }>; error?: string }> {
-    console.log('📧 [Postmark] Sending batch emails:', emails.length);
     
     if (!this.apiToken) {
       return {
@@ -192,7 +186,6 @@ class PostmarkService {
     }));
 
     const endpoint = `${this.baseUrl}/email/batch`;
-    console.log('📤 [Postmark] Sending batch emails');
 
     try {
       const response = await fetch(endpoint, {
@@ -206,7 +199,6 @@ class PostmarkService {
       });
 
       const responseText = await response.text();
-      console.log('📧 [Postmark] Batch Response Status:', response.status);
 
       let data: PostmarkBatchEmailResponse[];
       try {
@@ -227,7 +219,6 @@ class PostmarkService {
       }));
 
       const allSuccess = results.every(r => r.success);
-      console.log(`📧 [Postmark] Batch emails: ${results.filter(r => r.success).length}/${results.length} sent successfully`);
 
       return {
         success: allSuccess,

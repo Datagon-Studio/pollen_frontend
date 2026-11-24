@@ -186,7 +186,6 @@ paymentRoutes.post('/link-contributions', async (req: Request, res: Response) =>
 // GET /api/v1/payments/banks?country=GH
 paymentRoutes.get('/banks', async (req: Request, res: Response) => {
   try {
-    console.log('GET /banks endpoint called with country:', req.query.country);
     
     // Normalize country parameter - convert to uppercase and handle variations
     let countryParam = req.query.country as string;
@@ -203,10 +202,7 @@ paymentRoutes.get('/banks', async (req: Request, res: Response) => {
     const country = (countryParam as 'GH' | 'NG') || 'GH';
     const type = typeof req.query.type === 'string' ? req.query.type : undefined;
     const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
-    console.log('Normalized country code:', country);
-    console.log('Fetching banks for country:', country, { type, currency });
     const banks = await paystackBankService.getBanks(country, { type, currency });
-    console.log('Banks fetched successfully:', banks.length);
     sendSuccess(res, banks);
   } catch (error) {
     console.error('Error in /banks endpoint:', error);
