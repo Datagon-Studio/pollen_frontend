@@ -6,6 +6,7 @@ import { getAdminFrontendUrl, getFrontendUrl } from '../../shared/utils/frontend
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { fundRepository } from '../fund/fund.repository.js';
 import { fundSettlementService } from '../fund-settlement/fund-settlement.service.js';
+import { feeService } from '../payment/fee.service.js';
 import { settlementRepository } from '../settlement/settlement.repository.js';
 import {
   CreateSettlementRequestInput,
@@ -114,7 +115,35 @@ function toView(
     disbursement_reference: row.disbursement_reference,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    settlement_fee: 0,
+    settlement_amount: Number(row.amount),
   };
+}
+
+function roundMoney(amount: number): number {
+  return Math.round((Number(amount) || 0) * 100) / 100;
+}
+
+async function withSettlementAmounts(
+  views: SettlementRequestView[]
+): Promise<SettlementRequestView[]> {
+  const rates = new Map<string, number>();
+  await Promise.all(
+    [...new Set(views.map((view) => view.account_id))].map(async (accountId) => {
+      const fee = await feeService.resolveSettlementForAccount(accountId);
+      rates.set(accountId, fee.rate);
+    })
+  );
+
+  return views.map((view) => {
+    const requested = Number(view.amount);
+    const settlementFee = roundMoney(requested * (rates.get(view.account_id) ?? 0));
+    return {
+      ...view,
+      settlement_fee: settlementFee,
+      settlement_amount: roundMoney(requested - settlementFee),
+    };
+  });
 }
 
 async function hydrate(rows: SettlementRequestRow[]): Promise<SettlementRequestView[]> {
@@ -126,7 +155,7 @@ async function hydrate(rows: SettlementRequestRow[]): Promise<SettlementRequestV
     namesById('funds', 'fund_id', fundIds, 'fund_id, fund_name'),
     namesById('users', 'user_id', userIds, 'user_id, full_name, email'),
   ]);
-  return rows.map((row) => toView(row, accounts, funds, users));
+  return withSettlementAmounts(rows.map((row) => toView(row, accounts, funds, users)));
 }
 
 async function hydrateHistory(

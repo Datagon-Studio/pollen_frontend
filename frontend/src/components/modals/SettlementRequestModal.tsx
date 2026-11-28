@@ -216,7 +216,7 @@ export function SettlementRequestModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="request-amount">Requested amount</Label>
+            <Label htmlFor="request-amount">Request Amount</Label>
             {fundId && loadingAvailability && (
               <p className="text-sm text-muted-foreground">Calculating available balance...</p>
             )}

@@ -1,4 +1,5 @@
 import { supabase } from '../../shared/supabase/client.js';
+import { fetchAllRows } from '../../shared/supabase/fetch-all.js';
 import type { AuditLog } from '../../shared/services/audit.service.js';
 
 export const auditRepository = {
@@ -14,29 +15,32 @@ export const auditRepository = {
     limit?: number;
     category?: string;
   }): Promise<AuditLog[]> {
-    const limit = Math.min(options?.limit ?? 50, 200);
+    const rows = await fetchAllRows<AuditLog>((from, to) => {
+      let query = supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('audit_id', { ascending: false })
+        .range(from, to);
 
-    let query = supabase
-      .from('audit_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+      if (options?.accountId) {
+        query = query.eq('account_id', options.accountId);
+      }
 
-    if (options?.accountId) {
-      query = query.eq('account_id', options.accountId);
-    }
+      if (options?.category) {
+        query = query.eq('action_category', options.category);
+      }
 
-    if (options?.category) {
-      query = query.eq('action_category', options.category);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
+      return query;
+    }).catch((error: unknown) => {
       console.error('Error fetching audit logs:', error);
-      return [];
+      return [] as AuditLog[];
+    });
+
+    if (options?.limit && options.limit > 0) {
+      return rows.slice(0, options.limit);
     }
 
-    return (data || []) as AuditLog[];
+    return rows;
   },
 };

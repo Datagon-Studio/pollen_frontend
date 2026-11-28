@@ -45,6 +45,8 @@ export interface SettlementRequestView {
   requester_name: string | null;
   requester_email: string | null;
   amount: number;
+  settlement_fee: number;
+  settlement_amount: number;
   status: SettlementRequestStatus;
   request_note: string | null;
   admin_note: string | null;

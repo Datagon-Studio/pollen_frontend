@@ -1,4 +1,5 @@
 import { supabase } from '../../shared/supabase/client.js';
+import { fetchAllRows } from '../../shared/supabase/fetch-all.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { accountKYCService } from '../account/account-kyc.service.js';
 import { accountRepository } from '../account/account.repository.js';
@@ -196,23 +197,37 @@ function mapContributionRow(c: Record<string, unknown>): AdminContributionRow {
 
 export const adminCatalogService = {
   async listMembers(filters: MemberListFilters = {}): Promise<AdminMemberSummary[]> {
-    const [membersRes, accountsRes, contributionsRes] = await Promise.all([
-      supabase.from('members').select('*').order('created_at', { ascending: false }),
-      supabase.from('accounts').select('account_id, account_name'),
-      supabase.from('contributions').select('member_id, amount, status'),
+    const [members, accountRows, contributionRows] = await Promise.all([
+      fetchAllRows<MemberRow>((from, to) =>
+        supabase
+          .from('members')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('member_id', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAllRows<{ account_id: string; account_name: string | null }>((from, to) =>
+        supabase
+          .from('accounts')
+          .select('account_id, account_name')
+          .order('account_id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<{ member_id: string | null; amount: number | string; status: string }>((from, to) =>
+        supabase
+          .from('contributions')
+          .select('member_id, amount, status')
+          .order('contribution_id', { ascending: true })
+          .range(from, to)
+      ),
     ]);
 
-    if (membersRes.error) throw new Error(membersRes.error.message);
-    if (accountsRes.error) throw new Error(accountsRes.error.message);
-    if (contributionsRes.error) throw new Error(contributionsRes.error.message);
-
-    const members = (membersRes.data || []) as MemberRow[];
     const accountNames = new Map(
-      (accountsRes.data || []).map((a) => [a.account_id, a.account_name as string | null])
+      accountRows.map((a) => [a.account_id, a.account_name])
     );
 
     const contribStats = new Map<string, { count: number; total: number }>();
-    for (const c of contributionsRes.data || []) {
+    for (const c of contributionRows) {
       if (!c.member_id || c.status !== 'confirmed') continue;
       const cur = contribStats.get(c.member_id) || { count: 0, total: 0 };
       cur.count += 1;
@@ -297,20 +312,22 @@ export const adminCatalogService = {
         ? [m.member_id, ...otherGroups.map((g) => g.member_id)]
         : [m.member_id];
 
-    const { data: contribRows, error: contribErr } = await supabase
-      .from('contributions')
-      .select(`
-        *,
-        members(full_name),
-        funds(fund_name),
-        accounts(account_name)
-      `)
-      .in('member_id', memberIds)
-      .order('date_received', { ascending: false });
+    const contribRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from('contributions')
+        .select(`
+          *,
+          members(full_name),
+          funds(fund_name),
+          accounts(account_name)
+        `)
+        .in('member_id', memberIds)
+        .order('date_received', { ascending: false })
+        .order('contribution_id', { ascending: false })
+        .range(from, to)
+    );
 
-    if (contribErr) throw new Error(contribErr.message);
-
-    const contributions = (contribRows || []).map((c) => mapContributionRow(c as Record<string, unknown>));
+    const contributions = contribRows.map((c) => mapContributionRow(c));
     const confirmed = contributions.filter((c) => c.status === 'confirmed');
 
     const summary: AdminMemberSummary = {
@@ -341,27 +358,50 @@ export const adminCatalogService = {
   },
 
   async listFunds(filters: FundListFilters = {}): Promise<AdminFundSummary[]> {
-    const [fundsRes, accountsRes, contributionsRes] = await Promise.all([
-      supabase.from('funds').select('*').order('created_at', { ascending: false }),
-      supabase.from('accounts').select('account_id, account_name'),
-      supabase.from('contributions').select('fund_id, amount, status'),
+    const [fundRows, accountRows, contributionRows] = await Promise.all([
+      fetchAllRows<{
+        fund_id: string;
+        account_id: string;
+        fund_name: string;
+        fund_goal: number | null;
+        is_public: boolean;
+        is_active: boolean;
+        created_at: string;
+      }>((from, to) =>
+        supabase
+          .from('funds')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('fund_id', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAllRows<{ account_id: string; account_name: string | null }>((from, to) =>
+        supabase
+          .from('accounts')
+          .select('account_id, account_name')
+          .order('account_id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<{ fund_id: string; amount: number | string; status: string }>((from, to) =>
+        supabase
+          .from('contributions')
+          .select('fund_id, amount, status')
+          .order('contribution_id', { ascending: true })
+          .range(from, to)
+      ),
     ]);
 
-    if (fundsRes.error) throw new Error(fundsRes.error.message);
-    if (accountsRes.error) throw new Error(accountsRes.error.message);
-    if (contributionsRes.error) throw new Error(contributionsRes.error.message);
-
     const accountNames = new Map(
-      (accountsRes.data || []).map((a) => [a.account_id, a.account_name as string | null])
+      accountRows.map((a) => [a.account_id, a.account_name])
     );
 
     const collected = new Map<string, number>();
-    for (const c of contributionsRes.data || []) {
+    for (const c of contributionRows) {
       if (c.status !== 'confirmed') continue;
       collected.set(c.fund_id, (collected.get(c.fund_id) || 0) + Number(c.amount));
     }
 
-    let results: AdminFundSummary[] = (fundsRes.data || []).map((f) => ({
+    let results: AdminFundSummary[] = fundRows.map((f) => ({
       fund_id: f.fund_id,
       account_id: f.account_id,
       account_name: accountNames.get(f.account_id) ?? null,
@@ -417,19 +457,20 @@ export const adminCatalogService = {
 
     const amountCollected = await contributionRepository.getTotalByFund(fundId);
 
-    const { data: contribRows, error: contribErr } = await supabase
-      .from('contributions')
-      .select(`
-        *,
-        members(full_name),
-        funds(fund_name),
-        accounts(account_name)
-      `)
-      .eq('fund_id', fundId)
-      .order('date_received', { ascending: false })
-      .limit(100);
-
-    if (contribErr) throw new Error(contribErr.message);
+    const contribRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from('contributions')
+        .select(`
+          *,
+          members(full_name),
+          funds(fund_name),
+          accounts(account_name)
+        `)
+        .eq('fund_id', fundId)
+        .order('date_received', { ascending: false })
+        .order('contribution_id', { ascending: false })
+        .range(from, to)
+    );
 
     return {
       fund_id: fund.fund_id,
@@ -445,35 +486,34 @@ export const adminCatalogService = {
       description: fund.description,
       default_amount: fund.default_amount,
       updated_at: fund.updated_at,
-      contributions: (contribRows || []).map((c) =>
-        mapContributionRow(c as Record<string, unknown>)
-      ),
+      contributions: contribRows.map((c) => mapContributionRow(c)),
     };
   },
 
   async listContributions(filters: ContributionListFilters = {}): Promise<AdminContributionRow[]> {
-    let query = supabase
-      .from('contributions')
-      .select(`
-        *,
-        members(full_name),
-        funds(fund_name),
-        accounts(account_name)
-      `)
-      .order('date_received', { ascending: false })
-      .limit(500);
+    const data = await fetchAllRows<Record<string, unknown>>((from, to) => {
+      let query = supabase
+        .from('contributions')
+        .select(`
+          *,
+          members(full_name),
+          funds(fund_name),
+          accounts(account_name)
+        `)
+        .order('date_received', { ascending: false })
+        .order('contribution_id', { ascending: false })
+        .range(from, to);
 
-    if (filters.accountId) query = query.eq('account_id', filters.accountId);
-    if (filters.fundId) query = query.eq('fund_id', filters.fundId);
-    if (filters.channel) query = query.eq('channel', filters.channel);
-    if (filters.status) query = query.eq('status', filters.status);
-    if (filters.dateFrom) query = query.gte('date_received', filters.dateFrom);
-    if (filters.dateTo) query = query.lte('date_received', filters.dateTo);
+      if (filters.accountId) query = query.eq('account_id', filters.accountId);
+      if (filters.fundId) query = query.eq('fund_id', filters.fundId);
+      if (filters.channel) query = query.eq('channel', filters.channel);
+      if (filters.status) query = query.eq('status', filters.status);
+      if (filters.dateFrom) query = query.gte('date_received', filters.dateFrom);
+      if (filters.dateTo) query = query.lte('date_received', filters.dateTo);
+      return query;
+    });
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-
-    let rows = (data || []).map((c) => mapContributionRow(c as Record<string, unknown>));
+    let rows = data.map((c) => mapContributionRow(c));
 
     if (filters.search?.trim()) {
       const q = filters.search.trim().toLowerCase();

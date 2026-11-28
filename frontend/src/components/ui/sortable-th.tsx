@@ -9,6 +9,7 @@ export function SortableTh({
   sortDirection,
   onSort,
   align = "left",
+  className,
 }: {
   label: string;
   column: string;
@@ -16,19 +17,20 @@ export function SortableTh({
   sortDirection: AlphaSortDirection;
   onSort: (column: string) => void;
   align?: "left" | "right";
+  className?: string;
 }) {
   const active = sortColumn === column;
 
   return (
     <th
-      className={cn("p-3 font-medium", align === "right" ? "text-right" : "text-left")}
+      className={cn("p-3 font-medium", align === "right" ? "text-right" : "text-left", className)}
       aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
         type="button"
         onClick={() => onSort(column)}
         className={cn(
-          "inline-flex items-center gap-1 font-medium hover:text-foreground",
+          "inline-flex items-center gap-1 whitespace-nowrap font-medium hover:text-foreground",
           align === "right" && "flex-row-reverse",
         )}
       >

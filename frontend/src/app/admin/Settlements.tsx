@@ -33,6 +33,8 @@ import { managerApi } from "@/services/manager.api";
 import { getCurrencyPrefix } from "@/lib/currencies";
 import { useSortedRows } from "@/lib/table-sort";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { usePagination } from "@/hooks/usePagination";
 
 const statuses: Array<"all" | SettlementRequestStatus> = [
   "all",
@@ -133,6 +135,10 @@ export default function Settlements() {
         return request.fund_name;
       case "amount":
         return Number(request.amount);
+      case "fee":
+        return Number(request.settlement_fee);
+      case "settlement":
+        return Number(request.settlement_amount);
       case "destination":
         return request.destination_account_name;
       case "status":
@@ -141,6 +147,12 @@ export default function Settlements() {
         return "";
     }
   });
+
+  const settlementPage = usePagination(
+    settlementSort.sorted,
+    12,
+    `${statusFilter}|${search}|${filtered.length}`
+  );
 
   const amountFor = (status: SettlementRequestStatus) =>
     requests
@@ -290,21 +302,29 @@ export default function Settlements() {
                   <SortableTh label="Requested" column="requested" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
                   <SortableTh label="Account" column="account" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
                   <SortableTh label="Fund" column="fund" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
-                  <SortableTh label="Amount" column="amount" align="right" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Requested amount" column="amount" align="right" className="whitespace-nowrap" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Settlement fee" column="fee" align="right" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
+                  <SortableTh label="Settlement amount" column="settlement" align="right" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
                   <SortableTh label="Payment destination" column="destination" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
                   <SortableTh label="Status" column="status" sortColumn={settlementSort.sortColumn} sortDirection={settlementSort.sortDirection} onSort={settlementSort.onSort} />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {settlementSort.sorted.map((request) => (
+                {settlementPage.paginatedItems.map((request) => (
                   <tr key={request.request_id} className="hover:bg-muted/20">
                     <td className="p-3 text-muted-foreground">
                       {format(new Date(request.created_at), "MMM d, yyyy")}
                     </td>
                     <td className="p-3 font-medium">{request.account_name}</td>
                     <td className="p-3">{request.fund_name}</td>
-                    <td className="p-3 text-right font-semibold">
+                    <td className="p-3 text-right">
                       {formatAmount(Number(request.amount))}
+                    </td>
+                    <td className="p-3 text-right">
+                      {formatAmount(Number(request.settlement_fee || 0))}
+                    </td>
+                    <td className="p-3 text-right font-semibold">
+                      {formatAmount(Number(request.settlement_amount || 0))}
                     </td>
                     <td className="p-3">
                       <p>{request.destination_account_name}</p>
@@ -366,6 +386,16 @@ export default function Settlements() {
             />
           </div>
         )}
+        <div className="px-3 pb-3">
+          <TablePagination
+            page={settlementPage.page}
+            totalPages={settlementPage.totalPages}
+            totalItems={settlementPage.totalItems}
+            rangeStart={settlementPage.rangeStart}
+            rangeEnd={settlementPage.rangeEnd}
+            onPageChange={settlementPage.setPage}
+          />
+        </div>
       </div>
 
       {account && (

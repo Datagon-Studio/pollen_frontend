@@ -1,4 +1,5 @@
 import { supabase } from '../../shared/supabase/client.js';
+import { fetchAllRows } from '../../shared/supabase/fetch-all.js';
 import { accountRepository } from '../account/account.repository.js';
 import type { Account } from '../account/account.entity.js';
 
@@ -59,7 +60,6 @@ function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const REPORT_RECORD_LIMIT = 500;
 export const DASHBOARD_TREND_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', '6m', '12m'] as const;
 export type DashboardTrendRange = (typeof DASHBOARD_TREND_RANGES)[number];
 
@@ -485,18 +485,26 @@ export const adminService = {
     trend: PlatformReportPoint[];
   }> {
     const { start, end, grain } = dashboardTrendBounds(range);
-    const { data, error } = await supabase
-      .from('contributions')
-      .select('amount, channel, date_received, created_at')
-      .eq('status', 'confirmed');
-    if (error) throw new Error(error.message);
+    const data = await fetchAllRows<{
+      amount: number | string;
+      channel: string;
+      date_received: string | null;
+      created_at: string | null;
+    }>((from, to) =>
+      supabase
+        .from('contributions')
+        .select('amount, channel, date_received, created_at')
+        .eq('status', 'confirmed')
+        .order('contribution_id', { ascending: true })
+        .range(from, to)
+    );
 
     const slots = buildTrendSlots(start, end, grain);
     const buckets = new Map(
       slots.map((slot) => [slot.key, { online: 0, manual: 0, label: slot.label }])
     );
-    for (const row of data || []) {
-      const day = utcDay(row.date_received || row.created_at);
+    for (const row of data) {
+      const day = utcDay(row.date_received || row.created_at || "");
       if (!isIsoDate(day) || day < start || day > end) continue;
       const bucket = buckets.get(trendKey(day, grain));
       if (!bucket) continue;
@@ -573,9 +581,7 @@ export const adminService = {
         return request;
       }),
       (async () => {
-        const matched: PlatformReportRecord[] = [];
-        const pageSize = 500;
-        for (let from = 0; matched.length < REPORT_RECORD_LIMIT; from += pageSize) {
+        const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
           let request = supabase
             .from('contributions')
             .select(`
@@ -586,24 +592,17 @@ export const adminService = {
             `)
             .order('date_received', { ascending: false })
             .order('contribution_id', { ascending: false })
-            .range(from, from + pageSize - 1);
+            .range(from, to);
           if (startIso) request = request.gte('date_received', startIso);
           if (endIso) request = request.lte('date_received', endIso);
           if (accountId) request = request.eq('account_id', accountId);
           if (channel) request = request.eq('channel', channel);
           if (status) request = request.eq('status', status);
-          const { data, error } = await request;
-          if (error) throw new Error(error.message);
-          const batch = data || [];
-          for (const row of batch) {
-            const record = mapReportRecord(row as Record<string, unknown>);
-            if (!matchesReportPeriod(record.date_received, month, years)) continue;
-            matched.push(record);
-            if (matched.length === REPORT_RECORD_LIMIT) break;
-          }
-          if (batch.length < pageSize) break;
-        }
-        return matched;
+          return request;
+        });
+        return rows
+          .map((row) => mapReportRecord(row))
+          .filter((record) => matchesReportPeriod(record.date_received, month, years));
       })(),
     ]);
 
@@ -706,35 +705,60 @@ export const adminService = {
   },
 
   async listAccounts(): Promise<AdminAccountSummary[]> {
-    const { data: accounts, error } = await supabase
-      .from('accounts')
-      .select('account_id, account_name, account_logo, status, kyc_status, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw new Error(error.message);
+    const accounts = await fetchAllRows<{
+      account_id: string;
+      account_name: string | null;
+      account_logo: string | null;
+      status: string | null;
+      kyc_status: string | null;
+      created_at: string;
+    }>((from, to) =>
+      supabase
+        .from('accounts')
+        .select('account_id, account_name, account_logo, status, kyc_status, created_at')
+        .order('created_at', { ascending: false })
+        .order('account_id', { ascending: false })
+        .range(from, to)
+    );
     // Hide signup shells / individual placeholders (no org name yet).
-    const orgAccounts = (accounts || []).filter(isOrganizationAccount);
+    const orgAccounts = accounts.filter(isOrganizationAccount);
     if (!orgAccounts.length) return [];
 
-    const [membersRes, fundsRes, contributionsRes, expensesRes] = await Promise.all([
-      supabase.from('members').select('account_id'),
-      supabase.from('funds').select('account_id, is_active'),
-      supabase.from('contributions').select('account_id, amount, channel, status'),
-      supabase.from('expenses').select('account_id, amount'),
+    const [memberRows, fundRows, contributionRows, expenseRows] = await Promise.all([
+      fetchAllRows<{ account_id: string }>((from, to) =>
+        supabase.from('members').select('account_id').order('member_id', { ascending: true }).range(from, to)
+      ),
+      fetchAllRows<{ account_id: string; is_active: boolean }>((from, to) =>
+        supabase
+          .from('funds')
+          .select('account_id, is_active')
+          .order('fund_id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<{
+        account_id: string;
+        amount: number | string;
+        channel: string;
+        status: string;
+      }>((from, to) =>
+        supabase
+          .from('contributions')
+          .select('account_id, amount, channel, status')
+          .order('contribution_id', { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<{ account_id: string; amount: number | string }>((from, to) =>
+        supabase.from('expenses').select('account_id, amount').order('expense_id', { ascending: true }).range(from, to)
+      ),
     ]);
 
-    if (membersRes.error) throw new Error(membersRes.error.message);
-    if (fundsRes.error) throw new Error(fundsRes.error.message);
-    if (contributionsRes.error) throw new Error(contributionsRes.error.message);
-    if (expensesRes.error) throw new Error(expensesRes.error.message);
-
     const memberCounts = new Map<string, number>();
-    for (const m of membersRes.data || []) {
+    for (const m of memberRows) {
       memberCounts.set(m.account_id, (memberCounts.get(m.account_id) || 0) + 1);
     }
 
     const fundCounts = new Map<string, { total: number; active: number }>();
-    for (const f of fundsRes.data || []) {
+    for (const f of fundRows) {
       const cur = fundCounts.get(f.account_id) || { total: 0, active: 0 };
       cur.total += 1;
       if (f.is_active) cur.active += 1;
@@ -742,7 +766,7 @@ export const adminService = {
     }
 
     const collected = new Map<string, { total: number; online: number; manual: number }>();
-    for (const c of contributionsRes.data || []) {
+    for (const c of contributionRows) {
       if (c.status !== 'confirmed') continue;
       const cur = collected.get(c.account_id) || { total: 0, online: 0, manual: 0 };
       const amt = Number(c.amount);
@@ -753,7 +777,7 @@ export const adminService = {
     }
 
     const disbursed = new Map<string, { total: number; count: number }>();
-    for (const e of expensesRes.data || []) {
+    for (const e of expenseRows) {
       const cur = disbursed.get(e.account_id) || { total: 0, count: 0 };
       cur.total += Number(e.amount);
       cur.count += 1;
@@ -768,8 +792,8 @@ export const adminService = {
         account_id: a.account_id,
         account_name: a.account_name,
         account_logo: a.account_logo,
-        status: a.status,
-        kyc_status: a.kyc_status,
+        status: a.status || "",
+        kyc_status: a.kyc_status || "",
         created_at: a.created_at,
         member_count: memberCounts.get(a.account_id) || 0,
         fund_count: fc.total,

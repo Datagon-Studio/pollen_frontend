@@ -146,7 +146,8 @@ adminRoutes.get('/audit-logs', async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
     await assertStaffUser(authReq.user?.id);
-    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const parsedLimit = parseInt(req.query.limit as string, 10);
+    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined;
     const category =
       typeof req.query.category === 'string' ? req.query.category : undefined;
     const accountId =
