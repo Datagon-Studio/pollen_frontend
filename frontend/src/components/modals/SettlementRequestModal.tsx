@@ -217,6 +217,9 @@ export function SettlementRequestModal({
 
           <div className="space-y-2">
             <Label htmlFor="request-amount">Requested amount</Label>
+            {fundId && loadingAvailability && (
+              <p className="text-sm text-muted-foreground">Calculating available balance...</p>
+            )}
             <CurrencyInput
               id="request-amount"
               currencyCode={currencyCode}
@@ -229,15 +232,12 @@ export function SettlementRequestModal({
             />
           </div>
 
-          {fundId && (
+          {fundId && !loadingAvailability && (
             <SettlementAvailabilitySummary
               availability={availability}
-              loading={loadingAvailability}
+              loading={false}
               currencyCode={currencyCode}
               requestedAmount={Number(amount) || 0}
-              onUseMax={() =>
-                availability && setAmount(availability.availableAmount.toFixed(2))
-              }
             />
           )}
 

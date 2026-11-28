@@ -1,7 +1,10 @@
 import { supabase } from '../../shared/supabase/client.js';
 
 export const DEFAULT_TRANSACTION_FEE_RATE = 0.02;
+export const DEFAULT_SETTLEMENT_FEE_RATE = 0.02;
 const GLOBAL_FEE_KEY = 'transaction_fee_rate';
+const SETTLEMENT_FEE_KEY = 'settlement_fee_rate';
+const SETTLEMENT_FEE_OVERRIDES_KEY = 'settlement_fee_overrides';
 
 export type FeeSource = 'account' | 'global' | 'default';
 
@@ -198,6 +201,151 @@ export const feeService = {
       globalRate,
       globalPercent: toPercent(globalRate),
       overrides,
+    };
+  },
+
+  async getGlobalSettlementRate(): Promise<number> {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('setting_value')
+      .eq('setting_key', SETTLEMENT_FEE_KEY)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[fees] Failed to load global settlement fee:', error.message);
+      return DEFAULT_SETTLEMENT_FEE_RATE;
+    }
+
+    const rate = parseRate(data?.setting_value);
+    if (rate === null) return DEFAULT_SETTLEMENT_FEE_RATE;
+    return assertValidRate(rate);
+  },
+
+  async setGlobalSettlementRate(rate: number, updatedBy?: string): Promise<number> {
+    const next = assertValidRate(rate);
+    const { error } = await supabase.from('platform_settings').upsert(
+      {
+        setting_key: SETTLEMENT_FEE_KEY,
+        setting_value: next,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy ?? null,
+      },
+      { onConflict: 'setting_key' }
+    );
+    if (error) {
+      throw new Error(`Failed to save global settlement fee: ${error.message}`);
+    }
+    return next;
+  },
+
+  async getSettlementOverrides(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('setting_value')
+      .eq('setting_key', SETTLEMENT_FEE_OVERRIDES_KEY)
+      .maybeSingle();
+
+    if (error || !data?.setting_value || typeof data.setting_value !== 'object' || Array.isArray(data.setting_value)) {
+      return {};
+    }
+
+    const overrides: Record<string, number> = {};
+    for (const [accountId, value] of Object.entries(data.setting_value as Record<string, unknown>)) {
+      const rate = parseRate(value);
+      if (rate === null) continue;
+      overrides[accountId] = assertValidRate(rate);
+    }
+    return overrides;
+  },
+
+  async setAccountSettlementOverride(
+    accountId: string,
+    rate: number | null,
+    updatedBy?: string
+  ): Promise<number | null> {
+    const overrides = await this.getSettlementOverrides();
+    if (rate === null) {
+      delete overrides[accountId];
+    } else {
+      overrides[accountId] = assertValidRate(rate);
+    }
+
+    const { error } = await supabase.from('platform_settings').upsert(
+      {
+        setting_key: SETTLEMENT_FEE_OVERRIDES_KEY,
+        setting_value: overrides,
+        updated_at: new Date().toISOString(),
+        updated_by: updatedBy ?? null,
+      },
+      { onConflict: 'setting_key' }
+    );
+    if (error) {
+      throw new Error(`Failed to save account settlement fee: ${error.message}`);
+    }
+    return rate === null ? null : overrides[accountId];
+  },
+
+  async resolveSettlementForAccount(accountId: string): Promise<ResolvedFeeRate> {
+    const [overrides, globalRate] = await Promise.all([
+      this.getSettlementOverrides(),
+      this.getGlobalSettlementRate(),
+    ]);
+    const overrideRate = Object.prototype.hasOwnProperty.call(overrides, accountId)
+      ? overrides[accountId]
+      : null;
+
+    if (overrideRate !== null) {
+      return {
+        rate: overrideRate,
+        percent: toPercent(overrideRate),
+        source: 'account',
+        overrideRate,
+      };
+    }
+
+    return {
+      rate: globalRate,
+      percent: toPercent(globalRate),
+      source: globalRate === DEFAULT_SETTLEMENT_FEE_RATE ? 'default' : 'global',
+      overrideRate: null,
+    };
+  },
+
+  async getSettlementSnapshot(): Promise<PlatformFeesSnapshot> {
+    const [globalRate, overrides] = await Promise.all([
+      this.getGlobalSettlementRate(),
+      this.getSettlementOverrides(),
+    ]);
+    const accountIds = Object.keys(overrides);
+    const names = new Map<string, string | null>();
+
+    if (accountIds.length > 0) {
+      const { data } = await supabase
+        .from('accounts')
+        .select('account_id, account_name')
+        .in('account_id', accountIds);
+      for (const row of data || []) {
+        names.set(row.account_id, row.account_name ?? null);
+      }
+    }
+
+    const rows: AccountFeeOverride[] = accountIds.map((accountId) => {
+      const rate = overrides[accountId];
+      return {
+        account_id: accountId,
+        account_name: names.get(accountId) ?? null,
+        rate,
+        percent: toPercent(rate),
+      };
+    });
+    rows.sort((a, b) =>
+      (a.account_name || a.account_id).localeCompare(b.account_name || b.account_id)
+    );
+
+    return {
+      globalRate,
+      globalPercent: toPercent(globalRate),
+      overrides: rows,
     };
   },
 };

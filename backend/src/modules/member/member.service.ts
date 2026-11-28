@@ -250,7 +250,7 @@ export class MemberService {
    */
   async sendWelcomeSMS(member: Member, baseUrl?: string): Promise<void> {
     const { memberName, accountName, groupPageUrl } = await this.getMessageContext(member, baseUrl);
-    const message = `Hi ${memberName}! ${accountName} has invited you to Pollean, a welfare and contributions management platform.\nGive, contribute, view, and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
+    const message = `Hi ${memberName}! ${accountName} has invited you to Pollean, a welfare and contributions management platform.\nGive, contribute and track here: ${groupPageUrl}\n\n~ ${accountName}\n\nPowered by Pollean! Your welfare and contributions platform.`;
 
     const result = await arkeselService.sendSMS(member.phone, message);
     if (!result.success) {

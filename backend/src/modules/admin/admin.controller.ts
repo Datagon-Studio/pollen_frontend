@@ -692,6 +692,79 @@ adminRoutes.put('/fees/accounts/:accountId', async (req: Request, res: Response)
   }
 });
 
+/** GET /api/v1/admin/settlement-fees — global settlement fee + account overrides */
+adminRoutes.get('/settlement-fees', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    await assertPlatformAdmin(authReq.user?.id);
+    const data = await feeService.getSettlementSnapshot();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** PUT /api/v1/admin/settlement-fees/global */
+adminRoutes.put('/settlement-fees/global', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const rate = parseFeeRateInput(req.body);
+    if (rate === undefined || rate === null) {
+      res.status(400).json({ success: false, error: 'Provide a fee percent or rate' });
+      return;
+    }
+    const saved = await feeService.setGlobalSettlementRate(rate, staff.user_id);
+    res.status(200).json({
+      success: true,
+      data: { rate: saved, percent: Math.round(saved * 10000) / 100 },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Fee rate must be')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
+
+/** PUT /api/v1/admin/settlement-fees/accounts/:accountId */
+adminRoutes.put('/settlement-fees/accounts/:accountId', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const staff = await assertPlatformAdmin(authReq.user?.id);
+    const account = await accountRepository.findByAccountId(req.params.accountId);
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+    const rate = parseFeeRateInput(req.body);
+    if (rate === undefined) {
+      res.status(400).json({ success: false, error: 'Provide a fee percent/rate, or clear: true' });
+      return;
+    }
+    const saved = await feeService.setAccountSettlementOverride(req.params.accountId, rate, staff.user_id);
+    const resolved = await feeService.resolveSettlementForAccount(req.params.accountId);
+    res.status(200).json({
+      success: true,
+      data: {
+        account_id: req.params.accountId,
+        overrideRate: saved,
+        overridePercent: saved === null ? null : Math.round(saved * 10000) / 100,
+        effectiveRate: resolved.rate,
+        effectivePercent: resolved.percent,
+        source: resolved.source,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Fee rate must be')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
+
 /** GET /api/v1/admin/staff — platform staff roster */
 adminRoutes.get('/staff', async (req: Request, res: Response) => {
   try {

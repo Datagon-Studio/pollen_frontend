@@ -104,7 +104,7 @@ export class FundSettlementService {
       settlementRequestRepository.sumReservedForFund(fundId),
     ]);
 
-    const fee = await feeService.resolveForAccount(accountId);
+    const fee = await feeService.resolveSettlementForAccount(accountId);
     const collected = roundMoney(breakdown.total);
     const onlineCollected = roundMoney(breakdown.online);
     const offlineCollected = roundMoney(breakdown.offline);

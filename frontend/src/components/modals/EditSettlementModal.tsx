@@ -235,10 +235,6 @@ export function EditSettlementModal({
                 availability={availability}
                 loading={loadingAvailability}
                 currencyCode={currencyCode}
-                onUseMax={() =>
-                  availability &&
-                  setFormData({ ...formData, amount: availability.availableAmount.toFixed(2) })
-                }
               />
             )}
 
