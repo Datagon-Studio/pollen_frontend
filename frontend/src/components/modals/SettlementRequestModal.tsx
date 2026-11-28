@@ -118,16 +118,19 @@ export function SettlementRequestModal({
     };
   }, [fundId, open, toast]);
 
-  const reset = () => {
+  const resetForm = () => {
     setFundId("");
     setAmount("");
     setNote("");
-    setDestination(null);
     setAvailability(null);
   };
 
+  useEffect(() => {
+    if (!open) return;
+    resetForm();
+  }, [open, accountId]);
+
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) reset();
     onOpenChange(nextOpen);
   };
 
@@ -171,7 +174,6 @@ export function SettlementRequestModal({
         title: "Settlement request submitted",
         description: "Pollean admins can now review the request.",
       });
-      reset();
       onOpenChange(false);
       onSuccess();
     } catch (error) {

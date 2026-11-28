@@ -310,7 +310,7 @@ export const settlementRequestService = {
       contributionRepository.getConfirmedBreakdownByFund(row.fund_id),
       settlementRequestRepository.sumDisbursedForFund(row.fund_id),
     ]);
-    const fundCollected = breakdown.total;
+    const fundCollected = breakdown.online;
     return {
       ...view,
       history,

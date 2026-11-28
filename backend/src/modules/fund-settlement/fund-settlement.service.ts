@@ -110,8 +110,8 @@ export class FundSettlementService {
     const offlineCollected = roundMoney(breakdown.offline);
     const feeAmount = roundMoney(onlineCollected * fee.rate);
     const reserved = roundMoney(recordedAmount + requestedAmount);
-    // Contribution amounts already exclude donor-paid transaction fees.
-    const availableAmount = roundMoney(Math.max(0, collected - reserved));
+    // Settlements pay out online payments only. Manual records stay in the fund totals.
+    const availableAmount = roundMoney(Math.max(0, onlineCollected - reserved));
 
     return {
       fund_id: fundId,

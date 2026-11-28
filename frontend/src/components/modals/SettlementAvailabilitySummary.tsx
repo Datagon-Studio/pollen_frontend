@@ -51,8 +51,8 @@ export function SettlementAvailabilitySummary({
   return (
     <div className="rounded-md border border-border bg-muted/40 px-3 py-3 space-y-2 text-sm">
       <div className="flex justify-between text-muted-foreground">
-        <span>Collected in fund</span>
-        <span>{formatAmount(availability.collected)}</span>
+        <span>Online payments</span>
+        <span>{formatAmount(availability.onlineCollected)}</span>
       </div>
       <div className="flex justify-between text-muted-foreground">
         <span>Already settled</span>
