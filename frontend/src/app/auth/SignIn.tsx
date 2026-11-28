@@ -17,11 +17,32 @@ import { request } from "@/services/api-client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { BrandSymbol } from "@/components/ui/brand";
+import { accountApi } from "@/services/account.api";
+
+const LOGIN_ERROR_KEY = "pollean.loginError";
+
+function loginDetailsError(message: string): string {
+  const text = message.toLowerCase();
+  if (text.includes("invalid login") || text.includes("invalid credentials")) {
+    return "Wrong login details.";
+  }
+  if (text.includes("email not confirmed") || text.includes("not confirmed")) {
+    return "Confirm your email before signing in.";
+  }
+  if (text.includes("too many")) {
+    return "Too many sign-in attempts. Wait a moment and try again.";
+  }
+  return message;
+}
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => {
+    const stored = sessionStorage.getItem(LOGIN_ERROR_KEY);
+    if (stored) sessionStorage.removeItem(LOGIN_ERROR_KEY);
+    return stored || "";
+  });
   const [loading, setLoading] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [searchParams] = useSearchParams();
@@ -65,13 +86,24 @@ export default function SignIn() {
         });
 
       if (signInError) {
-        setError(signInError.message || "Invalid email or password");
+        setError(loginDetailsError(signInError.message || "Wrong login details."));
         setLoading(false);
         return;
       }
 
       if (data.user) {
-        // Redirect to dashboard
+        try {
+          await accountApi.getMyAccount();
+        } catch (accountError) {
+          await supabase.auth.signOut();
+          setError(
+            accountError instanceof Error
+              ? accountError.message
+              : "This login is not linked to an account."
+          );
+          setLoading(false);
+          return;
+        }
         navigate("/");
       }
     } catch (err) {

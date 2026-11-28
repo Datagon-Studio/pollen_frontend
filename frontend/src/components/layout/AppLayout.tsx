@@ -87,6 +87,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const {
     account,
+    error: accountError,
     getInitials: getAccountInitials,
     loading: accountLoading,
   } = useAccount(user?.id);
@@ -119,6 +120,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [isSuperAdmin, isOfficer, roleKnown]);
 
   const userProfileLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (!user || !accountError) return;
+    const blocked = [
+      "This account has been suspended.",
+      "This account has been deactivated.",
+      "You are not part of this account.",
+      "This login is not linked to an account.",
+    ];
+    if (!blocked.includes(accountError)) return;
+    sessionStorage.setItem("pollean.loginError", accountError);
+    void logout().then(() => navigate("/signin", { replace: true }));
+  }, [user, accountError, logout, navigate]);
 
   useEffect(() => {
     if (user) {

@@ -4,6 +4,10 @@ import { sendSuccess, sendError, sendCreated, sendNotFound, sendBadRequest } fro
 import { authenticateToken } from '../../shared/middleware/auth.middleware.js';
 import { AuthenticatedRequest } from '../../shared/middleware/auth.middleware.js';
 import { accountService } from '../account/account.service.js';
+import { accountRepository } from '../account/account.repository.js';
+import { memberRepository } from '../member/member.repository.js';
+import { memberSuspensionService } from '../member/member-suspension.service.js';
+import { LoginAccessError, loginMessages } from '../../shared/login-access.js';
 import { auditService } from '../../shared/services/audit.service.js';
 
 function ledgerRuleStatus(message: string): number | null {
@@ -102,6 +106,16 @@ contributionRoutes.get('/fund/:fundId/stats', async (req: Request, res: Response
 contributionRoutes.get('/member/:memberId', async (req: Request, res: Response) => {
   try {
     const memberId = req.params.memberId;
+    const member = await memberRepository.findById(memberId);
+    if (!member) {
+      sendNotFound(res, 'Member not found');
+      return;
+    }
+    const account = await accountRepository.findByAccountId(member.account_id);
+    if (account) accountService.assertAccountOpen(account);
+    if (await memberSuspensionService.isSuspended(memberId)) {
+      throw new LoginAccessError(loginMessages.membershipSuspended, 'membership_suspended');
+    }
     console.log(`[Contributions API] Fetching contributions for member: ${memberId}`);
     const contributions = await contributionService.getContributionsByMember(memberId);
     console.log(`[Contributions API] Found ${contributions.length} contributions for member ${memberId}`);
@@ -115,6 +129,10 @@ contributionRoutes.get('/member/:memberId', async (req: Request, res: Response) 
     }
     sendSuccess(res, contributions);
   } catch (error) {
+    if (error instanceof LoginAccessError) {
+      sendError(res, error.message, error.statusCode);
+      return;
+    }
     console.error('[Contributions API] Error fetching member contributions:', error);
     sendError(res, 'Failed to fetch member contributions');
   }

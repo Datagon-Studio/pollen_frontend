@@ -23,6 +23,7 @@ import { auditRepository } from '../audit/audit.repository.js';
 import { staffService, StaffInviteError } from './staff.service.js';
 import type { StaffRole } from '../../shared/middleware/staff.middleware.js';
 import { feeService } from '../payment/fee.service.js';
+import { memberSuspensionService } from '../member/member-suspension.service.js';
 
 export const adminRoutes = Router();
 
@@ -336,6 +337,145 @@ adminRoutes.post('/accounts/:accountId/reactivate', async (req: Request, res: Re
     handleStaffError(error, res);
   }
 });
+
+/** POST /api/v1/admin/accounts/:accountId/suspend */
+adminRoutes.post('/accounts/:accountId/suspend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const admin = await assertPlatformAdmin(authReq.user?.id);
+    const reason = readReason(req, res);
+    if (!reason) return;
+
+    const existing = await accountRepository.findByAccountId(req.params.accountId);
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    const account = await accountRepository.update(req.params.accountId, {
+      status: AccountStatus.SUSPENDED,
+    });
+    await auditService.log({
+      actionType: 'account_suspended',
+      actionCategory: 'ACCOUNT',
+      userId: admin.user_id,
+      accountId: req.params.accountId,
+      entityType: 'account',
+      entityId: req.params.accountId,
+      actionDetails: { reason },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: account,
+      message: 'Account suspended',
+    });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/accounts/:accountId/unsuspend */
+adminRoutes.post('/accounts/:accountId/unsuspend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const admin = await assertPlatformAdmin(authReq.user?.id);
+    const reason = readReason(req, res);
+    if (!reason) return;
+
+    const existing = await accountRepository.findByAccountId(req.params.accountId);
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    const account = await accountRepository.update(req.params.accountId, {
+      status: AccountStatus.ACTIVE,
+    });
+    await auditService.log({
+      actionType: 'account_unsuspended',
+      actionCategory: 'ACCOUNT',
+      userId: admin.user_id,
+      accountId: req.params.accountId,
+      entityType: 'account',
+      entityId: req.params.accountId,
+      actionDetails: { reason },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: account,
+      message: 'Account suspension lifted',
+    });
+  } catch (error) {
+    handleStaffError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/members/:memberId/suspend */
+adminRoutes.post('/members/:memberId/suspend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const admin = await assertPlatformAdmin(authReq.user?.id);
+    const reason = readReason(req, res);
+    if (!reason) return;
+
+    await memberSuspensionService.setSuspended(req.params.memberId, true, admin.user_id);
+    await auditService.log({
+      actionType: 'member_suspended',
+      actionCategory: 'MEMBER',
+      userId: admin.user_id,
+      entityType: 'member',
+      entityId: req.params.memberId,
+      actionDetails: { reason },
+    });
+    res.status(200).json({ success: true, message: 'Membership suspended' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to suspend membership';
+    if (message === 'Member not found') {
+      res.status(404).json({ success: false, error: message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
+
+/** POST /api/v1/admin/members/:memberId/unsuspend */
+adminRoutes.post('/members/:memberId/unsuspend', async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const admin = await assertPlatformAdmin(authReq.user?.id);
+    const reason = readReason(req, res);
+    if (!reason) return;
+
+    await memberSuspensionService.setSuspended(req.params.memberId, false, admin.user_id);
+    await auditService.log({
+      actionType: 'member_unsuspended',
+      actionCategory: 'MEMBER',
+      userId: admin.user_id,
+      entityType: 'member',
+      entityId: req.params.memberId,
+      actionDetails: { reason },
+    });
+    res.status(200).json({ success: true, message: 'Membership suspension lifted' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to lift membership suspension';
+    if (message === 'Member not found') {
+      res.status(404).json({ success: false, error: message });
+      return;
+    }
+    handleStaffError(error, res);
+  }
+});
+
+function readReason(req: Request, res: Response): string | null {
+  const reason = req.body?.reason;
+  if (!reason || typeof reason !== 'string' || !reason.trim()) {
+    res.status(400).json({ success: false, error: 'Reason is required' });
+    return null;
+  }
+  return reason.trim();
+}
 
 const SETTLEMENT_STATUSES: SettlementRequestStatus[] = [
   'pending',

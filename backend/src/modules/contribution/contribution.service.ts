@@ -7,6 +7,8 @@ import { userRepository } from '../user/user.repository.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from '../member/member.service.js';
+import { memberSuspensionService } from '../member/member-suspension.service.js';
+import { loginMessages } from '../../shared/login-access.js';
 
 type ContributionSmsRecipient = {
   phone: string;
@@ -307,9 +309,19 @@ export const contributionService = {
         if (options.allowInvalidMember) {
           input = { ...input, member_id: null };
         } else {
-          throw new Error('Member does not belong to this account');
+          throw new Error(loginMessages.notAMember);
         }
+      } else if (await memberSuspensionService.isSuspended(member.member_id)) {
+        throw new Error(loginMessages.membershipSuspended);
       }
+    }
+
+    const account = await accountRepository.findByAccountId(input.account_id);
+    if (account?.status === 'suspended') {
+      throw new Error(loginMessages.accountSuspended);
+    }
+    if (account?.status === 'inactive') {
+      throw new Error(loginMessages.accountDeactivated);
     }
 
     // Validate fund exists

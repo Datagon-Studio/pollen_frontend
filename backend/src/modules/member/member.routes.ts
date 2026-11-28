@@ -10,13 +10,43 @@ import { authenticateToken, AuthenticatedRequest } from '../../shared/middleware
 import { requireAccountAdminForWrites } from '../../shared/middleware/account-write.middleware.js';
 import { arkeselService } from '../../shared/services/arkesel.service.js';
 import { memberService } from './member.service.js';
+import { memberSuspensionService } from './member-suspension.service.js';
 import { accountService } from '../account/account.service.js';
+import { accountRepository } from '../account/account.repository.js';
+import { LoginAccessError, loginMessages, otpFailureMessage } from '../../shared/login-access.js';
 import { postmarkService } from '../../shared/services/postmark.service.js';
 import { otpRepository } from '../otp/otp.repository.js';
 import { env } from '../../env.js';
 import crypto from 'crypto';
 
 export const memberRoutesWithAuth = Router();
+
+async function assertMemberCanSignIn(
+  accountId: string,
+  member: { member_id: string } | undefined
+): Promise<void> {
+  const account = await accountRepository.findByAccountId(accountId);
+  if (!account) {
+    throw new LoginAccessError(loginMessages.accountNotFound, 'account_not_found', 404);
+  }
+  accountService.assertAccountOpen(account);
+  if (!member) {
+    throw new LoginAccessError(loginMessages.notAMember, 'not_a_member', 404);
+  }
+  if (await memberSuspensionService.isSuspended(member.member_id)) {
+    throw new LoginAccessError(loginMessages.membershipSuspended, 'membership_suspended');
+  }
+}
+
+function sendLoginAccessError(res: Response, error: unknown): boolean {
+  if (!(error instanceof LoginAccessError)) return false;
+  res.status(error.statusCode).json({
+    success: false,
+    error: error.message,
+    code: error.code,
+  });
+  return true;
+}
 
 // Temporary store for verified phone numbers (expires after 10 minutes)
 // Format: `${accountId}:${normalizedPhone}` -> timestamp
@@ -150,16 +180,13 @@ memberRoutesWithAuth.post('/otp/send', async (req: Request, res: Response) => {
       return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
     });
 
-    if (!member) {
-      console.error(`[OTP Send] Member not found. Phone: ${phone}, Normalized: ${normalizedPhone}, Account: ${accountId}, Total members: ${members.length}`);
-      if (members.length > 0) {
-        console.error(`[OTP Send] Sample member phones: ${members.slice(0, 3).map(m => `${m.phone} (normalized: ${normalizePhone(m.phone)})`).join(', ')}`);
-      }
-      return res.status(404).json({
-        success: false,
-        error: 'Member not found with this phone number',
-      });
+    try {
+      await assertMemberCanSignIn(accountId, member);
+    } catch (error) {
+      if (sendLoginAccessError(res, error)) return;
+      throw error;
     }
+    if (!member) return;
 
     const { accountName } = await memberService.resolveAccountMessageContext(accountId);
     const result = await arkeselService.sendOTP(
@@ -235,15 +262,6 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       });
     }
 
-    const verifyResult = await arkeselService.verifyOTP(phone, code);
-
-    if (!verifyResult.success) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid or expired OTP code',
-      });
-    }
-
     const members = await memberService.getMembersByAccount(accountId);
     
     // Normalize phone: remove spaces, dashes, plus, parentheses
@@ -264,16 +282,23 @@ memberRoutesWithAuth.post('/otp/verify', async (req: Request, res: Response) => 
       return memberPhone === normalizedPhone || memberPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(memberPhone);
     });
 
-    if (!member) {
-      console.error(`[OTP Verify] Member not found. Phone: ${phone}, Normalized: ${normalizedPhone}, Account: ${accountId}, Total members: ${members.length}`);
-      if (members.length > 0) {
-        console.error(`[OTP Verify] Sample member phones: ${members.slice(0, 3).map(m => `${m.phone} (normalized: ${normalizePhone(m.phone)})`).join(', ')}`);
-      }
-      return res.status(404).json({
+    try {
+      await assertMemberCanSignIn(accountId, member);
+    } catch (error) {
+      if (sendLoginAccessError(res, error)) return;
+      throw error;
+    }
+
+    const verifyResult = await arkeselService.verifyOTP(phone, code);
+    if (!verifyResult.success) {
+      return res.status(400).json({
         success: false,
-        error: 'Member not found',
+        error: otpFailureMessage(verifyResult.error),
+        code: verifyResult.error?.toLowerCase().includes('expired') ? 'code_expired' : 'wrong_code',
       });
     }
+
+    if (!member) return;
 
     // Persist phone verification for members who were added without OTP
     let verifiedMember = member;

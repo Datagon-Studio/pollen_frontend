@@ -18,6 +18,7 @@ import {
   assertComplianceStaff,
   handleStaffError,
 } from '../../shared/middleware/staff.middleware.js';
+import { LoginAccessError } from '../../shared/login-access.js';
 
 export class AccountController {
   /**
@@ -39,21 +40,21 @@ export class AccountController {
 
       const preferredAccountId =
         typeof req.query.accountId === 'string' ? req.query.accountId : null;
-      const account = await accountService.getUserAccount(userId, preferredAccountId);
-
-      if (!account) {
-        res.status(404).json({
-          success: false,
-          error: 'Account not found',
-        });
-        return;
-      }
+      const account = await accountService.resolveForSession(userId, preferredAccountId);
 
       res.status(200).json({
         success: true,
         data: account,
       });
     } catch (error) {
+      if (error instanceof LoginAccessError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code,
+        });
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Failed to fetch account';
       res.status(500).json({
         success: false,

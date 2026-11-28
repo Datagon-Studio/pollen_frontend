@@ -429,6 +429,19 @@ export default function PublicGroupPage() {
         error: contributionsData.error,
         sampleData: contributionsData.data?.[0] || null,
       });
+      if (
+        contributionsData.error === "This account has been suspended." ||
+        contributionsData.error === "This account has been deactivated." ||
+        contributionsData.error === "This membership has been suspended."
+      ) {
+        clearSession();
+        toast({
+          title: "Cannot continue",
+          description: contributionsData.error,
+          variant: "destructive",
+        });
+        return;
+      }
       if (contributionsData.success && contributionsData.data) {
         console.log(
           "[PublicGroupPage] Setting contributions:",
@@ -958,6 +971,14 @@ export default function PublicGroupPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 px-4 sm:px-6">
+              {account.status === "suspended" || account.status === "inactive" ? (
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                  {account.status === "suspended"
+                    ? "This account has been suspended."
+                    : "This account has been deactivated."}
+                </p>
+              ) : (
+              <>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -1044,6 +1065,8 @@ export default function PublicGroupPage() {
                   Cancel
                 </Button>
               </div>
+              </>
+              )}
             </CardContent>
           </Card>
         </div>

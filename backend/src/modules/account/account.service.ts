@@ -11,6 +11,7 @@ import {
   Account,
   UpdateAccountInput,
 } from './account.entity.js';
+import { LoginAccessError, loginMessages } from '../../shared/login-access.js';
 
 export class AccountService {
   /**
@@ -22,6 +23,45 @@ export class AccountService {
     }
 
     return accountRepository.findByUserId(userId, preferredAccountId);
+  }
+
+  /**
+   * Account a signed-in user may open. Throws a specific login error when
+   * the login is valid but the account cannot be used.
+   */
+  async resolveForSession(userId: string, preferredAccountId?: string | null): Promise<Account> {
+    const accounts = await accountRepository.findAllByUserId(userId);
+    if (accounts.length === 0) {
+      throw new LoginAccessError(loginMessages.notLinked, 'not_linked');
+    }
+
+    if (preferredAccountId) {
+      const match = accounts.find((account) => account.account_id === preferredAccountId);
+      if (!match) {
+        throw new LoginAccessError(loginMessages.notInAccount, 'not_in_account');
+      }
+      this.assertAccountOpen(match);
+      return match;
+    }
+
+    const open = accounts.filter((account) => account.status === 'active');
+    const named = open.filter((account) => account.account_name && account.account_name.trim());
+    if (named.length > 0) return named[0];
+    if (open.length > 0) return open[0];
+
+    if (accounts.some((account) => account.status === 'suspended')) {
+      throw new LoginAccessError(loginMessages.accountSuspended, 'account_suspended');
+    }
+    throw new LoginAccessError(loginMessages.accountDeactivated, 'account_deactivated');
+  }
+
+  assertAccountOpen(account: Account): void {
+    if (account.status === 'suspended') {
+      throw new LoginAccessError(loginMessages.accountSuspended, 'account_suspended');
+    }
+    if (account.status === 'inactive') {
+      throw new LoginAccessError(loginMessages.accountDeactivated, 'account_deactivated');
+    }
   }
 
   /**

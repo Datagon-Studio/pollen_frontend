@@ -3,6 +3,7 @@ import { fetchAllRows } from '../../shared/supabase/fetch-all.js';
 import { contributionRepository } from '../contribution/contribution.repository.js';
 import { accountKYCService } from '../account/account-kyc.service.js';
 import { accountRepository } from '../account/account.repository.js';
+import { memberSuspensionService } from '../member/member-suspension.service.js';
 import type { AccountKYC } from '../account/account-kyc.entity.js';
 
 export interface AdminMemberSummary {
@@ -16,6 +17,7 @@ export interface AdminMemberSummary {
   email_verified: boolean;
   membership_number: string | null;
   is_active: boolean;
+  status: 'active' | 'suspended';
   also_in_count: number;
   contribution_count: number;
   contribution_total: number;
@@ -234,6 +236,7 @@ export const adminCatalogService = {
       cur.total += Number(c.amount);
       contribStats.set(c.member_id, cur);
     }
+    const suspendedMembers = await memberSuspensionService.suspendedIds();
 
     let results: AdminMemberSummary[] = members.map((m) => {
       const stats = contribStats.get(m.member_id) || { count: 0, total: 0 };
@@ -249,6 +252,7 @@ export const adminCatalogService = {
         email_verified: m.email_verified,
         membership_number: m.membership_number,
         is_active: memberIsActive(m),
+        status: suspendedMembers.has(m.member_id) ? 'suspended' : 'active',
         also_in_count: otherGroups.length,
         contribution_count: stats.count,
         contribution_total: stats.total,
@@ -300,6 +304,7 @@ export const adminCatalogService = {
     const accountNames = new Map(
       (accountsRes.data || []).map((a) => [a.account_id, a.account_name as string | null])
     );
+    const suspendedMembers = await memberSuspensionService.suspendedIds();
     const allMembers = (allMembersRes.data || []) as MemberRow[];
 
     const otherGroups = findOtherGroups(m, allMembers).map((g) => ({
@@ -341,6 +346,7 @@ export const adminCatalogService = {
       email_verified: m.email_verified,
       membership_number: m.membership_number,
       is_active: memberIsActive(m),
+      status: suspendedMembers.has(m.member_id) ? 'suspended' : 'active',
       also_in_count: otherGroups.length,
       contribution_count: confirmed.filter((c) => c.account_id === m.account_id).length,
       contribution_total: confirmed
